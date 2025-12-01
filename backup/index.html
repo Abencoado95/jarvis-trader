@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JARVIS TRADER V16 - ELITE</title>
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;700;900&display=swap" rel="stylesheet">
+    
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+    <script src="https://unpkg.com/lightweight-charts@3.8.0/dist/lightweight-charts.standalone.production.js"></script>
+
+    <style>
+        :root {
+            --neon-cyan: #00f3ff;
+            --neon-red: #ff003c;
+            --neon-green: #00ff41;
+            --panel-glass: rgba(10, 14, 18, 0.95);
+            --border-glow: 1px solid rgba(0, 243, 255, 0.2);
+        }
+
+        * { box-sizing: border-box; outline: none; user-select: none; }
+
+        body {
+            background-color: #0d1117; color: white; font-family: 'Rajdhani', sans-serif;
+            margin: 0; height: 100vh; overflow: hidden;
+            display: flex; justify-content: center; align-items: center;
+            background-image: radial-gradient(circle at 50% 50%, #1a1a1a 0%, #000 100%);
+        }
+
+        /* --- TELA DE LOGIN (COM JARVIS NO FUNDO) --- */
+        #loginOverlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 9999; display: flex;
+            flex-direction: column; justify-content: center; align-items: center;
+            
+            /* FUNDO COM IMAGEM E MÁSCARA ESCURA */
+            background: linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.9)), url('JARVIS ROSTO.jpg');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+        }
+
+        .login-content {
+            text-align: center;
+            backdrop-filter: blur(5px);
+            padding: 40px;
+            border-radius: 20px;
+            border: 1px solid rgba(0, 243, 255, 0.1);
+            background: rgba(0,0,0,0.4);
+            box-shadow: 0 0 50px rgba(0,0,0,0.8);
+        }
+
+        .login-btn {
+            background: transparent; border: 2px solid var(--neon-cyan); color: var(--neon-cyan);
+            padding: 15px 50px; font-size: 1.5rem; font-family: 'Rajdhani'; font-weight: 900;
+            cursor: pointer; box-shadow: 0 0 30px rgba(0, 243, 255, 0.1); transition: 0.3s;
+            text-transform: uppercase; letter-spacing: 2px; margin-top: 30px;
+        }
+        .login-btn:hover { background: var(--neon-cyan); color: #000; box-shadow: 0 0 60px var(--neon-cyan); }
+
+        /* GRID PRINCIPAL */
+        .interface-grid {
+            display: grid; grid-template-columns: 260px 1fr 280px;
+            width: 98%; max-width: 1800px; height: 96vh;
+            background: var(--panel-glass); border: var(--border-glow);
+            border-radius: 12px; box-shadow: 0 0 50px rgba(0, 243, 255, 0.05);
+            position: relative; overflow: hidden; backdrop-filter: blur(10px);
+            display: none; /* Escondido até logar */
+        }
+
+        /* SIDEBARS */
+        .sidebar-left, .sidebar-right { padding: 20px; display: flex; flex-direction: column; gap: 12px; z-index: 10; }
+        .sidebar-left { border-right: var(--border-glow); background: rgba(0,0,0,0.4); }
+        .sidebar-right { border-left: var(--border-glow); background: rgba(0,0,0,0.3); }
+
+        .brand-logo {
+            font-size: 1.4rem; letter-spacing: 2px; color: var(--neon-cyan);
+            border-bottom: 1px solid #333; padding-bottom: 10px; margin-bottom: 5px;
+            font-weight: 800; text-align: center; text-transform: uppercase;
+            text-shadow: 0 0 10px rgba(0, 243, 255, 0.5);
+        }
+
+        /* INPUTS */
+        .config-group { background: rgba(255,255,255,0.02); padding: 8px 10px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.05); }
+        .label-sm { font-size: 0.7rem; color: #888; text-transform: uppercase; font-weight: bold; margin-bottom: 2px; display: block; }
+        input, select {
+            background: #050505; color: #fff; border: 1px solid #333; padding: 6px;
+            border-radius: 3px; font-family: 'Rajdhani'; font-size: 1rem;
+            font-weight: bold; width: 100%; text-align: center;
+        }
+        input:focus { border-color: var(--neon-cyan); }
+
+        /* SWITCH */
+        .switch-row { display: flex; justify-content: space-between; align-items: center; margin-top: 5px; }
+        .switch { position: relative; display: inline-block; width: 34px; height: 16px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #333; transition: .4s; border-radius: 8px; }
+        .slider:before { position: absolute; content: ""; height: 10px; width: 10px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
+        input:checked + .slider { background-color: var(--neon-green); }
+        input:checked + .slider:before { transform: translateX(18px); }
+
+        /* CENTRO - GRÁFICO */
+        .main-stage { padding: 15px; display: flex; flex-direction: column; gap: 10px; position: relative; background: rgba(0,0,0,0.2); width: 100%; }
+        
+        .chart-wrapper {
+            flex: 1; position: relative; background: #000;
+            border: 1px solid #333; border-radius: 6px; overflow: hidden;
+        }
+        #tvChart { width: 100%; height: 100%; }
+
+        /* JARVIS OVERLAYS */
+        .jarvis-in-chart {
+            position: absolute; top: 15px; left: 15px; width: 90px; height: 90px;
+            z-index: 20; pointer-events: none; display: flex; justify-content: center; align-items: center;
+        }
+        .jarvis-frame {
+            position: absolute; width: 100%; height: 100%; border-radius: 50%;
+            border: 3px solid rgba(0, 243, 255, 0.15); border-top-color: var(--neon-cyan);
+            animation: rotatePassive 4s linear infinite;
+        }
+        .jarvis-img { width: 80%; height: 80%; object-fit: cover; border-radius: 50%; opacity: 0.8; }
+        
+        /* SCANNING EFFECT */
+        .processing .jarvis-frame { border-color: var(--neon-green); border-width: 4px; animation: rotateActive 0.5s linear infinite; box-shadow: 0 0 20px var(--neon-green); }
+        .scanner-line {
+            position: absolute; top: 0; left: 0; width: 100%; height: 2px;
+            background: var(--neon-cyan); box-shadow: 0 0 15px var(--neon-cyan);
+            opacity: 0; z-index: 15; pointer-events: none;
+        }
+        .processing .scanner-line { opacity: 1; animation: scanDown 1.5s ease-in-out infinite; }
+
+        .live-price { position: absolute; top: 15px; right: 15px; font-size: 1.8rem; font-weight: 900; color: white; z-index: 20; text-shadow: 0 0 10px black; }
+        .result-overlay { 
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0);
+            font-size: 6rem; font-weight: 900; z-index: 30; opacity: 0; transition: 0.3s;
+            text-shadow: 0 0 50px currentColor; pointer-events: none;
+        }
+        .show-res { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+
+        /* BOTÕES */
+        .btn-decode {
+            width: 100%; padding: 15px; margin-top: 5px;
+            background: linear-gradient(90deg, transparent, rgba(0, 243, 255, 0.1), transparent);
+            border: 1px solid var(--neon-cyan); color: var(--neon-cyan);
+            font-family: 'Rajdhani'; font-size: 1.2rem; font-weight: 900; letter-spacing: 3px;
+            text-transform: uppercase; cursor: pointer; transition: 0.3s;
+        }
+        .btn-decode:hover { background: rgba(0, 243, 255, 0.2); box-shadow: 0 0 20px rgba(0, 243, 255, 0.2); }
+
+        .action-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; height: 50px; }
+        .btn-action { font-size: 1.5rem; font-weight: 900; border: none; color: white; cursor: pointer; border-radius: 4px; font-family: 'Rajdhani'; opacity: 0.5; }
+        .btn-call { background: linear-gradient(180deg, #00ff85, #007a3d); box-shadow: 0 4px 0 #004522; }
+        .btn-put { background: linear-gradient(180deg, #ff3b6a, #9e0025); box-shadow: 0 4px 0 #5c0016; }
+        .btn-ready { opacity: 1; transform: translateY(0); }
+        .btn-ready:active { transform: translateY(3px); box-shadow: none; }
+
+        /* POSIÇÕES */
+        .positions-wrapper { height: 180px; background: rgba(0,0,0,0.3); border: 1px solid #333; display: flex; flex-direction: column; }
+        .op-header { padding: 5px 10px; background: #111; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #333; }
+        .op-list { flex: 1; overflow-y: auto; padding: 5px; }
+        .op-card { display: flex; justify-content: space-between; padding: 8px; background: rgba(255,255,255,0.03); margin-bottom: 2px; border-left: 3px solid #555; align-items: center; font-size: 0.9rem; }
+        
+        /* BOTAO CONTA */
+        .account-badge {
+            background: #111; color: #fff; padding: 10px; text-align: center; border-radius: 4px;
+            border: 1px solid #444; font-weight: bold; cursor: pointer; transition: 0.2s;
+            margin-bottom: 10px; user-select: none;
+        }
+        .account-badge:hover { border-color: var(--neon-cyan); color: var(--neon-cyan); }
+        .is-demo { color: #f1c40f; border-color: #f1c40f; }
+        .is-real { color: #2ecc71; border-color: #2ecc71; }
+
+        @keyframes rotatePassive { 100% { transform: rotate(360deg); } }
+        @keyframes rotateActive { 100% { transform: rotate(-360deg); } }
+        @keyframes scanDown { 0% { top: 0%; } 50% { top: 100%; } 100% { top: 0%; } }
+    </style>
+</head>
+<body>
+
+    <div id="loginOverlay">
+        <div class="login-content">
+            <h1 style="color:var(--neon-cyan); margin:0; font-size:4rem; text-shadow:0 0 30px var(--neon-cyan);">JARVIS</h1>
+            <p style="letter-spacing:5px; color:#aaa; margin-top:0; font-weight:bold;">SYSTEM V16 (STABLE)</p>
+            <button class="login-btn" onclick="connectDeriv()">INICIAR SISTEMA</button>
+        </div>
+    </div>
+
+    <div class="interface-grid" id="mainUI">
+        
+        <div class="sidebar-left">
+            <div class="brand-logo">
+                JARVIS TRADER
+                <span style="display:block; font-size:0.5rem; color:#666; margin-top:2px;">CÓDIGO QUE ESCOLHE INTELIGÊNCIA QUE PROTEGE</span>
+            </div>
+            
+            <div id="accBadge" class="account-badge" onclick="switchAccount()">
+                CARREGANDO...
+            </div>
+
+            <div class="config-group">
+                <span class="label-sm">AUTO TRADER (IA)</span>
+                <div class="switch-row">
+                    <span style="font-size:0.8rem; color:#aaa;">PILOTO AUTOMÁTICO</span>
+                    <label class="switch"><input type="checkbox" id="autoTradeToggle"><span class="slider"></span></label>
+                </div>
+            </div>
+
+            <div class="config-group">
+                <span class="label-sm">STAKE ($)</span>
+                <input type="number" id="stakeInput" value="1.00" step="0.50" min="0.35">
+            </div>
+
+            <div class="config-group">
+                <span class="label-sm">EXPIRAÇÃO</span>
+                <select id="durationSelect">
+                    <option value="1">1 Minuto</option>
+                    <option value="2">2 Minutos</option>
+                    <option value="3">3 Minutos</option>
+                    <option value="5">5 Minutos</option>
+                </select>
+            </div>
+
+            <div class="config-group">
+                <span class="label-sm" style="color:var(--neon-green)">TAKE PROFIT</span>
+                <input type="number" id="tpInput" value="5.00">
+                <div class="switch-row">
+                    <span style="font-size:0.7rem;">AUTO FECHAR</span>
+                    <label class="switch"><input type="checkbox" id="tpToggle"><span class="slider"></span></label>
+                </div>
+            </div>
+
+            <div class="config-group" style="border-color: rgba(255,0,60,0.3);">
+                <span class="label-sm" style="color:var(--neon-red)">STOP LOSS</span>
+                <input type="number" id="slInput" value="-10.00" style="color:var(--neon-red)">
+                <div class="switch-row">
+                    <span style="font-size:0.7rem;">PROTEÇÃO</span>
+                    <label class="switch"><input type="checkbox" id="slToggle"><span class="slider"></span></label>
+                </div>
+            </div>
+
+            <div style="margin-top:auto; font-size:0.8rem;">
+                <div class="status-row"><span>RSI (14)</span><span id="rsiVal" style="font-weight:bold;">--</span></div>
+                <div class="status-row" style="font-size:1.2rem; color:var(--neon-cyan); margin-top:5px;">
+                    SALDO: <span id="balanceVal">--</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="main-stage">
+            <div class="chart-wrapper" id="chartContainer">
+                <div id="tvChart" style="width:100%; height:100%;"></div>
+                
+                <div class="jarvis-in-chart">
+                    <div class="jarvis-frame"></div>
+                    <img src="jarvis.gif" class="jarvis-img" onerror="this.style.display='none'">
+                </div>
+                <div class="scanner-line"></div>
+                
+                <div class="live-price" id="priceTag">--.--</div>
+                <div class="result-overlay" id="resultBig">CALL</div>
+            </div>
+
+            <button class="btn-decode" id="btnDecode" onclick="runAI()">
+                DECODIFICAR PADRÃO DE MERCADO
+                <div id="aiStatus" style="font-size:0.6rem; color:#666; margin-top:2px;">SISTEMA OFF</div>
+            </button>
+
+            <div class="action-grid">
+                <button class="btn-action btn-call" id="btnCall" onclick="placeTrade('CALL')" disabled>CALL ⬆</button>
+                <button class="btn-action btn-put" id="btnPut" onclick="placeTrade('PUT')" disabled>PUT ⬇</button>
+            </div>
+
+            <div class="positions-wrapper">
+                <div class="op-header">
+                    <span style="font-size:0.8rem; font-weight:bold;">LUCRO ABERTO: <span id="openPL">0.00</span></span>
+                    <button onclick="closeAllPositions()" style="background:#ff003c; border:none; color:white; font-weight:bold; cursor:pointer; padding:2px 8px; font-size:0.7rem;">FECHAR TUDO</button>
+                </div>
+                <div class="op-list" id="posList">
+                    <div style="text-align:center; color:#555; padding:10px;">Sem operações.</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="sidebar-right">
+            <div style="background:#111; padding:15px; border-radius:6px; text-align:center; border:1px solid #333;">
+                <div style="font-size:0.8rem; color:#888;">LUCRO DA SESSÃO</div>
+                <div id="sessionPL" style="font-size:2rem; font-weight:bold; margin-top:5px;">0.00</div>
+            </div>
+            
+            <div style="border-bottom:1px solid #333; padding-bottom:5px; margin-top:10px;">
+                <span class="label-sm">HISTÓRICO</span>
+            </div>
+            <div id="histList" style="flex:1; overflow-y:auto;">
+                <div style="text-align:center; color:#444; font-size:0.8rem; margin-top:20px;">Vazio.</div>
+            </div>
+            <button onclick="fullLogout()" style="background:transparent; border:1px solid #444; color:#666; padding:10px; cursor:pointer;">SAIR DA CONTA</button>
+        </div>
+    </div>
+
+    <script>
+        // --- CONFIGURAÇÃO ---
+        const APP_ID = 114062; // ID CORRIGIDO
+        const SYMBOL = "1HZ100V";
+        
+        // --- ESTADO GLOBAL ---
+        let ws;
+        let chart, series;
+        let candles = [];
+        let model = null;
+        let isProcessing = false;
+        
+        let availableAccounts = [];
+        let currentToken = "";
+        let positions = new Map();
+        let sessionProfit = 0.0;
+
+        // --- SISTEMA DE CONTAS (DEMO / REAL) ---
+        function checkAuth() {
+            const p = new URLSearchParams(window.location.search);
+            
+            // 1. Veio do Login da Deriv?
+            if (p.has('token1')) {
+                let i = 1;
+                let accs = [];
+                while (p.has(`token${i}`)) {
+                    const t = p.get(`token${i}`);
+                    const a = p.get(`acct${i}`);
+                    const c = p.get(`cur${i}`);
+                    
+                    // Define tipo (Demo começa com V)
+                    const type = a.startsWith('V') ? 'DEMO' : 'REAL';
+                    accs.push({ token: t, id: a, currency: c, type: type });
+                    i++;
+                }
+                
+                // Salva contas
+                localStorage.setItem('jarvis_accounts', JSON.stringify(accs));
+                
+                // Limpa URL
+                window.history.replaceState({}, document.title, window.location.pathname);
+                
+                availableAccounts = accs;
+                // Prioriza Demo para segurança
+                const demo = accs.find(x => x.type === 'DEMO');
+                currentToken = demo ? demo.token : accs[0].token;
+                
+                initSystem();
+            } 
+            // 2. Já tem salvo?
+            else {
+                const saved = localStorage.getItem('jarvis_accounts');
+                if (saved) {
+                    availableAccounts = JSON.parse(saved);
+                    currentToken = availableAccounts[0].token;
+                    initSystem();
+                } else {
+                    // 3. Nada, mostra login
+                    document.getElementById('loginOverlay').style.display = 'flex';
+                }
+            }
+        }
+
+        // FUNÇÃO DE CONEXÃO GLOBAL (Garantido que funciona)
+        window.connectDeriv = function() {
+            window.location.href = `https://oauth.deriv.com/oauth2/authorize?app_id=${APP_ID}&l=pt&brand=deriv`;
+        }
+
+        function fullLogout() {
+            localStorage.removeItem('jarvis_accounts');
+            location.reload();
+        }
+
+        function switchAccount() {
+            if (!availableAccounts.length) return;
+
+            // Acha o token atual
+            const currIdx = availableAccounts.findIndex(a => a.token === currentToken);
+            // Pega o próximo (loop)
+            const nextIdx = (currIdx + 1) % availableAccounts.length;
+            const nextAcc = availableAccounts[nextIdx];
+            
+            currentToken = nextAcc.token;
+            
+            // Reinicia conexão
+            if(ws) ws.close();
+            
+            const badge = document.getElementById('accBadge');
+            badge.innerText = "TROCANDO CONTA...";
+            badge.style.opacity = "0.5";
+            
+            // Pequeno delay para garantir o fechamento do socket
+            setTimeout(connectWS, 500);
+        }
+
+        function updateAccountUI(info) {
+            const badge = document.getElementById('accBadge');
+            const isDemo = info.fullname.includes('Virtual') || info.loginid.startsWith('VRTC');
+            
+            badge.style.opacity = "1";
+            if(isDemo) {
+                badge.innerText = `MODO TREINO (DEMO)`;
+                badge.className = "account-badge is-demo";
+            } else {
+                badge.innerText = `CONTA REAL (${info.currency})`;
+                badge.className = "account-badge is-real";
+            }
+            
+            document.getElementById('btnCall').disabled = false;
+            document.getElementById('btnPut').disabled = false;
+            document.getElementById('btnCall').classList.add('btn-ready');
+            document.getElementById('btnPut').classList.add('btn-ready');
+        }
+
+        function initSystem() {
+            document.getElementById('loginOverlay').style.display = 'none';
+            document.getElementById('mainUI').style.display = 'grid';
+            initChart();
+            loadAI();
+            connectWS();
+        }
+
+        // --- GRÁFICO ---
+        function initChart() {
+            const el = document.getElementById('tvChart');
+            el.innerHTML = '';
+            chart = LightweightCharts.createChart(el, {
+                width: el.clientWidth, height: el.clientHeight,
+                layout: { backgroundColor: '#000000', textColor: '#666' },
+                grid: { vertLines: { color: '#111'}, horzLines: { color: '#111'} },
+                timeScale: { timeVisible: true, secondsVisible: true }
+            });
+            series = chart.addCandlestickSeries({
+                upColor: '#00ff41', downColor: '#ff003c', 
+                borderVisible: false, wickUpColor: '#00ff41', wickDownColor: '#ff003c'
+            });
+            window.addEventListener('resize', () => chart.resize(el.clientWidth, el.clientHeight));
+        }
+
+        // --- WEBSOCKET ---
+        function connectWS() {
+            ws = new WebSocket(`wss://ws.binaryws.com/websockets/v3?app_id=${APP_ID}`);
+            
+            ws.onopen = () => {
+                ws.send(JSON.stringify({ authorize: currentToken }));
+            };
+
+            ws.onmessage = (msg) => {
+                const data = JSON.parse(msg.data);
+                
+                if (data.msg_type === 'authorize') {
+                    updateAccountUI(data.authorize);
+                    ws.send(JSON.stringify({ balance: 1, subscribe: 1 }));
+                    ws.send(JSON.stringify({ 
+                        ticks_history: SYMBOL, adjust_start_time: 1, count: 300, 
+                        end: 'latest', style: 'candles', granularity: 60, subscribe: 1 
+                    }));
+                    ws.send(JSON.stringify({ proposal_open_contract: 1, subscribe: 1 }));
+                }
+
+                if (data.msg_type === 'balance') {
+                    document.getElementById('balanceVal').innerText = data.balance.balance + " " + data.balance.currency;
+                }
+
+                if (data.msg_type === 'ohlc') {
+                    const c = data.ohlc;
+                    updateCandles({ time: c.open_time, open: +c.open, high: +c.high, low: +c.low, close: +c.close });
+                }
+                
+                if (data.msg_type === 'candles') {
+                    candles = data.candles.map(c => ({
+                        time: c.epoch, open: +c.open, high: +c.high, low: +c.low, close: +c.close
+                    }));
+                    series.setData(candles);
+                }
+
+                if (data.msg_type === 'proposal') {
+                    if (data.proposal.id) {
+                        // Compra confirmada
+                        ws.send(JSON.stringify({ buy: data.proposal.id, price: data.proposal.ask_price }));
+                    }
+                }
+
+                if (data.msg_type === 'proposal_open_contract') {
+                    handlePosition(data.proposal_open_contract);
+                }
+            };
+        }
+
+        function updateCandles(candle) {
+            // Atualiza array local
+            if (candles.length > 0 && candles[candles.length - 1].time === candle.time) {
+                candles[candles.length - 1] = candle;
+            } else {
+                candles.push(candle);
+                if(candles.length > 300) candles.shift();
+            }
+            // Atualiza gráfico
+            series.update(candle);
+            
+            // Atualiza Preço e RSI
+            const priceEl = document.getElementById('priceTag');
+            priceEl.innerText = candle.close;
+            priceEl.style.color = candle.close >= candle.open ? '#00ff41' : '#ff003c';
+            
+            updateRSI();
+        }
+
+        function updateRSI() {
+            if(candles.length < 15) return;
+            const period = 14;
+            let gains = 0, losses = 0;
+            const closes = candles.slice(-period-1).map(x=>x.close);
+            
+            for(let i=1; i<=period; i++) {
+                const diff = closes[i] - closes[i-1];
+                if(diff >= 0) gains += diff; else losses -= diff;
+            }
+            
+            const rs = gains / (losses || 1);
+            const rsi = 100 - (100 / (1 + rs));
+            document.getElementById('rsiVal').innerText = rsi.toFixed(1);
+        }
+
+        // --- INTELIGÊNCIA ARTIFICIAL (TITAN V7) ---
+        async function loadAI() {
+            const status = document.getElementById('aiStatus');
+            status.innerText = "CARREGANDO TITAN V7...";
+            status.style.color = "yellow";
+            
+            try {
+                // Tenta carregar o modelo
+                model = await tf.loadLayersModel('titan_v7.json');
+                
+                // Warmup
+                const dummy = tf.zeros([1, 60, 1]);
+                model.predict(dummy).dispose();
+                
+                status.innerText = "SISTEMA ONLINE";
+                status.style.color = "#00ff41";
+                console.log("IA Carregada com Sucesso!");
+            } catch (e) {
+                console.error(e);
+                status.innerText = "ERRO AO CARREGAR IA";
+                status.style.color = "#ff003c";
+                // Não bloqueia o uso manual, apenas avisa
+            }
+        }
+
+        async function runAI() {
+            if (!model || isProcessing) return;
+            if (candles.length < 60) { alert("Aguardando mais dados de velas..."); return; }
+
+            isProcessing = true;
+            document.querySelector('.main-stage').classList.add('processing');
+            document.getElementById('btnDecode').innerText = "CALCULANDO PROBABILIDADE...";
+
+            // Preparação dos dados (Normalização igual ao Colab)
+            const inputData = candles.slice(-60).map(c => c.close);
+            const min = Math.min(...inputData);
+            const max = Math.max(...inputData);
+            const normData = inputData.map(val => (val - min) / (max - min));
+            
+            const tensor = tf.tensor3d([normData], [1, 60, 1]);
+
+            setTimeout(() => {
+                const prediction = model.predict(tensor).dataSync()[0];
+                tensor.dispose();
+
+                let signal = "NEUTRO";
+                // Limiares
+                if (prediction > 0.52) signal = "CALL";
+                if (prediction < 0.48) signal = "PUT";
+
+                showResult(signal);
+                
+                // Auto Trade
+                if(signal !== "NEUTRO" && document.getElementById('autoTradeToggle').checked) {
+                    placeTrade(signal);
+                }
+
+                isProcessing = false;
+                document.querySelector('.main-stage').classList.remove('processing');
+                document.getElementById('btnDecode').innerText = "DECODIFICAR PADRÃO DE MERCADO";
+            }, 2000); 
+        }
+
+        function showResult(text) {
+            const el = document.getElementById('resultBig');
+            el.innerText = text;
+            el.style.color = text === "CALL" ? "#00ff41" : (text === "PUT" ? "#ff003c" : "white");
+            el.classList.add('show-res');
+            setTimeout(() => el.classList.remove('show-res'), 3000);
+        }
+
+        // --- TRADE & GESTÃO ---
+        function placeTrade(direction) {
+            const stake = document.getElementById('stakeInput').value;
+            const duration = document.getElementById('durationSelect').value;
+            
+            // Envia solicitação de contrato
+            ws.send(JSON.stringify({
+                proposal: 1,
+                amount: stake,
+                basis: 'stake',
+                contract_type: direction,
+                currency: availableAccounts.find(a=>a.token===currentToken).currency,
+                duration: duration,
+                duration_unit: 'm',
+                symbol: SYMBOL
+            }));
+        }
+
+        function handlePosition(p) {
+            if (p.is_sold) {
+                if (positions.has(p.contract_id)) {
+                    positions.delete(p.contract_id);
+                    addHistory(p);
+                    ws.send(JSON.stringify({ balance: 1 }));
+                }
+            } else {
+                positions.set(p.contract_id, p);
+                
+                // Stop/Profit Automático
+                const profit = Number(p.profit);
+                const tp = Number(document.getElementById('tpInput').value);
+                const sl = Number(document.getElementById('slInput').value) * -1;
+                
+                const useTP = document.getElementById('tpToggle').checked;
+                const useSL = document.getElementById('slToggle').checked;
+
+                if (p.is_valid_to_sell) {
+                    if (useTP && profit >= tp) sellPosition(p.contract_id);
+                    if (useSL && profit <= sl) sellPosition(p.contract_id);
+                }
+            }
+            renderPositions();
+        }
+
+        function sellPosition(id) {
+            ws.send(JSON.stringify({ sell: id, price: 0 }));
+        }
+
+        function closeAllPositions() {
+            positions.forEach((_, id) => sellPosition(id));
+        }
+
+        function renderPositions() {
+            const list = document.getElementById('posList');
+            list.innerHTML = "";
+            let total = 0;
+            
+            if(positions.size === 0) {
+                list.innerHTML = '<div style="text-align:center; color:#555; padding:10px;">Sem operações.</div>';
+            }
+
+            positions.forEach(p => {
+                const profit = Number(p.profit);
+                total += profit;
+                const div = document.createElement('div');
+                div.className = "op-card";
+                div.style.borderLeftColor = profit >= 0 ? "#00ff41" : "#ff003c";
+                div.innerHTML = `
+                    <span style="font-weight:900; color:${p.contract_type==='CALL'?'#00ff41':'#ff003c'}">${p.contract_type}</span>
+                    <span style="color:${profit>=0?'#00ff41':'#ff003c'}">${profit.toFixed(2)}</span>
+                    <button onclick="sellPosition(${p.contract_id})" style="background:#ff003c; border:none; color:white; cursor:pointer;">X</button>
+                `;
+                list.prepend(div);
+            });
+
+            const plEl = document.getElementById('openPL');
+            plEl.innerText = total.toFixed(2);
+            plEl.style.color = total >= 0 ? "#00ff41" : "#ff003c";
+        }
+
+        function addHistory(p) {
+            const profit = Number(p.profit);
+            sessionProfit += profit;
+            
+            document.getElementById('sessionPL').innerText = sessionProfit.toFixed(2);
+            document.getElementById('sessionPL').style.color = sessionProfit >= 0 ? "#00ff41" : "#ff003c";
+
+            const div = document.createElement('div');
+            div.style.cssText = "display:flex; justify-content:space-between; padding:8px; border-bottom:1px solid #333; font-size:0.8rem;";
+            div.innerHTML = `
+                <span style="color:${p.contract_type==='CALL'?'#00ff41':'#ff003c'}">${p.contract_type}</span>
+                <span style="font-weight:bold; color:${profit>=0?'#00ff41':'#ff003c'}">${profit>0?'+':''}${profit.toFixed(2)}</span>
+            `;
+            
+            const hList = document.getElementById('histList');
+            if(hList.children[0] && hList.children[0].innerText === "Vazio.") hList.innerHTML = "";
+            hList.prepend(div);
+        }
+
+        checkAuth();
+    </script>
+</body>
+</html>
