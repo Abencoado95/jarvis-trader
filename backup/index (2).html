@@ -518,6 +518,31 @@
             
             const rs = gains / (losses || 1);
             const rsi = 100 - (100 / (1 + rs));
+            document.getElementById('rsiVal').innerText = rsi.toFixed(1);
+        }
+
+        // --- INTELIGÊNCIA ARTIFICIAL (TITAN V7) ---
+        async function loadAI() {
+            const status = document.getElementById('aiStatus');
+            status.innerText = "CARREGANDO TITAN V7...";
+            status.style.color = "yellow";
+            
+            try {
+                // Tenta carregar o modelo
+                model = await tf.loadLayersModel('cerebro.json');
+                
+                // Warmup
+                const dummy = tf.zeros([1, 60, 1]);
+                model.predict(dummy).dispose();
+                
+                status.innerText = "SISTEMA ONLINE";
+                status.style.color = "#00ff41";
+                console.log("IA Carregada com Sucesso!");
+            } catch (e) {
+                console.error(e);
+                status.innerText = "ERRO AO CARREGAR IA";
+                status.style.color = "#ff003c";
+                // Não bloqueia o uso manual, apenas avisa
             }
         }
 
