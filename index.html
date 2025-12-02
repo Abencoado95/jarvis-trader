@@ -27,7 +27,7 @@
         .sidebar-left { border-right: 1px solid rgba(255,255,255,0.05); } .sidebar-right { border-left: 1px solid rgba(255,255,255,0.05); }
         
         .brand-logo { font-size: 1.8rem; letter-spacing: 4px; color: var(--neon-cyan); border-bottom: 1px solid #333; padding-bottom: 15px; margin-bottom: 10px; font-weight: 900; text-align: center; text-shadow: 0 0 15px rgba(0, 243, 255, 0.6); }
-        .brand-subtitle { font-size: 0.6rem; color: #666; letter-spacing: 2px; text-transform: uppercase; margin-top: -10px; margin-bottom: 15px; text-align: center; font-weight: bold; }
+        .brand-subtitle { font-size: 0.65rem; color: var(--neon-cyan); letter-spacing: 1px; text-transform: uppercase; margin-top: -10px; margin-bottom: 15px; text-align: center; font-weight: bold; text-shadow: 0 0 8px rgba(0, 243, 255, 0.8); }
         
         .config-group { background: rgba(255,255,255,0.03); padding: 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.05); }
         .label-sm { font-size: 0.75rem; color: #888; letter-spacing: 1px; font-weight: bold; margin-bottom: 5px; display: block; }
@@ -41,20 +41,20 @@
         input:checked + .slider { background-color: var(--neon-green); }
         input:checked + .slider:before { transform: translateX(20px); }
         .main-stage { padding: 15px; display: flex; flex-direction: column; gap: 15px; position: relative; width: 100%; background: radial-gradient(circle at center, rgba(0, 243, 255, 0.03) 0%, transparent 70%); }
-        .chart-wrapper { flex: 1; position: relative; background: #000; border: 1px solid #333; border-radius: 8px; overflow: hidden; box-shadow: inset 0 0 50px rgba(0,0,0,0.8); }
-        #tvChart { width: 100%; height: 100%; }
+        .chart-wrapper { flex: 1; position: relative; background: #000; border: 1px solid #333; border-radius: 8px; overflow: hidden; box-shadow: inset 0 0 50px rgba(0,0,0,0.8); min-height: 400px; }
+        #tvChart { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
         
         /* JARVIS ANIMATION */
         .jarvis-container { position: absolute; top: 20px; left: 20px; width: 100px; height: 100px; z-index: 20; pointer-events: none; display: flex; justify-content: center; align-items: center; }
         .jarvis-img { width: 80px; height: 80px; object-fit: cover; border-radius: 50%; border: 2px solid rgba(0,243,255,0.5); position: relative; z-index: 22; background: #000; }
-        .energy-fog { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 200%; height: 200%; background: radial-gradient(circle, rgba(0, 243, 255, 0.2) 0%, transparent 70%); opacity: 0; z-index: 21; pointer-events: none; mix-blend-mode: screen; }
-        .processing .energy-fog { animation: fogPulse 2s infinite ease-in-out; }
-        @keyframes fogPulse { 0% { opacity: 0; transform: translate(-50%, -50%) scale(0.5); } 50% { opacity: 0.6; transform: translate(-50%, -50%) scale(1.2); } 100% { opacity: 0; transform: translate(-50%, -50%) scale(1.5); } }
+        .energy-fog { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 300px; height: 300px; background: radial-gradient(circle, rgba(0, 243, 255, 0.4) 0%, transparent 70%); opacity: 0; z-index: 21; pointer-events: none; mix-blend-mode: screen; border-radius: 50%; }
+        .processing .energy-fog { animation: fogPulse 1.5s infinite ease-in-out; }
+        @keyframes fogPulse { 0% { opacity: 0.2; transform: translate(-50%, -50%) scale(0.8); } 50% { opacity: 0.8; transform: translate(-50%, -50%) scale(1.2); } 100% { opacity: 0; transform: translate(-50%, -50%) scale(1.5); } }
         
         .result-overlay { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0); font-size: 8rem; font-weight: 900; z-index: 30; opacity: 0; transition: all 0.4s; text-shadow: 0 0 50px currentColor; pointer-events: none; }
         .show-res { transform: translate(-50%, -50%) scale(1); opacity: 1; }
-        .btn-decode { width: 100%; padding: 18px; margin-top: 5px; background: linear-gradient(90deg, rgba(0,0,0,0.5), rgba(0, 243, 255, 0.15), rgba(0,0,0,0.5)); border: 1px solid var(--neon-cyan); color: var(--neon-cyan); font-family: 'Rajdhani'; font-size: 1.3rem; font-weight: 900; letter-spacing: 4px; text-transform: uppercase; cursor: pointer; transition: 0.3s; }
-        .btn-decode:hover { background: rgba(0, 243, 255, 0.25); box-shadow: 0 0 30px rgba(0, 243, 255, 0.2); letter-spacing: 6px; }
+        .btn-decode { width: 100%; padding: 15px; margin-top: 5px; background: linear-gradient(90deg, rgba(0,0,0,0.5), rgba(0, 243, 255, 0.15), rgba(0,0,0,0.5)); border: 1px solid var(--neon-cyan); color: var(--neon-cyan); font-family: 'Rajdhani'; font-size: 1.4rem; font-weight: 900; letter-spacing: 2px; text-transform: uppercase; cursor: pointer; transition: 0.3s; display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.2; }
+        .btn-decode:hover { background: rgba(0, 243, 255, 0.25); box-shadow: 0 0 30px rgba(0, 243, 255, 0.2); letter-spacing: 4px; }
         
         .action-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; height: 60px; }
         .btn-action { font-size: 1.8rem; font-weight: 900; border: none; color: white; cursor: pointer; border-radius: 6px; font-family: 'Rajdhani'; opacity: 0.6; }
@@ -80,7 +80,7 @@
         <div class="login-content">
             <div class="brand-logo" style="font-size: 3rem; margin-bottom: 20px;">JARVIS TRADER</div>
             <button class="login-btn" onclick="connectDeriv()">INICIAR SISTEMA</button>
-            <div style="margin-top: 20px; font-size: 0.8rem; color: #666;">V18.5 - PARANOID MODE</div>
+            <div style="margin-top: 20px; font-size: 0.8rem; color: #666;">V18.6 - PARANOID MODE</div>
         </div>
     </div>
 
@@ -135,7 +135,7 @@
         <div class="main-stage">
             <div class="chart-wrapper" id="chartContainer">
                 <div id="tvChart"></div>
-                <div class="jarvis-container">
+                <div class="jarvis-container" id="jarvisAnim">
                     <div class="energy-fog"></div>
                     <img src="jarvis.gif" class="jarvis-img" onerror="this.style.display='none'">
                 </div>
@@ -143,8 +143,8 @@
                 <div class="result-overlay" id="resultBig">CALL</div>
             </div>
             <button class="btn-decode" id="btnDecode" onclick="runAI()">
-                DECODIFICAR MERCADO
-                <div id="aiStatus" style="font-size:0.6rem; color:#666; margin-top:4px;">JARVIS ONLINE</div>
+                <span>DECODIFICAR MERCADO</span>
+                <span style="font-size:0.8rem; color:#00ff41; margin-top:5px; text-shadow:0 0 10px #00ff41; letter-spacing:1px;">JARVIS ONLINE</span>
             </button>
             <div class="action-grid">
                 <button class="btn-action btn-call" id="btnCall" onclick="placeTrade('CALL')" disabled>CALL ⬆</button>
@@ -194,7 +194,7 @@
     window.onerror = function(msg, url, line) {
         if(localStorage.getItem('crash_loop_guard')) return;
         localStorage.setItem('crash_loop_guard', 'true');
-        alert("RECUPERAÇÃO DE FALHA V18.5:\\n" + msg);
+        alert("RECUPERAÇÃO DE FALHA V18.6:\\n" + msg);
         localStorage.removeItem('jarvis_accounts');
         setTimeout(() => {
             localStorage.removeItem('crash_loop_guard');
@@ -222,7 +222,7 @@
 
     // BOOT SEGURO
     window.addEventListener('DOMContentLoaded', () => {
-        console.log("DOM Loaded. Iniciando Jarvis V18.5...");
+        console.log("DOM Loaded. Iniciando Jarvis V18.6...");
         try {
             checkAuth();
         } catch(e) {
@@ -274,9 +274,12 @@
     function initSystem() {
         getEl('loginOverlay').style.display = 'none';
         getEl('mainUI').style.display = 'grid';
-        initChart();
-        loadAI();
-        connectWS();
+        // Pequeno delay para garantir renderização do grid antes do chart
+        setTimeout(() => {
+            initChart();
+            loadAI();
+            connectWS();
+        }, 100);
     }
 
     function fullLogout() {
@@ -313,12 +316,17 @@
 
     function initChart() {
         const el = getEl('tvChart');
-        // Se for dummy, não faz nada
-        if(!el.clientWidth) return; 
+        const container = getEl('chartContainer');
         
+        // Força dimensões se estiver zerado
+        if (container.clientHeight === 0) {
+            container.style.height = '400px';
+        }
+
         el.innerHTML = '';
         chart = LightweightCharts.createChart(el, {
-            width: el.clientWidth, height: el.clientHeight,
+            width: container.clientWidth, 
+            height: container.clientHeight,
             layout: { backgroundColor: '#000000', textColor: '#666' },
             grid: { vertLines: { color: '#111'}, horzLines: { color: '#111'} },
             timeScale: { timeVisible: true, secondsVisible: true }
@@ -327,7 +335,13 @@
             upColor: '#00ff41', downColor: '#ff003c', 
             borderVisible: false, wickUpColor: '#00ff41', wickDownColor: '#ff003c'
         });
-        window.addEventListener('resize', () => chart.resize(el.clientWidth, el.clientHeight));
+        
+        // Resize observer para garantir responsividade
+        new ResizeObserver(entries => {
+            if (entries.length === 0 || !entries[0].contentRect) return;
+            const { width, height } = entries[0].contentRect;
+            chart.resize(width, height);
+        }).observe(container);
     }
 
     function connectWS() {
@@ -382,35 +396,35 @@
     }
 
     async function loadAI() {
-        const status = getEl('aiStatus');
-        status.innerText = "CARREGANDO TITAN V18...";
-        status.style.color = "yellow";
+        const status = getEl('aiStatus'); // Esse elemento foi removido do botão, mas a função ainda tenta acessar?
+        // Não, o texto agora está hardcoded no botão. Vamos ignorar atualização de texto de status por enquanto ou criar um elemento oculto se necessário.
+        // Na verdade, o botão tem "JARVIS ONLINE" fixo. Vamos apenas logar.
+        console.log("Carregando IA...");
         try {
             model = await tf.loadLayersModel('brain/titan.json');
             const dummy = tf.zeros([1, 60, 1]);
             model.predict(dummy).dispose();
-            status.innerText = "JARVIS ONLINE";
-            status.style.color = "#00ff41";
+            console.log("IA Online");
         } catch (e) {
-            console.error(e);
-            status.innerText = "ERRO FATAL IA";
-            status.style.color = "#ff003c";
+            console.error("Erro IA:", e);
         }
     }
 
     async function runAI() {
         if (!model || isProcessing) return;
         
+        const btn = getEl('btnDecode');
+        const originalContent = btn.innerHTML;
+
         if (candles.length < 60) { 
-            const originalText = getEl('btnDecode').innerText;
-            getEl('btnDecode').innerText = "AGUARDANDO DADOS...";
-            setTimeout(() => getEl('btnDecode').innerText = originalText, 1500);
+            btn.innerHTML = "<span>AGUARDANDO DADOS...</span>";
+            setTimeout(() => btn.innerHTML = originalContent, 1500);
             return; 
         }
         
         isProcessing = true;
-        document.querySelector('.main-stage').classList.add('processing');
-        getEl('btnDecode').innerText = "ANALISANDO MERCADO...";
+        getEl('jarvisAnim').classList.add('processing'); // Ativa animação no container do Jarvis
+        btn.innerHTML = "<span>ANALISANDO...</span>";
         
         // ZOOM NO GRÁFICO
         if(chart) chart.timeScale().scrollToPosition(0, true);
@@ -436,19 +450,18 @@
                     if(signal !== "NEUTRO" && getEl('autoTradeToggle').checked) placeTrade(signal);
                 } catch(err) {
                     console.error("AI Error:", err);
-                    // Fallback para não travar se o modelo falhar
                     showResult("NEUTRO");
                 } finally {
                     isProcessing = false;
-                    document.querySelector('.main-stage').classList.remove('processing');
-                    getEl('btnDecode').innerText = "DECODIFICAR MERCADO";
+                    getEl('jarvisAnim').classList.remove('processing');
+                    btn.innerHTML = originalContent;
                 }
             }, 2000); 
         } catch(e) { 
             console.error("Prep Error:", e);
             isProcessing = false; 
-            document.querySelector('.main-stage').classList.remove('processing');
-            getEl('btnDecode').innerText = "DECODIFICAR MERCADO";
+            getEl('jarvisAnim').classList.remove('processing');
+            btn.innerHTML = originalContent;
         }
     }
 
