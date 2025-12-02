@@ -83,7 +83,7 @@
         <div class="login-content">
             <div class="brand-logo" style="font-size: 3rem; margin-bottom: 20px;">JARVIS TRADER</div>
             <button class="login-btn" onclick="connectDeriv()">INICIAR SISTEMA</button>
-            <div style="margin-top: 20px; font-size: 0.8rem; color: #666;">V18.8 - STABLE MODE</div>
+            <div style="margin-top: 20px; font-size: 0.8rem; color: #666;">V18.9 - ADAPTIVE AI MODE</div>
         </div>
     </div>
 
@@ -197,7 +197,7 @@
     window.onerror = function(msg, url, line) {
         if(localStorage.getItem('crash_loop_guard')) return;
         localStorage.setItem('crash_loop_guard', 'true');
-        alert("RECUPERAÇÃO DE FALHA V18.8:\\n" + msg);
+        alert("RECUPERAÇÃO DE FALHA V18.9:\\n" + msg);
         localStorage.removeItem('jarvis_accounts');
         setTimeout(() => {
             localStorage.removeItem('crash_loop_guard');
@@ -207,7 +207,7 @@
     };
 
     const APP_ID = 114062; 
-    const SYMBOL = "1HZ100V";
+    const SYMBOL = "R_100"; // MUDANÇA PARA R_100 (Volatility 100 Index)
     
     window.connectDeriv = function() {
         window.location.href = `https://oauth.deriv.com/oauth2/authorize?app_id=${APP_ID}&l=pt&brand=deriv`;
@@ -225,7 +225,7 @@
 
     // BOOT SEGURO
     window.addEventListener('DOMContentLoaded', () => {
-        console.log("DOM Loaded. Iniciando Jarvis V18.8...");
+        console.log("DOM Loaded. Iniciando Jarvis V18.9...");
         try {
             checkAuth();
         } catch(e) {
@@ -348,7 +348,6 @@
             // ERROR HANDLING
             if (data.error) {
                 console.error("Deriv Error:", data.error);
-                // Feedback visual sutil
                 const btn = getEl('btnDecode');
                 const old = btn.innerHTML;
                 btn.innerHTML = `<span style="color:red">ERRO: ${data.error.code}</span>`;
@@ -402,6 +401,17 @@
         getEl('rsiVal').innerText = rsi.toFixed(1);
     }
 
+    // --- EMA CALCULATION ---
+    function calculateEMA(period) {
+        if (candles.length < period) return null;
+        const k = 2 / (period + 1);
+        let ema = candles[0].close;
+        for (let i = 1; i < candles.length; i++) {
+            ema = candles[i].close * k + ema * (1 - k);
+        }
+        return ema;
+    }
+
     async function loadAI() {
         console.log("Carregando IA...");
         try {
@@ -414,7 +424,7 @@
         }
     }
 
-    // --- HYBRID INTELLIGENCE ENGINE ---
+    // --- ADAPTIVE AI ENGINE ---
     async function runAI() {
         if (isProcessing) return;
         
@@ -431,9 +441,6 @@
         getEl('jarvisAnim').classList.add('processing'); 
         btn.innerHTML = "<span>ANALISANDO...</span>";
         
-        // REMOVIDO AUTO ZOOM A PEDIDO DO USUÁRIO
-        // if(chart) chart.timeScale().scrollToPosition(0, true);
-
         try {
             // 1. Tenta usar LSTM se disponível
             let signal = "NEUTRO";
@@ -463,26 +470,42 @@
                 const prev = candles[candles.length-2];
                 const rsi = parseFloat(getEl('rsiVal').innerText);
                 
-                // Estratégia de Reversão Simples
-                if (rsi < 30 && last.close > last.open) signal = "CALL"; // Sobrevenda + Candle Verde
-                else if (rsi > 70 && last.close < last.open) signal = "PUT"; // Sobrecompra + Candle Vermelho
-                // Estratégia de Tendência
+                if (rsi < 30 && last.close > last.open) signal = "CALL"; 
+                else if (rsi > 70 && last.close < last.open) signal = "PUT"; 
                 else if (last.close > prev.close && rsi > 50 && rsi < 70) signal = "CALL";
                 else if (last.close < prev.close && rsi < 50 && rsi > 30) signal = "PUT";
             }
 
+            // 3. FILTRO DE TENDÊNCIA (ADAPTIVE AI)
+            const ema20 = calculateEMA(20);
+            const currentPrice = candles[candles.length-1].close;
+            let blocked = false;
+
+            if (ema20) {
+                if (signal === "CALL" && currentPrice < ema20) {
+                    signal = "NEUTRO"; // Bloqueia CALL em tendência de baixa
+                    blocked = true;
+                }
+                if (signal === "PUT" && currentPrice > ema20) {
+                    signal = "NEUTRO"; // Bloqueia PUT em tendência de alta
+                    blocked = true;
+                }
+            }
+
             setTimeout(() => {
-                showResult(signal);
-                
-                // AUTO TRADER TRIGGER
-                if(signal !== "NEUTRO" && getEl('autoTradeToggle').checked) {
-                    console.log(`Auto Trader Triggered: ${signal} via ${source}`);
-                    placeTrade(signal);
+                if (blocked) {
+                     btn.innerHTML = "<span style='color:orange'>FILTRO DE TENDÊNCIA ATIVO</span>";
+                     setTimeout(() => btn.innerHTML = originalContent, 2000);
+                } else {
+                    showResult(signal);
+                    if(signal !== "NEUTRO" && getEl('autoTradeToggle').checked) {
+                        placeTrade(signal);
+                    }
+                    btn.innerHTML = originalContent;
                 }
 
                 isProcessing = false;
                 getEl('jarvisAnim').classList.remove('processing');
-                btn.innerHTML = originalContent;
             }, 2000); 
 
         } catch(e) { 
@@ -511,7 +534,6 @@
             return;
         }
         
-        // Feedback visual de ordem enviada
         const btn = direction === 'CALL' ? getEl('btnCall') : getEl('btnPut');
         const originalColor = btn.style.background;
         btn.style.filter = "brightness(1.5)";
@@ -536,7 +558,7 @@
             positions.set(p.contract_id, p);
             const profit = Number(p.profit || 0);
             const tp = Number(getEl('tpInput').value);
-            const sl = Number(getEl('slInput').value) * -1; // SL é negativo
+            const sl = Number(getEl('slInput').value) * -1; 
             if (p.is_valid_to_sell) {
                 if (getEl('tpToggle').checked && profit >= tp) sellPosition(p.contract_id);
                 if (getEl('slToggle').checked && profit <= sl) sellPosition(p.contract_id);
