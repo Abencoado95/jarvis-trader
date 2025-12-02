@@ -41,10 +41,12 @@
         input:checked + .slider { background-color: var(--neon-green); }
         input:checked + .slider:before { transform: translateX(20px); }
         .main-stage { padding: 15px; display: flex; flex-direction: column; gap: 15px; position: relative; width: 100%; background: radial-gradient(circle at center, rgba(0, 243, 255, 0.03) 0%, transparent 70%); }
-        .chart-wrapper { flex: 1; position: relative; background: #000; border: 1px solid #333; border-radius: 8px; overflow: hidden; box-shadow: inset 0 0 50px rgba(0,0,0,0.8); min-height: 400px; }
+        
+        /* CHART & LAYOUT FIXES */
+        .chart-wrapper { height: 55vh; flex-shrink: 0; position: relative; background: #000; border: 1px solid #333; border-radius: 8px; overflow: hidden; box-shadow: inset 0 0 50px rgba(0,0,0,0.8); }
         #tvChart { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
         
-        /* JARVIS ANIMATION - BOOSTED */
+        /* JARVIS ANIMATION */
         .jarvis-container { position: absolute; top: 20px; left: 20px; width: 100px; height: 100px; z-index: 20; pointer-events: none; display: flex; justify-content: center; align-items: center; }
         .jarvis-img { width: 80px; height: 80px; object-fit: cover; border-radius: 50%; border: 2px solid rgba(0,243,255,0.5); position: relative; z-index: 22; background: #000; }
         .energy-fog { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 350px; height: 350px; background: radial-gradient(circle, rgba(0, 243, 255, 0.6) 0%, transparent 70%); opacity: 0; z-index: 21; pointer-events: none; mix-blend-mode: screen; border-radius: 50%; transition: opacity 0.3s; }
@@ -61,10 +63,11 @@
         .btn-call { background: linear-gradient(180deg, #00ff85, #007a3d); box-shadow: 0 5px 0 #004522; }
         .btn-put { background: linear-gradient(180deg, #ff3b6a, #9e0025); box-shadow: 0 5px 0 #5c0016; }
         .btn-ready { opacity: 1; transform: translateY(0); }
-        .positions-wrapper { flex: 1; background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; display: flex; flex-direction: column; overflow: hidden; }
-        .op-header { padding: 10px; background: rgba(255,255,255,0.05); display: flex; justify-content: space-between; align-items: center; }
+        
+        .positions-wrapper { flex: 1; min-height: 0; background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; display: flex; flex-direction: column; overflow: hidden; }
+        .op-header { padding: 10px; background: rgba(255,255,255,0.05); display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
         .op-list { flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 5px; }
-        .op-card { display: flex; justify-content: space-between; padding: 10px; background: rgba(30,35,40,0.9); border-radius: 4px; border-left: 4px solid #555; align-items: center; font-size: 0.95rem; }
+        .op-card { display: flex; justify-content: space-between; padding: 10px; background: rgba(30,35,40,0.9); border-radius: 4px; border-left: 4px solid #555; align-items: center; font-size: 0.95rem; flex-shrink: 0; }
         
         .account-badge { background: #111; color: #fff; padding: 12px; text-align: center; border-radius: 6px; border: 1px solid #444; font-weight: bold; cursor: pointer; transition: 0.3s; margin-bottom: 15px; user-select: none; letter-spacing: 1px; }
         .account-badge:hover { border-color: var(--neon-cyan); color: var(--neon-cyan); box-shadow: 0 0 15px rgba(0,243,255,0.1); }
@@ -80,7 +83,7 @@
         <div class="login-content">
             <div class="brand-logo" style="font-size: 3rem; margin-bottom: 20px;">JARVIS TRADER</div>
             <button class="login-btn" onclick="connectDeriv()">INICIAR SISTEMA</button>
-            <div style="margin-top: 20px; font-size: 0.8rem; color: #666;">V18.7 - HYBRID MODE</div>
+            <div style="margin-top: 20px; font-size: 0.8rem; color: #666;">V18.8 - STABLE MODE</div>
         </div>
     </div>
 
@@ -111,7 +114,7 @@
             </div>
             <div class="config-group">
                 <span class="label-sm" style="color:var(--neon-green)">TAKE PROFIT</span>
-                <input type="number" id="tpInput" value="10.00">
+                <input type="number" id="tpInput" value="10.00" step="0.05">
                 <div class="switch-row">
                     <span style="font-size:0.7rem;">AUTO FECHAR</span>
                     <label class="switch"><input type="checkbox" id="tpToggle"><span class="slider"></span></label>
@@ -119,7 +122,7 @@
             </div>
             <div class="config-group" style="border-color: rgba(255,0,60,0.3);">
                 <span class="label-sm" style="color:var(--neon-red)">STOP LOSS</span>
-                <input type="number" id="slInput" value="-20.00" style="color:var(--neon-red)">
+                <input type="number" id="slInput" value="-20.00" style="color:var(--neon-red)" step="0.05">
                 <div class="switch-row">
                     <span style="font-size:0.7rem;">PROTEÇÃO</span>
                     <label class="switch"><input type="checkbox" id="slToggle"><span class="slider"></span></label>
@@ -194,7 +197,7 @@
     window.onerror = function(msg, url, line) {
         if(localStorage.getItem('crash_loop_guard')) return;
         localStorage.setItem('crash_loop_guard', 'true');
-        alert("RECUPERAÇÃO DE FALHA V18.7:\\n" + msg);
+        alert("RECUPERAÇÃO DE FALHA V18.8:\\n" + msg);
         localStorage.removeItem('jarvis_accounts');
         setTimeout(() => {
             localStorage.removeItem('crash_loop_guard');
@@ -222,7 +225,7 @@
 
     // BOOT SEGURO
     window.addEventListener('DOMContentLoaded', () => {
-        console.log("DOM Loaded. Iniciando Jarvis V18.7...");
+        console.log("DOM Loaded. Iniciando Jarvis V18.8...");
         try {
             checkAuth();
         } catch(e) {
@@ -316,9 +319,7 @@
     function initChart() {
         const el = getEl('tvChart');
         const container = getEl('chartContainer');
-        if (container.clientHeight === 0) {
-            container.style.height = '400px';
-        }
+        
         el.innerHTML = '';
         chart = LightweightCharts.createChart(el, {
             width: container.clientWidth, 
@@ -343,6 +344,18 @@
         ws.onopen = () => { ws.send(JSON.stringify({ authorize: currentToken })); };
         ws.onmessage = (msg) => {
             const data = JSON.parse(msg.data);
+            
+            // ERROR HANDLING
+            if (data.error) {
+                console.error("Deriv Error:", data.error);
+                // Feedback visual sutil
+                const btn = getEl('btnDecode');
+                const old = btn.innerHTML;
+                btn.innerHTML = `<span style="color:red">ERRO: ${data.error.code}</span>`;
+                setTimeout(() => btn.innerHTML = old, 3000);
+                return;
+            }
+
             if (data.msg_type === 'authorize') {
                 updateAccountUI(data.authorize);
                 ws.send(JSON.stringify({ balance: 1, subscribe: 1 }));
@@ -418,7 +431,8 @@
         getEl('jarvisAnim').classList.add('processing'); 
         btn.innerHTML = "<span>ANALISANDO...</span>";
         
-        if(chart) chart.timeScale().scrollToPosition(0, true);
+        // REMOVIDO AUTO ZOOM A PEDIDO DO USUÁRIO
+        // if(chart) chart.timeScale().scrollToPosition(0, true);
 
         try {
             // 1. Tenta usar LSTM se disponível
@@ -488,10 +502,14 @@
     }
 
     function placeTrade(direction) {
-        const stake = getEl('stakeInput').value;
+        const stake = parseFloat(getEl('stakeInput').value);
         const duration = getEl('durationSelect').value;
         const acc = availableAccounts.find(a=>a.token===currentToken);
-        if(!acc) return;
+        
+        if(!acc) {
+            console.error("Conta não encontrada!");
+            return;
+        }
         
         // Feedback visual de ordem enviada
         const btn = direction === 'CALL' ? getEl('btnCall') : getEl('btnPut');
@@ -518,7 +536,7 @@
             positions.set(p.contract_id, p);
             const profit = Number(p.profit || 0);
             const tp = Number(getEl('tpInput').value);
-            const sl = Number(getEl('slInput').value) * -1;
+            const sl = Number(getEl('slInput').value) * -1; // SL é negativo
             if (p.is_valid_to_sell) {
                 if (getEl('tpToggle').checked && profit >= tp) sellPosition(p.contract_id);
                 if (getEl('slToggle').checked && profit <= sl) sellPosition(p.contract_id);
