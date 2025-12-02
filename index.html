@@ -43,9 +43,7 @@
         #tvChart { width: 100%; height: 100%; }
         .jarvis-in-chart { position: absolute; top: 15px; left: 15px; width: 80px; height: 80px; z-index: 20; pointer-events: none; display: flex; justify-content: center; align-items: center; }
         .jarvis-img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; border: 2px solid rgba(0,243,255,0.3); opacity: 0.9; }
-        .scanner-bar { position: absolute; top: 0; left: 0; width: 100%; height: 15px; background: linear-gradient(180deg, transparent, rgba(0,243,255,0.8), transparent); box-shadow: 0 0 30px var(--neon-cyan); opacity: 0; pointer-events: none; z-index: 15; }
-        .processing .scanner-bar { opacity: 1; animation: holoScan 1.5s ease-in-out infinite; }
-        @keyframes holoScan { 0% { top: -10%; } 100% { top: 110%; } }
+        
         .result-overlay { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0); font-size: 8rem; font-weight: 900; z-index: 30; opacity: 0; transition: all 0.4s; text-shadow: 0 0 50px currentColor; pointer-events: none; }
         .show-res { transform: translate(-50%, -50%) scale(1); opacity: 1; }
         .btn-decode { width: 100%; padding: 18px; margin-top: 5px; background: linear-gradient(90deg, rgba(0,0,0,0.5), rgba(0, 243, 255, 0.15), rgba(0,0,0,0.5)); border: 1px solid var(--neon-cyan); color: var(--neon-cyan); font-family: 'Rajdhani'; font-size: 1.3rem; font-weight: 900; letter-spacing: 4px; text-transform: uppercase; cursor: pointer; transition: 0.3s; }
@@ -75,7 +73,7 @@
         <div class="login-content">
             <div class="brand-logo" style="font-size: 3rem; margin-bottom: 20px;">JARVIS TRADER</div>
             <button class="login-btn" onclick="connectDeriv()">INICIAR SISTEMA</button>
-            <div style="margin-top: 20px; font-size: 0.8rem; color: #666;">V18.3 - PARANOID MODE</div>
+            <div style="margin-top: 20px; font-size: 0.8rem; color: #666;">V18.4 - PARANOID MODE</div>
         </div>
     </div>
 
@@ -132,13 +130,12 @@
                 <div class="jarvis-in-chart">
                     <img src="jarvis.gif" class="jarvis-img" onerror="this.style.display='none'">
                 </div>
-                <div class="scanner-bar"></div>
                 <div class="live-price" id="priceTag">--.--</div>
                 <div class="result-overlay" id="resultBig">CALL</div>
             </div>
             <button class="btn-decode" id="btnDecode" onclick="runAI()">
-                JARVIS TRADER OPERANDO
-                <div id="aiStatus" style="font-size:0.6rem; color:#666; margin-top:4px;">SISTEMA OFF</div>
+                DECODIFICAR MERCADO
+                <div id="aiStatus" style="font-size:0.6rem; color:#666; margin-top:4px;">JARVIS ONLINE</div>
             </button>
             <div class="action-grid">
                 <button class="btn-action btn-call" id="btnCall" onclick="placeTrade('CALL')" disabled>CALL ⬆</button>
@@ -188,7 +185,7 @@
     window.onerror = function(msg, url, line) {
         if(localStorage.getItem('crash_loop_guard')) return;
         localStorage.setItem('crash_loop_guard', 'true');
-        alert("RECUPERAÇÃO DE FALHA V18.3:\\n" + msg);
+        alert("RECUPERAÇÃO DE FALHA V18.4:\\n" + msg);
         localStorage.removeItem('jarvis_accounts');
         setTimeout(() => {
             localStorage.removeItem('crash_loop_guard');
@@ -216,7 +213,7 @@
 
     // BOOT SEGURO
     window.addEventListener('DOMContentLoaded', () => {
-        console.log("DOM Loaded. Iniciando Jarvis V18.3...");
+        console.log("DOM Loaded. Iniciando Jarvis V18.4...");
         try {
             checkAuth();
         } catch(e) {
@@ -383,7 +380,7 @@
             model = await tf.loadLayersModel('brain/titan.json');
             const dummy = tf.zeros([1, 60, 1]);
             model.predict(dummy).dispose();
-            status.innerText = "SISTEMA ONLINE";
+            status.innerText = "JARVIS ONLINE";
             status.style.color = "#00ff41";
         } catch (e) {
             console.error(e);
@@ -395,7 +392,6 @@
     async function runAI() {
         if (!model || isProcessing) return;
         
-        // CORREÇÃO: Em vez de alert, avisa no botão
         if (candles.length < 60) { 
             const originalText = getEl('btnDecode').innerText;
             getEl('btnDecode').innerText = "AGUARDANDO DADOS...";
@@ -423,7 +419,7 @@
                 if(signal !== "NEUTRO" && getEl('autoTradeToggle').checked) placeTrade(signal);
                 isProcessing = false;
                 document.querySelector('.main-stage').classList.remove('processing');
-                getEl('btnDecode').innerText = "JARVIS TRADER OPERANDO";
+                getEl('btnDecode').innerText = "DECODIFICAR MERCADO";
             }, 2000); 
         } catch(e) { isProcessing = false; }
     }
@@ -466,13 +462,18 @@
         list.innerHTML = "";
         let total = 0;
         if(positions.size === 0) list.innerHTML = '<div style="text-align:center; color:#555; padding:20px; font-style:italic;">Nenhuma operação ativa.</div>';
+        
         positions.forEach(p => {
             const profit = Number(p.profit || 0);
             total += profit;
+            
+            // FIX UNDEFINED
+            const cType = p.contract_type ? p.contract_type.toUpperCase() : "ORDEM";
+            
             const div = document.createElement('div');
             div.className = "op-card";
             div.style.borderLeftColor = profit >= 0 ? "#00ff41" : "#ff003c";
-            div.innerHTML = `<div><b>${p.contract_type}</b></div><div style="color:${profit>=0?'#00ff41':'#ff003c'}">${profit.toFixed(2)}</div><button onclick="sellPosition(${p.contract_id})" style="background:#ff003c; border:none; color:white; font-weight:bold; cursor:pointer;">X</button>`;
+            div.innerHTML = `<div><b>${cType}</b></div><div style="color:${profit>=0?'#00ff41':'#ff003c'}">${profit.toFixed(2)}</div><button onclick="sellPosition(${p.contract_id})" style="background:#ff003c; border:none; color:white; font-weight:bold; cursor:pointer;">X</button>`;
             list.prepend(div);
         });
         getEl('openPL').innerText = total.toFixed(2);
