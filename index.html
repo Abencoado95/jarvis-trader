@@ -74,8 +74,8 @@
     <div id="loginOverlay">
         <div class="login-content">
             <div class="brand-logo" style="font-size: 3rem; margin-bottom: 20px;">JARVIS TRADER</div>
-            <button class="login-btn" onclick="connectDeriv()">CONECTAR AO DERIV</button>
-            <div style="margin-top: 20px; font-size: 0.8rem; color: #666;">V18.2 - PARANOID MODE</div>
+            <button class="login-btn" onclick="connectDeriv()">INICIAR SISTEMA</button>
+            <div style="margin-top: 20px; font-size: 0.8rem; color: #666;">V18.3 - PARANOID MODE</div>
         </div>
     </div>
 
@@ -137,7 +137,7 @@
                 <div class="result-overlay" id="resultBig">CALL</div>
             </div>
             <button class="btn-decode" id="btnDecode" onclick="runAI()">
-                DECODIFICAR PADRÃO DE MERCADO
+                JARVIS TRADER OPERANDO
                 <div id="aiStatus" style="font-size:0.6rem; color:#666; margin-top:4px;">SISTEMA OFF</div>
             </button>
             <div class="action-grid">
@@ -188,7 +188,7 @@
     window.onerror = function(msg, url, line) {
         if(localStorage.getItem('crash_loop_guard')) return;
         localStorage.setItem('crash_loop_guard', 'true');
-        alert("RECUPERAÇÃO DE FALHA V18.2:\\n" + msg);
+        alert("RECUPERAÇÃO DE FALHA V18.3:\\n" + msg);
         localStorage.removeItem('jarvis_accounts');
         setTimeout(() => {
             localStorage.removeItem('crash_loop_guard');
@@ -216,7 +216,7 @@
 
     // BOOT SEGURO
     window.addEventListener('DOMContentLoaded', () => {
-        console.log("DOM Loaded. Iniciando Jarvis V18.2...");
+        console.log("DOM Loaded. Iniciando Jarvis V18.3...");
         try {
             checkAuth();
         } catch(e) {
@@ -383,7 +383,7 @@
             model = await tf.loadLayersModel('brain/titan.json');
             const dummy = tf.zeros([1, 60, 1]);
             model.predict(dummy).dispose();
-            status.innerText = "TITAN V18: SISTEMA ONLINE";
+            status.innerText = "SISTEMA ONLINE";
             status.style.color = "#00ff41";
         } catch (e) {
             console.error(e);
@@ -394,10 +394,18 @@
 
     async function runAI() {
         if (!model || isProcessing) return;
-        if (candles.length < 60) { alert("Aguardando dados..."); return; }
+        
+        // CORREÇÃO: Em vez de alert, avisa no botão
+        if (candles.length < 60) { 
+            const originalText = getEl('btnDecode').innerText;
+            getEl('btnDecode').innerText = "AGUARDANDO DADOS...";
+            setTimeout(() => getEl('btnDecode').innerText = originalText, 1500);
+            return; 
+        }
+        
         isProcessing = true;
         document.querySelector('.main-stage').classList.add('processing');
-        getEl('btnDecode').innerText = "TITAN V18 ANALISANDO...";
+        getEl('btnDecode').innerText = "ANALISANDO MERCADO...";
         try {
             const inputData = candles.slice(-60).map(c => c.close);
             const mean = inputData.reduce((a, b) => a + b) / inputData.length;
@@ -415,7 +423,7 @@
                 if(signal !== "NEUTRO" && getEl('autoTradeToggle').checked) placeTrade(signal);
                 isProcessing = false;
                 document.querySelector('.main-stage').classList.remove('processing');
-                getEl('btnDecode').innerText = "DECODIFICAR PADRÃO DE MERCADO";
+                getEl('btnDecode').innerText = "JARVIS TRADER OPERANDO";
             }, 2000); 
         } catch(e) { isProcessing = false; }
     }
