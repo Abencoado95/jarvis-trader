@@ -46,12 +46,12 @@
         .chart-wrapper { height: 55vh; flex-shrink: 0; position: relative; background: #000; border: 1px solid #333; border-radius: 8px; overflow: hidden; box-shadow: inset 0 0 50px rgba(0,0,0,0.8); }
         #tvChart { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
         
-        /* JARVIS ANIMATION */
+        /* JARVIS ANIMATION - BOOSTED V19 */
         .jarvis-container { position: absolute; top: 20px; left: 20px; width: 100px; height: 100px; z-index: 20; pointer-events: none; display: flex; justify-content: center; align-items: center; }
         .jarvis-img { width: 80px; height: 80px; object-fit: cover; border-radius: 50%; border: 2px solid rgba(0,243,255,0.5); position: relative; z-index: 22; background: #000; }
-        .energy-fog { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 350px; height: 350px; background: radial-gradient(circle, rgba(0, 243, 255, 0.6) 0%, transparent 70%); opacity: 0; z-index: 21; pointer-events: none; mix-blend-mode: screen; border-radius: 50%; transition: opacity 0.3s; }
-        .processing .energy-fog { animation: fogPulse 1s infinite ease-in-out; opacity: 1; }
-        @keyframes fogPulse { 0% { opacity: 0.4; transform: translate(-50%, -50%) scale(0.8); } 50% { opacity: 0.9; transform: translate(-50%, -50%) scale(1.1); } 100% { opacity: 0.4; transform: translate(-50%, -50%) scale(0.8); } }
+        .energy-fog { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 400px; height: 400px; background: radial-gradient(circle, rgba(0, 243, 255, 0.8) 0%, transparent 70%); opacity: 0; z-index: 21; pointer-events: none; mix-blend-mode: screen; border-radius: 50%; transition: opacity 0.2s; filter: drop-shadow(0 0 20px rgba(0,243,255,0.8)); }
+        .processing .energy-fog { animation: fogPulse 0.8s infinite ease-in-out; opacity: 1; }
+        @keyframes fogPulse { 0% { opacity: 0.6; transform: translate(-50%, -50%) scale(0.9); } 50% { opacity: 1; transform: translate(-50%, -50%) scale(1.2); } 100% { opacity: 0.6; transform: translate(-50%, -50%) scale(0.9); } }
         
         .result-overlay { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0); font-size: 8rem; font-weight: 900; z-index: 30; opacity: 0; transition: all 0.4s; text-shadow: 0 0 50px currentColor; pointer-events: none; }
         .show-res { transform: translate(-50%, -50%) scale(1); opacity: 1; }
@@ -83,7 +83,7 @@
         <div class="login-content">
             <div class="brand-logo" style="font-size: 3rem; margin-bottom: 20px;">JARVIS TRADER</div>
             <button class="login-btn" onclick="connectDeriv()">INICIAR SISTEMA</button>
-            <div style="margin-top: 20px; font-size: 0.8rem; color: #666;">V18.9 - ADAPTIVE AI MODE</div>
+            <div style="margin-top: 20px; font-size: 0.8rem; color: #666;">V19.0 - TRUE AUTO TRADER</div>
         </div>
     </div>
 
@@ -97,35 +97,39 @@
                 <span class="label-sm">AUTO TRADER (IA)</span>
                 <div class="switch-row">
                     <span style="font-size:0.8rem; color:#aaa;">PILOTO AUTOMÁTICO</span>
-                    <label class="switch"><input type="checkbox" id="autoTradeToggle"><span class="slider"></span></label>
+                    <label class="switch"><input type="checkbox" id="autoTradeToggle" onchange="saveState()"><span class="slider"></span></label>
                 </div>
             </div>
             <div class="config-group">
                 <span class="label-sm">STAKE ($)</span>
-                <input type="number" id="stakeInput" value="1.00" step="0.50" min="0.35">
+                <input type="number" id="stakeInput" value="1.00" step="0.50" min="0.35" onchange="saveState()">
             </div>
             <div class="config-group">
                 <span class="label-sm">EXPIRAÇÃO</span>
-                <select id="durationSelect">
+                <select id="durationSelect" onchange="saveState()">
                     <option value="1">1 Minuto</option>
                     <option value="2">2 Minutos</option>
                     <option value="5">5 Minutos</option>
+                    <option value="10">10 Minutos</option>
+                    <option value="15">15 Minutos</option>
+                    <option value="30">30 Minutos</option>
+                    <option value="60">1 Hora</option>
                 </select>
             </div>
             <div class="config-group">
                 <span class="label-sm" style="color:var(--neon-green)">TAKE PROFIT</span>
-                <input type="number" id="tpInput" value="10.00" step="0.05">
+                <input type="number" id="tpInput" value="10.00" step="0.05" onchange="saveState()">
                 <div class="switch-row">
                     <span style="font-size:0.7rem;">AUTO FECHAR</span>
-                    <label class="switch"><input type="checkbox" id="tpToggle"><span class="slider"></span></label>
+                    <label class="switch"><input type="checkbox" id="tpToggle" onchange="saveState()"><span class="slider"></span></label>
                 </div>
             </div>
             <div class="config-group" style="border-color: rgba(255,0,60,0.3);">
                 <span class="label-sm" style="color:var(--neon-red)">STOP LOSS</span>
-                <input type="number" id="slInput" value="-20.00" style="color:var(--neon-red)" step="0.05">
+                <input type="number" id="slInput" value="-20.00" style="color:var(--neon-red)" step="0.05" onchange="saveState()">
                 <div class="switch-row">
                     <span style="font-size:0.7rem;">PROTEÇÃO</span>
-                    <label class="switch"><input type="checkbox" id="slToggle"><span class="slider"></span></label>
+                    <label class="switch"><input type="checkbox" id="slToggle" onchange="saveState()"><span class="slider"></span></label>
                 </div>
             </div>
             <div style="margin-top:auto; font-size:0.9rem; border-top:1px solid #333; padding-top:10px;">
@@ -197,7 +201,7 @@
     window.onerror = function(msg, url, line) {
         if(localStorage.getItem('crash_loop_guard')) return;
         localStorage.setItem('crash_loop_guard', 'true');
-        alert("RECUPERAÇÃO DE FALHA V18.9:\\n" + msg);
+        alert("RECUPERAÇÃO DE FALHA V19.0:\\n" + msg);
         localStorage.removeItem('jarvis_accounts');
         setTimeout(() => {
             localStorage.removeItem('crash_loop_guard');
@@ -207,7 +211,7 @@
     };
 
     const APP_ID = 114062; 
-    const SYMBOL = "R_100"; // MUDANÇA PARA R_100 (Volatility 100 Index)
+    const SYMBOL = "R_100"; 
     
     window.connectDeriv = function() {
         window.location.href = `https://oauth.deriv.com/oauth2/authorize?app_id=${APP_ID}&l=pt&brand=deriv`;
@@ -222,17 +226,57 @@
     let currentToken = "";
     let positions = new Map();
     let sessionProfit = 0.0;
+    let lastCandleTime = 0;
 
     // BOOT SEGURO
     window.addEventListener('DOMContentLoaded', () => {
-        console.log("DOM Loaded. Iniciando Jarvis V18.9...");
+        console.log("DOM Loaded. Iniciando Jarvis V19.0...");
         try {
             checkAuth();
+            loadState(); // CARREGA O CACHE
         } catch(e) {
             console.error("Boot Error:", e);
             getEl('loginOverlay').style.display = 'flex';
         }
     });
+
+    // --- STATE PERSISTENCE (CACHE) ---
+    function saveState() {
+        const state = {
+            autoTrade: getEl('autoTradeToggle').checked,
+            stake: getEl('stakeInput').value,
+            duration: getEl('durationSelect').value,
+            tp: getEl('tpInput').value,
+            tpOn: getEl('tpToggle').checked,
+            sl: getEl('slInput').value,
+            slOn: getEl('slToggle').checked,
+            sessionPL: sessionProfit,
+            history: getEl('histList').innerHTML
+        };
+        localStorage.setItem('jarvis_state_v19', JSON.stringify(state));
+    }
+
+    function loadState() {
+        const saved = localStorage.getItem('jarvis_state_v19');
+        if (saved) {
+            try {
+                const state = JSON.parse(saved);
+                getEl('autoTradeToggle').checked = state.autoTrade;
+                getEl('stakeInput').value = state.stake;
+                getEl('durationSelect').value = state.duration;
+                getEl('tpInput').value = state.tp;
+                getEl('tpToggle').checked = state.tpOn;
+                getEl('slInput').value = state.sl;
+                getEl('slToggle').checked = state.slOn;
+                sessionProfit = state.sessionPL || 0;
+                getEl('sessionPL').innerText = sessionProfit.toFixed(2);
+                getEl('sessionPL').style.color = sessionProfit >= 0 ? "#00ff41" : "#ff003c";
+                if(state.history) getEl('histList').innerHTML = state.history;
+            } catch(e) {
+                console.warn("Erro ao carregar cache:", e);
+            }
+        }
+    }
 
     function checkAuth() {
         const p = new URLSearchParams(window.location.search);
@@ -286,6 +330,7 @@
 
     function fullLogout() {
         localStorage.removeItem('jarvis_accounts');
+        localStorage.removeItem('jarvis_state_v19'); // Limpa o cache no logout
         location.href = location.pathname;
     }
 
@@ -345,7 +390,6 @@
         ws.onmessage = (msg) => {
             const data = JSON.parse(msg.data);
             
-            // ERROR HANDLING
             if (data.error) {
                 console.error("Deriv Error:", data.error);
                 const btn = getEl('btnDecode');
@@ -369,6 +413,7 @@
             if (data.msg_type === 'candles') {
                 candles = data.candles.map(c => ({ time: c.epoch, open: +c.open, high: +c.high, low: +c.low, close: +c.close }));
                 if(series) series.setData(candles);
+                if(candles.length > 0) lastCandleTime = candles[candles.length-1].time;
             }
             if (data.msg_type === 'proposal') {
                 if (data.proposal.id) ws.send(JSON.stringify({ buy: data.proposal.id, price: data.proposal.ask_price }));
@@ -378,8 +423,19 @@
     }
 
     function updateCandles(candle) {
-        if (candles.length > 0 && candles[candles.length - 1].time === candle.time) candles[candles.length - 1] = candle;
-        else { candles.push(candle); if(candles.length > 300) candles.shift(); }
+        if (candles.length > 0 && candles[candles.length - 1].time === candle.time) {
+            candles[candles.length - 1] = candle;
+        } else { 
+            // NOVA VELA DETECTADA
+            candles.push(candle); 
+            if(candles.length > 300) candles.shift(); 
+            
+            // --- TRUE AUTO TRADER LOOP ---
+            if (getEl('autoTradeToggle').checked && !isProcessing) {
+                console.log("Nova vela detectada. Auto Trader analisando...");
+                runAI();
+            }
+        }
         if(series) series.update(candle);
         const priceEl = getEl('priceTag');
         priceEl.innerText = candle.close;
@@ -401,7 +457,6 @@
         getEl('rsiVal').innerText = rsi.toFixed(1);
     }
 
-    // --- EMA CALCULATION ---
     function calculateEMA(period) {
         if (candles.length < period) return null;
         const k = 2 / (period + 1);
@@ -424,7 +479,6 @@
         }
     }
 
-    // --- ADAPTIVE AI ENGINE ---
     async function runAI() {
         if (isProcessing) return;
         
@@ -442,7 +496,6 @@
         btn.innerHTML = "<span>ANALISANDO...</span>";
         
         try {
-            // 1. Tenta usar LSTM se disponível
             let signal = "NEUTRO";
             let source = "TÉCNICA";
 
@@ -464,7 +517,6 @@
                 }
             }
 
-            // 2. Fallback para Análise Técnica (RSI + Tendência) se LSTM não deu sinal
             if (signal === "NEUTRO") {
                 const last = candles[candles.length-1];
                 const prev = candles[candles.length-2];
@@ -476,20 +528,13 @@
                 else if (last.close < prev.close && rsi < 50 && rsi > 30) signal = "PUT";
             }
 
-            // 3. FILTRO DE TENDÊNCIA (ADAPTIVE AI)
             const ema20 = calculateEMA(20);
             const currentPrice = candles[candles.length-1].close;
             let blocked = false;
 
             if (ema20) {
-                if (signal === "CALL" && currentPrice < ema20) {
-                    signal = "NEUTRO"; // Bloqueia CALL em tendência de baixa
-                    blocked = true;
-                }
-                if (signal === "PUT" && currentPrice > ema20) {
-                    signal = "NEUTRO"; // Bloqueia PUT em tendência de alta
-                    blocked = true;
-                }
+                if (signal === "CALL" && currentPrice < ema20) { signal = "NEUTRO"; blocked = true; }
+                if (signal === "PUT" && currentPrice > ema20) { signal = "NEUTRO"; blocked = true; }
             }
 
             setTimeout(() => {
@@ -553,7 +598,11 @@
 
     function handlePosition(p) {
         if (p.is_sold) {
-            if (positions.has(p.contract_id)) { positions.delete(p.contract_id); addHistory(p); ws.send(JSON.stringify({ balance: 1 })); }
+            if (positions.has(p.contract_id)) { 
+                positions.delete(p.contract_id); 
+                addHistory(p); 
+                ws.send(JSON.stringify({ balance: 1 })); 
+            }
         } else {
             positions.set(p.contract_id, p);
             const profit = Number(p.profit || 0);
@@ -600,6 +649,7 @@
         const h = getEl('histList');
         if(h.innerText.includes("vazio")) h.innerHTML = "";
         h.prepend(div);
+        saveState(); // SALVA O HISTÓRICO
     }
 </script>
 </body>
