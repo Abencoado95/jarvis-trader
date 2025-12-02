@@ -12,7 +12,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
     <script src="https://unpkg.com/lightweight-charts@3.8.0/dist/lightweight-charts.standalone.production.js"></script>
     <style>
-        :root { --neon-cyan: #00f3ff; --neon-red: #ff003c; --neon-green: #00ff41; --glass: rgba(10, 14, 18, 0.95); }
+        :root { --neon-cyan: #00f3ff; --neon-red: #ff003c; --neon-green: #00ff41; --neon-orange: #ff9d00; --glass: rgba(10, 14, 18, 0.95); }
         * { box-sizing: border-box; outline: none; user-select: none; }
         body { background-color: #0d1117; color: white; font-family: 'Rajdhani', sans-serif; margin: 0; height: 100vh; overflow: hidden; display: flex; justify-content: center; align-items: center; background: radial-gradient(circle at 50% 50%, #1a1a1a 0%, #000 100%); }
         
@@ -46,11 +46,22 @@
         .chart-wrapper { height: 45vh; flex-shrink: 0; position: relative; background: #000; border: 1px solid #333; border-radius: 8px; overflow: hidden; box-shadow: inset 0 0 50px rgba(0,0,0,0.8); }
         #tvChart { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
         
-        /* JARVIS ANIMATION - BOOSTED V19 */
-        .jarvis-container { position: absolute; top: 20px; left: 20px; width: 100px; height: 100px; z-index: 20; pointer-events: none; display: flex; justify-content: center; align-items: center; }
-        .jarvis-img { width: 80px; height: 80px; object-fit: cover; border-radius: 50%; border: 2px solid rgba(0,243,255,0.5); position: relative; z-index: 22; background: #000; }
-        .energy-fog { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 400px; height: 400px; background: radial-gradient(circle, rgba(0, 243, 255, 0.8) 0%, transparent 70%); opacity: 0; z-index: 21; pointer-events: none; mix-blend-mode: screen; border-radius: 50%; transition: opacity 0.2s; filter: drop-shadow(0 0 20px rgba(0,243,255,0.8)); }
-        .processing .energy-fog { animation: fogPulse 0.8s infinite ease-in-out; opacity: 1; }
+        /* JARVIS ANIMATION - SNIPER V19.2 */
+        .jarvis-container { position: absolute; top: 20px; left: 20px; width: 140px; height: 140px; z-index: 20; pointer-events: none; display: flex; justify-content: center; align-items: center; }
+        
+        .jarvis-img { width: 110px; height: 110px; object-fit: cover; border-radius: 50%; position: relative; z-index: 22; background: #000; border: 2px solid rgba(0,243,255,0.3); }
+        
+        /* NEON RING */
+        .neon-ring { position: absolute; width: 130px; height: 130px; border-radius: 50%; border: 2px dashed var(--neon-cyan); border-top-color: transparent; border-bottom-color: transparent; z-index: 21; animation: spinSlow 10s linear infinite; box-shadow: 0 0 15px rgba(0,243,255,0.2); }
+        
+        .energy-fog { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 400px; height: 400px; background: radial-gradient(circle, rgba(0, 243, 255, 0.8) 0%, transparent 70%); opacity: 0; z-index: 20; pointer-events: none; mix-blend-mode: screen; border-radius: 50%; transition: opacity 0.2s; filter: drop-shadow(0 0 20px rgba(0,243,255,0.8)); }
+        
+        /* PROCESSING STATE */
+        .processing .neon-ring { border-color: var(--neon-orange); border-top-color: transparent; border-bottom-color: transparent; animation: spinFast 0.5s linear infinite; box-shadow: 0 0 30px var(--neon-orange); }
+        .processing .energy-fog { animation: fogPulse 0.8s infinite ease-in-out; opacity: 1; background: radial-gradient(circle, rgba(255, 157, 0, 0.8) 0%, transparent 70%); }
+        
+        @keyframes spinSlow { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        @keyframes spinFast { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         @keyframes fogPulse { 0% { opacity: 0.6; transform: translate(-50%, -50%) scale(0.9); } 50% { opacity: 1; transform: translate(-50%, -50%) scale(1.2); } 100% { opacity: 0.6; transform: translate(-50%, -50%) scale(0.9); } }
         
         .result-overlay { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0); font-size: 8rem; font-weight: 900; z-index: 30; opacity: 0; transition: all 0.4s; text-shadow: 0 0 50px currentColor; pointer-events: none; }
@@ -83,7 +94,7 @@
         <div class="login-content">
             <div class="brand-logo" style="font-size: 3rem; margin-bottom: 20px;">JARVIS TRADER</div>
             <button class="login-btn" onclick="connectDeriv()">INICIAR SISTEMA</button>
-            <div style="margin-top: 20px; font-size: 0.8rem; color: #666;">V19.1 - REFINED MODE</div>
+            <div style="margin-top: 20px; font-size: 0.8rem; color: #666;">V19.2 - SNIPER PROTOCOL</div>
         </div>
     </div>
 
@@ -144,8 +155,8 @@
                 <div id="tvChart"></div>
                 <div class="jarvis-container" id="jarvisAnim">
                     <div class="energy-fog"></div>
-                    <!-- CACHE BUSTER ADDED -->
-                    <img src="jarvis.gif?v=19.1" class="jarvis-img" onerror="this.style.display='none'">
+                    <div class="neon-ring"></div>
+                    <img src="jarvis.gif?v=19.2" class="jarvis-img" onerror="this.style.display='none'">
                 </div>
                 <div class="live-price" id="priceTag">--.--</div>
                 <div class="result-overlay" id="resultBig">CALL</div>
@@ -202,7 +213,7 @@
     window.onerror = function(msg, url, line) {
         if(localStorage.getItem('crash_loop_guard')) return;
         localStorage.setItem('crash_loop_guard', 'true');
-        alert("RECUPERAÇÃO DE FALHA V19.1:\\n" + msg);
+        alert("RECUPERAÇÃO DE FALHA V19.2:\\n" + msg);
         localStorage.removeItem('jarvis_accounts');
         setTimeout(() => {
             localStorage.removeItem('crash_loop_guard');
@@ -231,7 +242,7 @@
 
     // BOOT SEGURO
     window.addEventListener('DOMContentLoaded', () => {
-        console.log("DOM Loaded. Iniciando Jarvis V19.1...");
+        console.log("DOM Loaded. Iniciando Jarvis V19.2...");
         try {
             checkAuth();
             loadState(); // CARREGA O CACHE
@@ -468,6 +479,19 @@
         return ema;
     }
 
+    function calculateBB(period, stdDev) {
+        if (candles.length < period) return null;
+        const slice = candles.slice(-period).map(c => c.close);
+        const mean = slice.reduce((a,b) => a+b) / period;
+        const variance = slice.reduce((a,b) => a + Math.pow(b - mean, 2), 0) / period;
+        const std = Math.sqrt(variance);
+        return {
+            upper: mean + (std * stdDev),
+            lower: mean - (std * stdDev),
+            middle: mean
+        };
+    }
+
     async function loadAI() {
         console.log("Carregando IA...");
         try {
@@ -494,7 +518,7 @@
         
         isProcessing = true;
         getEl('jarvisAnim').classList.add('processing'); 
-        btn.innerHTML = "<span>ANALISANDO...</span>";
+        btn.innerHTML = "<span>CALIBRANDO MIRA...</span>";
         
         try {
             let signal = "NEUTRO";
@@ -529,32 +553,42 @@
                 else if (last.close < prev.close && rsi < 50 && rsi > 30) signal = "PUT";
             }
 
-            // --- ENHANCED TREND FILTER (EMA + RSI) ---
+            // --- SNIPER PROTOCOL V19.2 (MULTI-FACTOR FILTER) ---
             const ema20 = calculateEMA(20);
             const rsi = parseFloat(getEl('rsiVal').innerText);
             const currentPrice = candles[candles.length-1].close;
+            const lastCandle = candles[candles.length-1];
+            const isGreen = lastCandle.close > lastCandle.open;
+            const isRed = lastCandle.close < lastCandle.open;
+            
             let blocked = false;
+            let reason = "";
 
             if (ema20) {
-                // CALL: Preço deve estar ACIMA da EMA e RSI NÃO pode estar sobrecomprado (>70)
+                // CALL SNIPER RULES:
+                // 1. Trend: Price > EMA
+                // 2. RSI: Not Overbought (>70)
+                // 3. Candle Color: MUST BE GREEN (Momentum)
                 if (signal === "CALL") {
-                    if (currentPrice < ema20 || rsi > 70) {
-                        signal = "NEUTRO"; 
-                        blocked = true;
-                    }
+                    if (currentPrice < ema20) { blocked = true; reason = "CONTRA TENDÊNCIA"; }
+                    else if (rsi > 70) { blocked = true; reason = "RSI ESTICADO"; }
+                    else if (!isGreen) { blocked = true; reason = "SEM FORÇA COMPRADORA"; }
                 }
-                // PUT: Preço deve estar ABAIXO da EMA e RSI NÃO pode estar sobrevendido (<30)
+
+                // PUT SNIPER RULES:
+                // 1. Trend: Price < EMA
+                // 2. RSI: Not Oversold (<30)
+                // 3. Candle Color: MUST BE RED (Momentum)
                 if (signal === "PUT") {
-                    if (currentPrice > ema20 || rsi < 30) {
-                        signal = "NEUTRO"; 
-                        blocked = true;
-                    }
+                    if (currentPrice > ema20) { blocked = true; reason = "CONTRA TENDÊNCIA"; }
+                    else if (rsi < 30) { blocked = true; reason = "RSI ESTICADO"; }
+                    else if (!isRed) { blocked = true; reason = "SEM FORÇA VENDEDORA"; }
                 }
             }
 
             setTimeout(() => {
                 if (blocked) {
-                     btn.innerHTML = "<span style='color:orange'>FILTRO DE TENDÊNCIA ATIVO</span>";
+                     btn.innerHTML = `<span style='color:orange'>BUSCANDO ALVO...</span><span style='font-size:0.6rem; color:#888'>${reason}</span>`;
                      setTimeout(() => btn.innerHTML = originalContent, 2000);
                 } else {
                     showResult(signal);
