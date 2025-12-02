@@ -27,6 +27,8 @@
         .sidebar-left { border-right: 1px solid rgba(255,255,255,0.05); } .sidebar-right { border-left: 1px solid rgba(255,255,255,0.05); }
         
         .brand-logo { font-size: 1.8rem; letter-spacing: 4px; color: var(--neon-cyan); border-bottom: 1px solid #333; padding-bottom: 15px; margin-bottom: 10px; font-weight: 900; text-align: center; text-shadow: 0 0 15px rgba(0, 243, 255, 0.6); }
+        .brand-subtitle { font-size: 0.6rem; color: #666; letter-spacing: 2px; text-transform: uppercase; margin-top: -10px; margin-bottom: 15px; text-align: center; font-weight: bold; }
+        
         .config-group { background: rgba(255,255,255,0.03); padding: 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.05); }
         .label-sm { font-size: 0.75rem; color: #888; letter-spacing: 1px; font-weight: bold; margin-bottom: 5px; display: block; }
         input, select { background: #050505; color: #fff; border: 1px solid #333; padding: 8px; border-radius: 4px; font-family: 'Rajdhani'; font-size: 1.1rem; font-weight: bold; width: 100%; text-align: center; }
@@ -41,8 +43,13 @@
         .main-stage { padding: 15px; display: flex; flex-direction: column; gap: 15px; position: relative; width: 100%; background: radial-gradient(circle at center, rgba(0, 243, 255, 0.03) 0%, transparent 70%); }
         .chart-wrapper { flex: 1; position: relative; background: #000; border: 1px solid #333; border-radius: 8px; overflow: hidden; box-shadow: inset 0 0 50px rgba(0,0,0,0.8); }
         #tvChart { width: 100%; height: 100%; }
-        .jarvis-in-chart { position: absolute; top: 15px; left: 15px; width: 80px; height: 80px; z-index: 20; pointer-events: none; display: flex; justify-content: center; align-items: center; }
-        .jarvis-img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; border: 2px solid rgba(0,243,255,0.3); opacity: 0.9; }
+        
+        /* JARVIS ANIMATION */
+        .jarvis-container { position: absolute; top: 20px; left: 20px; width: 100px; height: 100px; z-index: 20; pointer-events: none; display: flex; justify-content: center; align-items: center; }
+        .jarvis-img { width: 80px; height: 80px; object-fit: cover; border-radius: 50%; border: 2px solid rgba(0,243,255,0.5); position: relative; z-index: 22; background: #000; }
+        .energy-fog { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 200%; height: 200%; background: radial-gradient(circle, rgba(0, 243, 255, 0.2) 0%, transparent 70%); opacity: 0; z-index: 21; pointer-events: none; mix-blend-mode: screen; }
+        .processing .energy-fog { animation: fogPulse 2s infinite ease-in-out; }
+        @keyframes fogPulse { 0% { opacity: 0; transform: translate(-50%, -50%) scale(0.5); } 50% { opacity: 0.6; transform: translate(-50%, -50%) scale(1.2); } 100% { opacity: 0; transform: translate(-50%, -50%) scale(1.5); } }
         
         .result-overlay { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0); font-size: 8rem; font-weight: 900; z-index: 30; opacity: 0; transition: all 0.4s; text-shadow: 0 0 50px currentColor; pointer-events: none; }
         .show-res { transform: translate(-50%, -50%) scale(1); opacity: 1; }
@@ -73,13 +80,14 @@
         <div class="login-content">
             <div class="brand-logo" style="font-size: 3rem; margin-bottom: 20px;">JARVIS TRADER</div>
             <button class="login-btn" onclick="connectDeriv()">INICIAR SISTEMA</button>
-            <div style="margin-top: 20px; font-size: 0.8rem; color: #666;">V18.4 - PARANOID MODE</div>
+            <div style="margin-top: 20px; font-size: 0.8rem; color: #666;">V18.5 - PARANOID MODE</div>
         </div>
     </div>
 
     <div class="interface-grid" id="mainUI">
         <div class="sidebar-left">
             <div class="brand-logo">JARVIS <span style="color:#fff">TRADER</span></div>
+            <div class="brand-subtitle">CÓDIGO QUE ESCOLHE INTELIGÊNCIA QUE PROTEGE</div>
             <div id="accBadge" class="account-badge" onclick="switchAccount()">CARREGANDO...</div>
             
             <div class="config-group">
@@ -127,7 +135,8 @@
         <div class="main-stage">
             <div class="chart-wrapper" id="chartContainer">
                 <div id="tvChart"></div>
-                <div class="jarvis-in-chart">
+                <div class="jarvis-container">
+                    <div class="energy-fog"></div>
                     <img src="jarvis.gif" class="jarvis-img" onerror="this.style.display='none'">
                 </div>
                 <div class="live-price" id="priceTag">--.--</div>
@@ -185,7 +194,7 @@
     window.onerror = function(msg, url, line) {
         if(localStorage.getItem('crash_loop_guard')) return;
         localStorage.setItem('crash_loop_guard', 'true');
-        alert("RECUPERAÇÃO DE FALHA V18.4:\\n" + msg);
+        alert("RECUPERAÇÃO DE FALHA V18.5:\\n" + msg);
         localStorage.removeItem('jarvis_accounts');
         setTimeout(() => {
             localStorage.removeItem('crash_loop_guard');
@@ -213,7 +222,7 @@
 
     // BOOT SEGURO
     window.addEventListener('DOMContentLoaded', () => {
-        console.log("DOM Loaded. Iniciando Jarvis V18.4...");
+        console.log("DOM Loaded. Iniciando Jarvis V18.5...");
         try {
             checkAuth();
         } catch(e) {
@@ -402,6 +411,10 @@
         isProcessing = true;
         document.querySelector('.main-stage').classList.add('processing');
         getEl('btnDecode').innerText = "ANALISANDO MERCADO...";
+        
+        // ZOOM NO GRÁFICO
+        if(chart) chart.timeScale().scrollToPosition(0, true);
+
         try {
             const inputData = candles.slice(-60).map(c => c.close);
             const mean = inputData.reduce((a, b) => a + b) / inputData.length;
@@ -409,19 +422,34 @@
             const std = Math.sqrt(variance) || 1;
             const normData = inputData.map(val => (val - mean) / std);
             const tensor = tf.tensor3d([normData], [1, 60, 1]);
+            
             setTimeout(() => {
-                const prediction = model.predict(tensor).dataSync()[0];
-                tensor.dispose();
-                let signal = "NEUTRO";
-                if (prediction > 0.60) signal = "CALL"; 
-                if (prediction < 0.40) signal = "PUT";  
-                showResult(signal);
-                if(signal !== "NEUTRO" && getEl('autoTradeToggle').checked) placeTrade(signal);
-                isProcessing = false;
-                document.querySelector('.main-stage').classList.remove('processing');
-                getEl('btnDecode').innerText = "DECODIFICAR MERCADO";
+                try {
+                    const prediction = model.predict(tensor).dataSync()[0];
+                    tensor.dispose();
+                    let signal = "NEUTRO";
+                    if (prediction > 0.60) signal = "CALL"; 
+                    if (prediction < 0.40) signal = "PUT";  
+                    
+                    showResult(signal);
+                    
+                    if(signal !== "NEUTRO" && getEl('autoTradeToggle').checked) placeTrade(signal);
+                } catch(err) {
+                    console.error("AI Error:", err);
+                    // Fallback para não travar se o modelo falhar
+                    showResult("NEUTRO");
+                } finally {
+                    isProcessing = false;
+                    document.querySelector('.main-stage').classList.remove('processing');
+                    getEl('btnDecode').innerText = "DECODIFICAR MERCADO";
+                }
             }, 2000); 
-        } catch(e) { isProcessing = false; }
+        } catch(e) { 
+            console.error("Prep Error:", e);
+            isProcessing = false; 
+            document.querySelector('.main-stage').classList.remove('processing');
+            getEl('btnDecode').innerText = "DECODIFICAR MERCADO";
+        }
     }
 
     function showResult(text) {
@@ -466,10 +494,7 @@
         positions.forEach(p => {
             const profit = Number(p.profit || 0);
             total += profit;
-            
-            // FIX UNDEFINED
             const cType = p.contract_type ? p.contract_type.toUpperCase() : "ORDEM";
-            
             const div = document.createElement('div');
             div.className = "op-card";
             div.style.borderLeftColor = profit >= 0 ? "#00ff41" : "#ff003c";
