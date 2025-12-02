@@ -63,6 +63,15 @@
     .is-demo { color: #f1c40f; border-color: rgba(241, 196, 15, 0.5); }
     .is-real { color: #2ecc71; border-color: rgba(46, 204, 113, 0.5); }
 </style>
+
+<!-- ELEMENTO QUE FALTAVA -->
+<div id="loginOverlay">
+    <div class="login-content">
+        <div class="brand-logo" style="font-size: 3rem; margin-bottom: 20px;">JARVIS TRADER</div>
+        <button class="login-btn" onclick="connectDeriv()">CONECTAR AO DERIV</button>
+    </div>
+</div>
+
 <div class="interface-grid" id="mainUI">
     <div class="sidebar-left">
         <div class="brand-logo">JARVIS <span style="color:#fff">TRADER</span></div>
@@ -155,9 +164,18 @@
 <script>
     // --- GLOBAL ERROR HANDLER (SALVA A TELA PRETA) ---
     window.onerror = function(msg, url, line) {
+        // Evita loop infinito se o erro for no próprio handler ou reload
+        if(localStorage.getItem('crash_loop_guard')) {
+            console.error("Crash loop detectado. Parando.");
+            return;
+        }
+        localStorage.setItem('crash_loop_guard', 'true');
         alert("ERRO DE SISTEMA DETECTADO:\\n" + msg + "\\n Reiniciando...");
         localStorage.removeItem('jarvis_accounts');
-        location.href = location.pathname; // Reload limpo
+        setTimeout(() => {
+            localStorage.removeItem('crash_loop_guard');
+            location.href = location.pathname; // Reload limpo
+        }, 1000);
         return true;
     };
     const APP_ID = 114062; 
@@ -181,7 +199,8 @@
             checkAuth();
         } catch(e) {
             console.error("Boot Error:", e);
-            document.getElementById('loginOverlay').style.display = 'flex';
+            const overlay = document.getElementById('loginOverlay');
+            if(overlay) overlay.style.display = 'flex';
         }
     };
     function checkAuth() {
