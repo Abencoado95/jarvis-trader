@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TITAN V18 - SNIPER PROTOCOL</title>
+    <title>JARVIS TRADER</title>
+    <link rel="icon" type="image/jpg" href="JARVIS ROSTO.jpg">
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;700;900&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
     <script src="https://unpkg.com/lightweight-charts@3.8.0/dist/lightweight-charts.standalone.production.js"></script>
@@ -171,46 +172,6 @@
     let ws;
     let chart, series;
     let candles = [];
-    let model = null;
-    let isProcessing = false;
-    let availableAccounts = [];
-    let currentToken = "";
-    let positions = new Map();
-    let sessionProfit = 0.0;
-    function checkAuth() {
-        const p = new URLSearchParams(window.location.search);
-        if (p.has('token1')) {
-            let i = 1;
-            let accs = [];
-            while (p.has(`token${i}`)) {
-                const t = p.get(`token${i}`);
-                const a = p.get(`acct${i}`);
-                const c = p.get(`cur${i}`);
-                const type = a.startsWith('V') ? 'DEMO' : 'REAL';
-                accs.push({ token: t, id: a, currency: c, type: type });
-                i++;
-            }
-            localStorage.setItem('jarvis_accounts', JSON.stringify(accs));
-            window.history.replaceState({}, document.title, window.location.pathname);
-            availableAccounts = accs;
-            const demo = accs.find(x => x.type === 'DEMO');
-            currentToken = demo ? demo.token : accs[0].token;
-            initSystem();
-        } else {
-            const saved = localStorage.getItem('jarvis_accounts');
-            if (saved) {
-                availableAccounts = JSON.parse(saved);
-                currentToken = availableAccounts[0].token;
-                initSystem();
-            } else {
-                document.getElementById('loginOverlay').style.display = 'flex';
-            }
-        }
-    }
-    function fullLogout() {
-        localStorage.removeItem('jarvis_accounts');
-        location.reload();
-    }
     function switchAccount() {
         if (!availableAccounts.length) return;
         const currIdx = availableAccounts.findIndex(a => a.token === currentToken);
