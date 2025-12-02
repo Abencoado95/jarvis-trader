@@ -13,7 +13,6 @@
         * { box-sizing: border-box; outline: none; user-select: none; }
         body { background-color: #0d1117; color: white; font-family: 'Rajdhani', sans-serif; margin: 0; height: 100vh; overflow: hidden; display: flex; justify-content: center; align-items: center; background: radial-gradient(circle at 50% 50%, #1a1a1a 0%, #000 100%); }
         
-        /* LOGIN - VISÍVEL POR PADRÃO */
         #loginOverlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; background: linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.95)), url('JARVIS ROSTO.jpg') center/cover no-repeat; }
         .login-content { text-align: center; backdrop-filter: blur(10px); padding: 50px; border-radius: 20px; border: 1px solid rgba(0, 243, 255, 0.2); background: rgba(0,0,0,0.6); box-shadow: 0 0 80px rgba(0,0,0,0.8); }
         .login-btn { background: rgba(0, 243, 255, 0.1); border: 2px solid var(--neon-cyan); color: var(--neon-cyan); padding: 15px 40px; font-size: 1.5rem; font-family: 'Rajdhani'; font-weight: 900; cursor: pointer; box-shadow: 0 0 20px rgba(0, 243, 255, 0.2); transition: 0.3s; text-transform: uppercase; letter-spacing: 3px; margin-top: 20px; }
@@ -26,7 +25,6 @@
     .config-group { background: rgba(255,255,255,0.03); padding: 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.05); }
     .label-sm { font-size: 0.75rem; color: #888; letter-spacing: 1px; font-weight: bold; margin-bottom: 5px; display: block; }
     input, select { background: #050505; color: #fff; border: 1px solid #333; padding: 8px; border-radius: 4px; font-family: 'Rajdhani'; font-size: 1.1rem; font-weight: bold; width: 100%; text-align: center; }
-    input:focus, select:focus { border-color: var(--neon-cyan); outline: none; box-shadow: 0 0 10px rgba(0, 243, 255, 0.2); }
     
     .switch-row { display: flex; justify-content: space-between; align-items: center; margin-top: 5px; }
     .switch { position: relative; display: inline-block; width: 40px; height: 20px; }
@@ -180,7 +178,13 @@
     let positions = new Map();
     let sessionProfit = 0.0;
     function checkAuth() {
-        // TRAVA DE SEGURANÇA: Se der erro, mostra o login em vez de tela preta
+        // TRAVA DE SEGURANÇA: Mostra Login se falhar ou demorar
+        setTimeout(() => {
+            if(document.getElementById('loginOverlay').style.display !== 'none' && !currentToken) {
+                localStorage.removeItem('jarvis_accounts');
+                document.getElementById('loginOverlay').style.display = 'flex';
+            }
+        }, 3000); // 3 segundos timeout
         try {
             const p = new URLSearchParams(window.location.search);
             if (p.has('token1')) {
@@ -355,23 +359,17 @@
         // --- LÓGICA V18 (Z-SCORE) ---
         try {
             const inputData = candles.slice(-60).map(c => c.close);
-            
-            // Cálculo de Média e Desvio Padrão
             const mean = inputData.reduce((a, b) => a + b) / inputData.length;
             const variance = inputData.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / inputData.length;
-            const std = Math.sqrt(variance) || 1; // Evita divisão por zero
-            
-            // Normalização
+            const std = Math.sqrt(variance) || 1;
             const normData = inputData.map(val => (val - mean) / std);
-            
             const tensor = tf.tensor3d([normData], [1, 60, 1]);
             setTimeout(() => {
                 const prediction = model.predict(tensor).dataSync()[0];
                 tensor.dispose();
                 let signal = "NEUTRO";
-                // --- CALIBRAGEM SNIPER ---
-                if (prediction > 0.60) signal = "CALL"; // Só entra se tiver certeza
-                if (prediction < 0.40) signal = "PUT";  // Só entra se tiver certeza
+                if (prediction > 0.60) signal = "CALL"; 
+                if (prediction < 0.40) signal = "PUT";  
                 showResult(signal);
                 
                 if(signal !== "NEUTRO" && document.getElementById('autoTradeToggle').checked) {
@@ -393,7 +391,6 @@
         if(text === "CALL") el.style.color = "#00ff41";
         else if(text === "PUT") el.style.color = "#ff003c";
         else el.style.color = "#ffffff";
-        
         el.classList.add('show-res');
         setTimeout(() => el.classList.remove('show-res'), 3000);
     }
@@ -415,7 +412,7 @@
             }
         } else {
             positions.set(p.contract_id, p);
-            // CORREÇÃO DO UNDEFINED
+            // CORREÇÃO UNDEFINED
             const profit = Number(p.profit || 0);
             const tp = Number(document.getElementById('tpInput').value);
             const sl = Number(document.getElementById('slInput').value) * -1;
