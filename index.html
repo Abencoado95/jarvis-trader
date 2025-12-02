@@ -44,12 +44,12 @@
         .chart-wrapper { flex: 1; position: relative; background: #000; border: 1px solid #333; border-radius: 8px; overflow: hidden; box-shadow: inset 0 0 50px rgba(0,0,0,0.8); min-height: 400px; }
         #tvChart { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
         
-        /* JARVIS ANIMATION */
+        /* JARVIS ANIMATION - BOOSTED */
         .jarvis-container { position: absolute; top: 20px; left: 20px; width: 100px; height: 100px; z-index: 20; pointer-events: none; display: flex; justify-content: center; align-items: center; }
         .jarvis-img { width: 80px; height: 80px; object-fit: cover; border-radius: 50%; border: 2px solid rgba(0,243,255,0.5); position: relative; z-index: 22; background: #000; }
-        .energy-fog { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 300px; height: 300px; background: radial-gradient(circle, rgba(0, 243, 255, 0.4) 0%, transparent 70%); opacity: 0; z-index: 21; pointer-events: none; mix-blend-mode: screen; border-radius: 50%; }
-        .processing .energy-fog { animation: fogPulse 1.5s infinite ease-in-out; }
-        @keyframes fogPulse { 0% { opacity: 0.2; transform: translate(-50%, -50%) scale(0.8); } 50% { opacity: 0.8; transform: translate(-50%, -50%) scale(1.2); } 100% { opacity: 0; transform: translate(-50%, -50%) scale(1.5); } }
+        .energy-fog { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 350px; height: 350px; background: radial-gradient(circle, rgba(0, 243, 255, 0.6) 0%, transparent 70%); opacity: 0; z-index: 21; pointer-events: none; mix-blend-mode: screen; border-radius: 50%; transition: opacity 0.3s; }
+        .processing .energy-fog { animation: fogPulse 1s infinite ease-in-out; opacity: 1; }
+        @keyframes fogPulse { 0% { opacity: 0.4; transform: translate(-50%, -50%) scale(0.8); } 50% { opacity: 0.9; transform: translate(-50%, -50%) scale(1.1); } 100% { opacity: 0.4; transform: translate(-50%, -50%) scale(0.8); } }
         
         .result-overlay { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0); font-size: 8rem; font-weight: 900; z-index: 30; opacity: 0; transition: all 0.4s; text-shadow: 0 0 50px currentColor; pointer-events: none; }
         .show-res { transform: translate(-50%, -50%) scale(1); opacity: 1; }
@@ -80,7 +80,7 @@
         <div class="login-content">
             <div class="brand-logo" style="font-size: 3rem; margin-bottom: 20px;">JARVIS TRADER</div>
             <button class="login-btn" onclick="connectDeriv()">INICIAR SISTEMA</button>
-            <div style="margin-top: 20px; font-size: 0.8rem; color: #666;">V18.6 - PARANOID MODE</div>
+            <div style="margin-top: 20px; font-size: 0.8rem; color: #666;">V18.7 - HYBRID MODE</div>
         </div>
     </div>
 
@@ -194,7 +194,7 @@
     window.onerror = function(msg, url, line) {
         if(localStorage.getItem('crash_loop_guard')) return;
         localStorage.setItem('crash_loop_guard', 'true');
-        alert("RECUPERAÇÃO DE FALHA V18.6:\\n" + msg);
+        alert("RECUPERAÇÃO DE FALHA V18.7:\\n" + msg);
         localStorage.removeItem('jarvis_accounts');
         setTimeout(() => {
             localStorage.removeItem('crash_loop_guard');
@@ -222,7 +222,7 @@
 
     // BOOT SEGURO
     window.addEventListener('DOMContentLoaded', () => {
-        console.log("DOM Loaded. Iniciando Jarvis V18.6...");
+        console.log("DOM Loaded. Iniciando Jarvis V18.7...");
         try {
             checkAuth();
         } catch(e) {
@@ -274,7 +274,6 @@
     function initSystem() {
         getEl('loginOverlay').style.display = 'none';
         getEl('mainUI').style.display = 'grid';
-        // Pequeno delay para garantir renderização do grid antes do chart
         setTimeout(() => {
             initChart();
             loadAI();
@@ -317,12 +316,9 @@
     function initChart() {
         const el = getEl('tvChart');
         const container = getEl('chartContainer');
-        
-        // Força dimensões se estiver zerado
         if (container.clientHeight === 0) {
             container.style.height = '400px';
         }
-
         el.innerHTML = '';
         chart = LightweightCharts.createChart(el, {
             width: container.clientWidth, 
@@ -335,8 +331,6 @@
             upColor: '#00ff41', downColor: '#ff003c', 
             borderVisible: false, wickUpColor: '#00ff41', wickDownColor: '#ff003c'
         });
-        
-        // Resize observer para garantir responsividade
         new ResizeObserver(entries => {
             if (entries.length === 0 || !entries[0].contentRect) return;
             const { width, height } = entries[0].contentRect;
@@ -396,9 +390,6 @@
     }
 
     async function loadAI() {
-        const status = getEl('aiStatus'); // Esse elemento foi removido do botão, mas a função ainda tenta acessar?
-        // Não, o texto agora está hardcoded no botão. Vamos ignorar atualização de texto de status por enquanto ou criar um elemento oculto se necessário.
-        // Na verdade, o botão tem "JARVIS ONLINE" fixo. Vamos apenas logar.
         console.log("Carregando IA...");
         try {
             model = await tf.loadLayersModel('brain/titan.json');
@@ -410,55 +401,78 @@
         }
     }
 
+    // --- HYBRID INTELLIGENCE ENGINE ---
     async function runAI() {
-        if (!model || isProcessing) return;
+        if (isProcessing) return;
         
         const btn = getEl('btnDecode');
         const originalContent = btn.innerHTML;
 
-        if (candles.length < 60) { 
+        if (candles.length < 30) { 
             btn.innerHTML = "<span>AGUARDANDO DADOS...</span>";
             setTimeout(() => btn.innerHTML = originalContent, 1500);
             return; 
         }
         
         isProcessing = true;
-        getEl('jarvisAnim').classList.add('processing'); // Ativa animação no container do Jarvis
+        getEl('jarvisAnim').classList.add('processing'); 
         btn.innerHTML = "<span>ANALISANDO...</span>";
         
-        // ZOOM NO GRÁFICO
         if(chart) chart.timeScale().scrollToPosition(0, true);
 
         try {
-            const inputData = candles.slice(-60).map(c => c.close);
-            const mean = inputData.reduce((a, b) => a + b) / inputData.length;
-            const variance = inputData.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / inputData.length;
-            const std = Math.sqrt(variance) || 1;
-            const normData = inputData.map(val => (val - mean) / std);
-            const tensor = tf.tensor3d([normData], [1, 60, 1]);
-            
-            setTimeout(() => {
+            // 1. Tenta usar LSTM se disponível
+            let signal = "NEUTRO";
+            let source = "TÉCNICA";
+
+            if (model && candles.length >= 60) {
                 try {
+                    const inputData = candles.slice(-60).map(c => c.close);
+                    const mean = inputData.reduce((a, b) => a + b) / inputData.length;
+                    const variance = inputData.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / inputData.length;
+                    const std = Math.sqrt(variance) || 1;
+                    const normData = inputData.map(val => (val - mean) / std);
+                    const tensor = tf.tensor3d([normData], [1, 60, 1]);
                     const prediction = model.predict(tensor).dataSync()[0];
                     tensor.dispose();
-                    let signal = "NEUTRO";
-                    if (prediction > 0.60) signal = "CALL"; 
-                    if (prediction < 0.40) signal = "PUT";  
                     
-                    showResult(signal);
-                    
-                    if(signal !== "NEUTRO" && getEl('autoTradeToggle').checked) placeTrade(signal);
-                } catch(err) {
-                    console.error("AI Error:", err);
-                    showResult("NEUTRO");
-                } finally {
-                    isProcessing = false;
-                    getEl('jarvisAnim').classList.remove('processing');
-                    btn.innerHTML = originalContent;
+                    if (prediction > 0.60) { signal = "CALL"; source = "IA LSTM"; }
+                    else if (prediction < 0.40) { signal = "PUT"; source = "IA LSTM"; }
+                } catch(e) {
+                    console.warn("LSTM falhou, usando fallback técnico.");
                 }
+            }
+
+            // 2. Fallback para Análise Técnica (RSI + Tendência) se LSTM não deu sinal
+            if (signal === "NEUTRO") {
+                const last = candles[candles.length-1];
+                const prev = candles[candles.length-2];
+                const rsi = parseFloat(getEl('rsiVal').innerText);
+                
+                // Estratégia de Reversão Simples
+                if (rsi < 30 && last.close > last.open) signal = "CALL"; // Sobrevenda + Candle Verde
+                else if (rsi > 70 && last.close < last.open) signal = "PUT"; // Sobrecompra + Candle Vermelho
+                // Estratégia de Tendência
+                else if (last.close > prev.close && rsi > 50 && rsi < 70) signal = "CALL";
+                else if (last.close < prev.close && rsi < 50 && rsi > 30) signal = "PUT";
+            }
+
+            setTimeout(() => {
+                showResult(signal);
+                
+                // AUTO TRADER TRIGGER
+                if(signal !== "NEUTRO" && getEl('autoTradeToggle').checked) {
+                    console.log(`Auto Trader Triggered: ${signal} via ${source}`);
+                    placeTrade(signal);
+                }
+
+                isProcessing = false;
+                getEl('jarvisAnim').classList.remove('processing');
+                btn.innerHTML = originalContent;
             }, 2000); 
+
         } catch(e) { 
-            console.error("Prep Error:", e);
+            console.error("Critical Analysis Error:", e);
             isProcessing = false; 
             getEl('jarvisAnim').classList.remove('processing');
             btn.innerHTML = originalContent;
@@ -476,7 +490,25 @@
     function placeTrade(direction) {
         const stake = getEl('stakeInput').value;
         const duration = getEl('durationSelect').value;
-        ws.send(JSON.stringify({ proposal: 1, amount: stake, basis: 'stake', contract_type: direction, currency: availableAccounts.find(a=>a.token===currentToken).currency, duration: duration, duration_unit: 'm', symbol: SYMBOL }));
+        const acc = availableAccounts.find(a=>a.token===currentToken);
+        if(!acc) return;
+        
+        // Feedback visual de ordem enviada
+        const btn = direction === 'CALL' ? getEl('btnCall') : getEl('btnPut');
+        const originalColor = btn.style.background;
+        btn.style.filter = "brightness(1.5)";
+        setTimeout(() => btn.style.filter = "none", 500);
+
+        ws.send(JSON.stringify({ 
+            proposal: 1, 
+            amount: stake, 
+            basis: 'stake', 
+            contract_type: direction, 
+            currency: acc.currency, 
+            duration: duration, 
+            duration_unit: 'm', 
+            symbol: SYMBOL 
+        }));
     }
 
     function handlePosition(p) {
