@@ -13,6 +13,7 @@
         * { box-sizing: border-box; outline: none; user-select: none; }
         body { background-color: #0d1117; color: white; font-family: 'Rajdhani', sans-serif; margin: 0; height: 100vh; overflow: hidden; display: flex; justify-content: center; align-items: center; background: radial-gradient(circle at 50% 50%, #1a1a1a 0%, #000 100%); }
         
+        /* LOGIN - VISÍVEL POR PADRÃO */
         #loginOverlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; background: linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.95)), url('JARVIS ROSTO.jpg') center/cover no-repeat; }
         .login-content { text-align: center; backdrop-filter: blur(10px); padding: 50px; border-radius: 20px; border: 1px solid rgba(0, 243, 255, 0.2); background: rgba(0,0,0,0.6); box-shadow: 0 0 80px rgba(0,0,0,0.8); }
         .login-btn { background: rgba(0, 243, 255, 0.1); border: 2px solid var(--neon-cyan); color: var(--neon-cyan); padding: 15px 40px; font-size: 1.5rem; font-family: 'Rajdhani'; font-weight: 900; cursor: pointer; box-shadow: 0 0 20px rgba(0, 243, 255, 0.2); transition: 0.3s; text-transform: uppercase; letter-spacing: 3px; margin-top: 20px; }
@@ -26,6 +27,7 @@
     .label-sm { font-size: 0.75rem; color: #888; letter-spacing: 1px; font-weight: bold; margin-bottom: 5px; display: block; }
     input, select { background: #050505; color: #fff; border: 1px solid #333; padding: 8px; border-radius: 4px; font-family: 'Rajdhani'; font-size: 1.1rem; font-weight: bold; width: 100%; text-align: center; }
     input:focus, select:focus { border-color: var(--neon-cyan); outline: none; box-shadow: 0 0 10px rgba(0, 243, 255, 0.2); }
+    
     .switch-row { display: flex; justify-content: space-between; align-items: center; margin-top: 5px; }
     .switch { position: relative; display: inline-block; width: 40px; height: 20px; }
     .switch input { opacity: 0; width: 0; height: 0; }
@@ -36,7 +38,6 @@
     .main-stage { padding: 15px; display: flex; flex-direction: column; gap: 15px; position: relative; width: 100%; background: radial-gradient(circle at center, rgba(0, 243, 255, 0.03) 0%, transparent 70%); }
     .chart-wrapper { flex: 1; position: relative; background: #000; border: 1px solid #333; border-radius: 8px; overflow: hidden; box-shadow: inset 0 0 50px rgba(0,0,0,0.8); }
     #tvChart { width: 100%; height: 100%; }
-    /* VISUAL: HOLOGRAPHIC SCANNER */
     .jarvis-in-chart { position: absolute; top: 15px; left: 15px; width: 80px; height: 80px; z-index: 20; pointer-events: none; display: flex; justify-content: center; align-items: center; }
     .jarvis-img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; border: 2px solid rgba(0,243,255,0.3); opacity: 0.9; }
     .scanner-bar {
@@ -172,6 +173,57 @@
     let ws;
     let chart, series;
     let candles = [];
+    let model = null;
+    let isProcessing = false;
+    let availableAccounts = [];
+    let currentToken = "";
+    let positions = new Map();
+    let sessionProfit = 0.0;
+    function checkAuth() {
+        // TRAVA DE SEGURANÇA: Se der erro, mostra o login em vez de tela preta
+        try {
+            const p = new URLSearchParams(window.location.search);
+            if (p.has('token1')) {
+                let i = 1;
+                let accs = [];
+                while (p.has(`token${i}`)) {
+                    const t = p.get(`token${i}`);
+                    const a = p.get(`acct${i}`);
+                    const c = p.get(`cur${i}`);
+                    const type = a.startsWith('V') ? 'DEMO' : 'REAL';
+                    accs.push({ token: t, id: a, currency: c, type: type });
+                    i++;
+                }
+                localStorage.setItem('jarvis_accounts', JSON.stringify(accs));
+                window.history.replaceState({}, document.title, window.location.pathname);
+                availableAccounts = accs;
+                const demo = accs.find(x => x.type === 'DEMO');
+                currentToken = demo ? demo.token : accs[0].token;
+                initSystem();
+            } else {
+                const saved = localStorage.getItem('jarvis_accounts');
+                if (saved) {
+                    availableAccounts = JSON.parse(saved);
+                    if (availableAccounts && availableAccounts.length > 0) {
+                        currentToken = availableAccounts[0].token;
+                        initSystem();
+                    } else {
+                        throw new Error("Cache inválido");
+                    }
+                } else {
+                    document.getElementById('loginOverlay').style.display = 'flex';
+                }
+            }
+        } catch(e) {
+            console.warn("Erro de login recuperado:", e);
+            localStorage.removeItem('jarvis_accounts');
+            document.getElementById('loginOverlay').style.display = 'flex';
+        }
+    }
+    function fullLogout() {
+        localStorage.removeItem('jarvis_accounts');
+        location.reload();
+    }
     function switchAccount() {
         if (!availableAccounts.length) return;
         const currIdx = availableAccounts.findIndex(a => a.token === currentToken);
@@ -328,7 +380,7 @@
                 isProcessing = false;
                 document.querySelector('.main-stage').classList.remove('processing');
                 document.getElementById('btnDecode').innerText = "DECODIFICAR PADRÃO DE MERCADO";
-            }, 2000); // Animação Holográfica dura 2s
+            }, 2000); 
         } catch(e) {
             console.error(e);
             isProcessing = false;
@@ -363,7 +415,8 @@
             }
         } else {
             positions.set(p.contract_id, p);
-            const profit = Number(p.profit);
+            // CORREÇÃO DO UNDEFINED
+            const profit = Number(p.profit || 0);
             const tp = Number(document.getElementById('tpInput').value);
             const sl = Number(document.getElementById('slInput').value) * -1;
             const useTP = document.getElementById('tpToggle').checked;
@@ -385,7 +438,7 @@
             list.innerHTML = '<div style="text-align:center; color:#555; padding:20px; font-style:italic;">Nenhuma operação ativa.</div>';
         }
         positions.forEach(p => {
-            const profit = Number(p.profit);
+            const profit = Number(p.profit || 0);
             total += profit;
             const div = document.createElement('div');
             div.className = "op-card";
@@ -402,7 +455,7 @@
         plEl.style.color = total >= 0 ? "#00ff41" : "#ff003c";
     }
     function addHistory(p) {
-        const profit = Number(p.profit);
+        const profit = Number(p.profit || 0);
         sessionProfit += profit;
         const plEl = document.getElementById('sessionPL');
         plEl.innerText = (sessionProfit > 0 ? "+" : "") + sessionProfit.toFixed(2);
@@ -417,6 +470,8 @@
         if(hList.children[0] && hList.children[0].innerText.includes("vazio")) hList.innerHTML = "";
         hList.prepend(div);
     }
+    
+    checkAuth();
 </script>
 </body>
 </html>
