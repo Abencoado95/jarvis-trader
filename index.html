@@ -301,6 +301,11 @@
         // --- CONFIGURAÇÃO ---
         const APP_ID = 114062; // ID CORRIGIDO
         const SYMBOL = "1HZ100V";
+
+        // FUNÇÃO DE CONEXÃO GLOBAL (Garantido que funciona)
+        window.connectDeriv = function() {
+            window.location.href = `https://oauth.deriv.com/oauth2/authorize?app_id=${APP_ID}&l=pt&brand=deriv`;
+        }
         
         // --- ESTADO GLOBAL ---
         let ws;
