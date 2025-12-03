@@ -6,7 +6,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
-    <title>JARVIS COMMAND CENTER V20.4</title>
+    <title>JARVIS COMMAND CENTER V20.5</title>
     <link rel="icon" type="image/jpeg" href="JARVIS ROSTO.jpg">
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700;800;900&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
@@ -327,8 +327,8 @@
 
     <div id="loginOverlay">
         <div class="login-content">
-            <div class="brand-logo" style="font-size: 3.5rem; margin-bottom: 30px;">JARVIS V20.4</div>
-            <div style="color:#8899a6; letter-spacing:2px; margin-bottom:30px;">COMMAND CENTER // MOMENTUM SCALPER</div>
+            <div class="brand-logo" style="font-size: 3.5rem; margin-bottom: 30px;">JARVIS V20.5</div>
+            <div style="color:#8899a6; letter-spacing:2px; margin-bottom:30px;">COMMAND CENTER // SMART MOMENTUM</div>
             <button class="login-btn" onclick="connectDeriv()">INICIAR SISTEMA</button>
         </div>
     </div>
@@ -450,7 +450,7 @@
     window.onerror = function(msg, url, line) {
         if(localStorage.getItem('crash_loop_guard')) return;
         localStorage.setItem('crash_loop_guard', 'true');
-        alert("RECUPERAÇÃO DE FALHA V20.4:\\n" + msg);
+        alert("RECUPERAÇÃO DE FALHA V20.5:\\n" + msg);
         localStorage.removeItem('jarvis_accounts');
         setTimeout(() => {
             localStorage.removeItem('crash_loop_guard');
@@ -481,7 +481,7 @@
 
     // BOOT
     window.addEventListener('DOMContentLoaded', () => {
-        console.log("DOM Loaded. Iniciando Jarvis V20.4 Command Center...");
+        console.log("DOM Loaded. Iniciando Jarvis V20.5 Command Center...");
         try {
             checkAuth();
             loadState(); 
@@ -780,18 +780,22 @@
                 } catch(e) { console.warn("AI Fallback"); }
             }
 
-            // --- V20.4 MOMENTUM SCALPER (EMA 9) ---
-            // If AI is Neutral, we use Trend Following to force trades
+            // --- V20.5 SMART MOMENTUM (EMA 9 + CANDLE COLOR + RSI) ---
             if (signal === "NEUTRO") {
                 const ema9 = calculateEMA(9);
                 const currentPrice = candles[candles.length-1].close;
+                const openPrice = candles[candles.length-1].open;
                 const rsi = parseFloat(getEl('rsiVal').innerText);
                 
                 if (ema9) {
-                    // Trend Following: Price > EMA9 = CALL, Price < EMA9 = PUT
-                    // Safety: Don't buy if RSI > 70, Don't sell if RSI < 30
-                    if (currentPrice > ema9 && rsi < 70) signal = "CALL";
-                    else if (currentPrice < ema9 && rsi > 30) signal = "PUT";
+                    const isGreen = currentPrice > openPrice;
+                    const isRed = currentPrice < openPrice;
+                    
+                    // CALL: Price > EMA + GREEN Candle + RSI < 65 (Not Overbought)
+                    if (currentPrice > ema9 && isGreen && rsi < 65) signal = "CALL";
+                    
+                    // PUT: Price < EMA + RED Candle + RSI > 35 (Not Oversold)
+                    else if (currentPrice < ema9 && isRed && rsi > 35) signal = "PUT";
                 }
             }
 
@@ -802,7 +806,6 @@
             else jarvisContainer.classList.add('sentiment-neutral');
 
             setTimeout(() => {
-                // V20.4: NO MORE "NEUTRO" TEXT
                 if (signal !== "NEUTRO") {
                     showResult(signal);
                     if(getEl('autoTradeToggle').checked) {
@@ -817,7 +820,6 @@
                          resetBtn();
                     }
                 } else {
-                    // If still neutral (rare with Momentum Scalper), just reset silently
                     resetBtn();
                 }
                 isProcessing = false;
@@ -833,7 +835,7 @@
         function resetBtn() {
             btn.style.borderColor = ""; 
             btn.style.boxShadow = "";
-            sub.innerText = "SISTEMA ONLINE"; // Reset to default text
+            sub.innerText = "SISTEMA ONLINE"; 
             sub.style.color = "var(--cyber-green)";
         }
     }
