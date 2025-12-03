@@ -6,108 +6,323 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
-    <title>JARVIS TRADER</title>
+    <title>JARVIS COMMAND CENTER V20</title>
     <link rel="icon" type="image/jpeg" href="JARVIS ROSTO.jpg">
-    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;700;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700;800;900&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
     <script src="https://unpkg.com/lightweight-charts@3.8.0/dist/lightweight-charts.standalone.production.js"></script>
     <style>
-        :root { --neon-cyan: #00f3ff; --neon-red: #ff003c; --neon-green: #00ff41; --neon-orange: #ff9d00; --neon-purple: #b026ff; --glass: rgba(10, 14, 18, 0.95); }
+        :root { 
+            --cyber-dark: #050a14;
+            --cyber-navy: #0b1221;
+            --cyber-blue: #00f3ff;
+            --cyber-gold: #ffd700;
+            --cyber-red: #ff003c;
+            --cyber-green: #00ff41;
+            --glass-panel: rgba(11, 18, 33, 0.85);
+            --glass-border: 1px solid rgba(0, 243, 255, 0.15);
+            --neon-glow: 0 0 10px rgba(0, 243, 255, 0.3);
+        }
+        
         * { box-sizing: border-box; outline: none; user-select: none; }
-        body { background-color: #0d1117; color: white; font-family: 'Rajdhani', sans-serif; margin: 0; height: 100vh; overflow: hidden; display: flex; justify-content: center; align-items: center; background: radial-gradient(circle at 50% 50%, #1a1a1a 0%, #000 100%); }
         
-        /* LOGIN */
-        #loginOverlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; background: linear-gradient(rgba(0,0,0,0.8), rgba(0,0,0,0.95)), url('JARVIS ROSTO.jpg') center/cover no-repeat; }
-        .login-content { text-align: center; backdrop-filter: blur(10px); padding: 50px; border-radius: 20px; border: 1px solid rgba(0, 243, 255, 0.2); background: rgba(0,0,0,0.7); box-shadow: 0 0 100px rgba(0,0,0,0.9); }
-        .login-btn { background: rgba(0, 243, 255, 0.1); border: 2px solid var(--neon-cyan); color: var(--neon-cyan); padding: 15px 40px; font-size: 1.5rem; font-family: 'Rajdhani'; font-weight: 900; cursor: pointer; box-shadow: 0 0 20px rgba(0, 243, 255, 0.2); transition: 0.3s; text-transform: uppercase; letter-spacing: 3px; margin-top: 20px; }
-        .login-btn:hover { background: var(--neon-cyan); color: #000; box-shadow: 0 0 50px var(--neon-cyan); }
+        body { 
+            background: radial-gradient(circle at 50% 50%, #0b1629 0%, #020408 100%);
+            color: #e0e6ed; 
+            font-family: 'Rajdhani', sans-serif; 
+            margin: 0; 
+            height: 100vh; 
+            overflow: hidden; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+        }
         
-        .interface-grid { display: none; grid-template-columns: 260px 1fr 280px; width: 98%; max-width: 1800px; height: 96vh; background: var(--glass); border: 1px solid rgba(0, 243, 255, 0.2); border-radius: 12px; position: relative; overflow: hidden; backdrop-filter: blur(15px); box-shadow: 0 0 100px rgba(0,0,0,0.5); }
-        .sidebar-left, .sidebar-right { padding: 20px; display: flex; flex-direction: column; gap: 15px; z-index: 10; background: rgba(0,0,0,0.3); }
-        .sidebar-left { border-right: 1px solid rgba(255,255,255,0.05); } .sidebar-right { border-left: 1px solid rgba(255,255,255,0.05); }
+        /* LOGIN OVERLAY */
+        #loginOverlay { 
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 9999; 
+            display: flex; flex-direction: column; justify-content: center; align-items: center; 
+            background: rgba(5, 10, 20, 0.95);
+            backdrop-filter: blur(20px);
+        }
         
-        .brand-logo { font-size: 1.8rem; letter-spacing: 4px; color: var(--neon-cyan); border-bottom: 1px solid #333; padding-bottom: 15px; margin-bottom: 10px; font-weight: 900; text-align: center; text-shadow: 0 0 15px rgba(0, 243, 255, 0.6); }
-        .brand-subtitle { font-size: 0.65rem; color: var(--neon-cyan); letter-spacing: 1px; text-transform: uppercase; margin-top: -10px; margin-bottom: 15px; text-align: center; font-weight: bold; text-shadow: 0 0 8px rgba(0, 243, 255, 0.8); }
+        .login-content { 
+            text-align: center; 
+            padding: 60px; 
+            border-radius: 4px; 
+            border: 1px solid var(--cyber-blue); 
+            background: rgba(0,0,0,0.6); 
+            box-shadow: 0 0 50px rgba(0, 243, 255, 0.1); 
+            position: relative;
+        }
         
-        .config-group { background: rgba(255,255,255,0.03); padding: 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.05); }
-        .label-sm { font-size: 0.75rem; color: #888; letter-spacing: 1px; font-weight: bold; margin-bottom: 5px; display: block; }
-        input, select { background: #050505; color: #fff; border: 1px solid #333; padding: 8px; border-radius: 4px; font-family: 'Rajdhani'; font-size: 1.1rem; font-weight: bold; width: 100%; text-align: center; }
+        .login-content::before {
+            content: ''; position: absolute; top: -2px; left: -2px; right: -2px; bottom: -2px;
+            background: linear-gradient(45deg, var(--cyber-blue), transparent, var(--cyber-blue));
+            z-index: -1; opacity: 0.3;
+        }
+
+        .login-btn { 
+            background: transparent; 
+            border: 2px solid var(--cyber-blue); 
+            color: var(--cyber-blue); 
+            padding: 15px 50px; 
+            font-size: 1.5rem; 
+            font-family: 'Rajdhani'; 
+            font-weight: 800; 
+            cursor: pointer; 
+            transition: 0.3s; 
+            text-transform: uppercase; 
+            letter-spacing: 4px; 
+            margin-top: 30px; 
+            position: relative;
+            overflow: hidden;
+        }
         
-        .switch-row { display: flex; justify-content: space-between; align-items: center; margin-top: 5px; }
-        .switch { position: relative; display: inline-block; width: 40px; height: 20px; }
+        .login-btn:hover { 
+            background: var(--cyber-blue); 
+            color: #000; 
+            box-shadow: 0 0 30px var(--cyber-blue); 
+        }
+
+        /* MAIN INTERFACE */
+        .interface-grid { 
+            display: none; 
+            grid-template-columns: 280px 1fr 300px; 
+            width: 98%; 
+            max-width: 1900px; 
+            height: 96vh; 
+            background: var(--glass-panel); 
+            border: var(--glass-border); 
+            border-radius: 4px; 
+            position: relative; 
+            overflow: hidden; 
+            backdrop-filter: blur(20px); 
+            box-shadow: 0 0 100px rgba(0,0,0,0.8); 
+        }
+        
+        .sidebar-left, .sidebar-right { 
+            padding: 25px; 
+            display: flex; 
+            flex-direction: column; 
+            gap: 20px; 
+            z-index: 10; 
+            background: rgba(0,0,0,0.2); 
+        }
+        
+        .sidebar-left { border-right: var(--glass-border); } 
+        .sidebar-right { border-left: var(--glass-border); }
+        
+        .brand-logo { 
+            font-size: 2rem; 
+            letter-spacing: 6px; 
+            color: var(--cyber-blue); 
+            border-bottom: 1px solid rgba(255,255,255,0.1); 
+            padding-bottom: 20px; 
+            margin-bottom: 10px; 
+            font-weight: 900; 
+            text-align: center; 
+            text-shadow: 0 0 20px rgba(0, 243, 255, 0.4); 
+        }
+        
+        .brand-subtitle { 
+            font-size: 0.7rem; 
+            color: #8899a6; 
+            letter-spacing: 2px; 
+            text-transform: uppercase; 
+            margin-top: -15px; 
+            margin-bottom: 20px; 
+            text-align: center; 
+            font-weight: 600; 
+        }
+        
+        /* CONFIG GROUPS */
+        .config-group { 
+            background: rgba(255,255,255,0.02); 
+            padding: 15px; 
+            border-radius: 2px; 
+            border: 1px solid rgba(255,255,255,0.05); 
+            transition: 0.3s;
+        }
+        .config-group:hover { border-color: rgba(0, 243, 255, 0.3); }
+        
+        .label-sm { 
+            font-size: 0.8rem; 
+            color: #5f7e97; 
+            letter-spacing: 1px; 
+            font-weight: 700; 
+            margin-bottom: 8px; 
+            display: block; 
+            text-transform: uppercase;
+        }
+        
+        input, select { 
+            background: #080c14; 
+            color: #fff; 
+            border: 1px solid #2a3b55; 
+            padding: 10px; 
+            border-radius: 2px; 
+            font-family: 'Rajdhani'; 
+            font-size: 1.2rem; 
+            font-weight: 700; 
+            width: 100%; 
+            text-align: center; 
+            transition: 0.3s;
+        }
+        input:focus, select:focus { border-color: var(--cyber-blue); box-shadow: 0 0 15px rgba(0,243,255,0.1); }
+        
+        /* SWITCHES */
+        .switch-row { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; }
+        .switch { position: relative; display: inline-block; width: 46px; height: 24px; }
         .switch input { opacity: 0; width: 0; height: 0; }
-        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #333; transition: .4s; border-radius: 10px; }
-        .slider:before { position: absolute; content: ""; height: 14px; width: 14px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
-        input:checked + .slider { background-color: var(--neon-green); }
-        input:checked + .slider:before { transform: translateX(20px); }
-        .main-stage { padding: 15px; display: flex; flex-direction: column; gap: 15px; position: relative; width: 100%; background: radial-gradient(circle at center, rgba(0, 243, 255, 0.03) 0%, transparent 70%); }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #1a2639; transition: .4s; border-radius: 2px; }
+        .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 4px; bottom: 4px; background-color: #5f7e97; transition: .4s; border-radius: 1px; }
+        input:checked + .slider { background-color: rgba(0, 255, 65, 0.2); border: 1px solid var(--cyber-green); }
+        input:checked + .slider:before { transform: translateX(22px); background-color: var(--cyber-green); }
         
-        /* CHART & LAYOUT FIXES V19.1 */
-        .chart-wrapper { height: 45vh; flex-shrink: 0; position: relative; background: #000; border: 1px solid #333; border-radius: 8px; overflow: hidden; box-shadow: inset 0 0 50px rgba(0,0,0,0.8); }
+        /* MAIN STAGE */
+        .main-stage { 
+            padding: 20px; 
+            display: flex; 
+            flex-direction: column; 
+            gap: 20px; 
+            position: relative; 
+            width: 100%; 
+            background: radial-gradient(circle at center, rgba(0, 243, 255, 0.02) 0%, transparent 80%); 
+        }
+        
+        /* CHART */
+        .chart-wrapper { 
+            height: 50vh; 
+            flex-shrink: 0; 
+            position: relative; 
+            background: #050a14; 
+            border: 1px solid #1a2639; 
+            border-radius: 2px; 
+            overflow: hidden; 
+            box-shadow: inset 0 0 100px rgba(0,0,0,0.9); 
+        }
         #tvChart { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
         
-        /* JARVIS ANIMATION - SNIPER V19.2 */
-        .jarvis-container { position: absolute; top: 20px; left: 20px; width: 140px; height: 140px; z-index: 20; pointer-events: none; display: flex; justify-content: center; align-items: center; }
+        /* JARVIS VISUALS */
+        .jarvis-container { 
+            position: absolute; top: 20px; left: 20px; width: 140px; height: 140px; z-index: 20; 
+            pointer-events: none; display: flex; justify-content: center; align-items: center; 
+        }
         
-        .jarvis-img { width: 110px; height: 110px; object-fit: cover; border-radius: 50%; position: relative; z-index: 22; background: #000; border: 2px solid rgba(0,243,255,0.3); }
+        .jarvis-img { 
+            width: 110px; height: 110px; object-fit: cover; border-radius: 50%; 
+            position: relative; z-index: 22; background: #000; 
+            border: 2px solid rgba(0,243,255,0.3); 
+        }
         
-        /* NEON RING */
-        .neon-ring { position: absolute; width: 130px; height: 130px; border-radius: 50%; border: 2px dashed var(--neon-cyan); border-top-color: transparent; border-bottom-color: transparent; z-index: 21; animation: spinSlow 10s linear infinite; box-shadow: 0 0 15px rgba(0,243,255,0.2); }
+        .neon-ring { 
+            position: absolute; width: 130px; height: 130px; border-radius: 50%; 
+            border: 2px dashed var(--cyber-blue); border-top-color: transparent; border-bottom-color: transparent; 
+            z-index: 21; animation: spinSlow 10s linear infinite; 
+            box-shadow: 0 0 15px rgba(0,243,255,0.2); 
+        }
         
-        .energy-fog { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 400px; height: 400px; background: radial-gradient(circle, rgba(0, 243, 255, 0.8) 0%, transparent 70%); opacity: 0; z-index: 20; pointer-events: none; mix-blend-mode: screen; border-radius: 50%; transition: opacity 0.2s; filter: drop-shadow(0 0 20px rgba(0,243,255,0.8)); }
-        
-        /* PROCESSING STATE */
-        .processing .neon-ring { border-color: var(--neon-orange); border-top-color: transparent; border-bottom-color: transparent; animation: spinFast 0.5s linear infinite; box-shadow: 0 0 30px var(--neon-orange); }
-        .processing .energy-fog { animation: fogPulse 0.8s infinite ease-in-out; opacity: 1; background: radial-gradient(circle, rgba(255, 157, 0, 0.8) 0%, transparent 70%); }
+        /* PROCESSING STATES */
+        .processing .neon-ring { 
+            border-color: var(--cyber-gold); border-top-color: transparent; border-bottom-color: transparent; 
+            animation: spinFast 0.5s linear infinite; box-shadow: 0 0 30px var(--cyber-gold); 
+        }
         
         @keyframes spinSlow { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         @keyframes spinFast { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        @keyframes fogPulse { 0% { opacity: 0.6; transform: translate(-50%, -50%) scale(0.9); } 50% { opacity: 1; transform: translate(-50%, -50%) scale(1.2); } 100% { opacity: 0.6; transform: translate(-50%, -50%) scale(0.9); } }
+        
+        /* BUTTONS */
+        .btn-decode { 
+            width: 100%; padding: 20px; margin-top: 5px; 
+            background: linear-gradient(90deg, rgba(0,0,0,0.8), rgba(0, 243, 255, 0.1), rgba(0,0,0,0.8)); 
+            border: 1px solid var(--cyber-blue); 
+            color: var(--cyber-blue); 
+            font-family: 'Rajdhani'; font-size: 1.6rem; font-weight: 900; 
+            letter-spacing: 4px; text-transform: uppercase; 
+            cursor: pointer; transition: 0.3s; 
+            display: flex; flex-direction: column; align-items: center; justify-content: center; 
+            line-height: 1.2; 
+            position: relative;
+        }
+        .btn-decode::after {
+            content: ''; position: absolute; bottom: 0; left: 0; width: 100%; height: 2px;
+            background: var(--cyber-blue); box-shadow: 0 0 20px var(--cyber-blue);
+        }
+        .btn-decode:hover { background: rgba(0, 243, 255, 0.15); letter-spacing: 6px; }
+        
+        .action-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; height: 70px; }
+        .btn-action { 
+            font-size: 2rem; font-weight: 900; border: none; color: white; 
+            cursor: pointer; border-radius: 2px; font-family: 'Rajdhani'; opacity: 0.4; 
+            transition: 0.3s; letter-spacing: 2px;
+        }
+        .btn-call { background: linear-gradient(180deg, #00ff85, #004d26); border-bottom: 4px solid #004d26; }
+        .btn-put { background: linear-gradient(180deg, #ff3b6a, #5e0018); border-bottom: 4px solid #5e0018; }
+        .btn-ready { opacity: 1; }
+        .btn-ready:hover { filter: brightness(1.2); transform: translateY(-2px); }
+        
+        /* POSITIONS & HISTORY */
+        .positions-wrapper { 
+            flex: 1; min-height: 0; 
+            background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.05); 
+            border-radius: 2px; display: flex; flex-direction: column; 
+        }
+        .op-header { 
+            padding: 15px; background: rgba(255,255,255,0.02); 
+            display: flex; justify-content: space-between; align-items: center; 
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+        .op-list { flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+        .op-card { 
+            display: flex; justify-content: space-between; padding: 15px; 
+            background: #0e1624; border-radius: 2px; 
+            border-left: 4px solid #555; align-items: center; 
+            font-size: 1rem; font-weight: 600;
+        }
         
         .result-overlay { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0); font-size: 8rem; font-weight: 900; z-index: 30; opacity: 0; transition: all 0.4s; text-shadow: 0 0 50px currentColor; pointer-events: none; }
         .show-res { transform: translate(-50%, -50%) scale(1); opacity: 1; }
-        .btn-decode { width: 100%; padding: 15px; margin-top: 5px; background: linear-gradient(90deg, rgba(0,0,0,0.5), rgba(0, 243, 255, 0.15), rgba(0,0,0,0.5)); border: 1px solid var(--neon-cyan); color: var(--neon-cyan); font-family: 'Rajdhani'; font-size: 1.4rem; font-weight: 900; letter-spacing: 2px; text-transform: uppercase; cursor: pointer; transition: 0.3s; display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.2; }
-        .btn-decode:hover { background: rgba(0, 243, 255, 0.25); box-shadow: 0 0 30px rgba(0, 243, 255, 0.2); letter-spacing: 4px; }
         
-        .action-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; height: 60px; }
-        .btn-action { font-size: 1.8rem; font-weight: 900; border: none; color: white; cursor: pointer; border-radius: 6px; font-family: 'Rajdhani'; opacity: 0.6; }
-        .btn-call { background: linear-gradient(180deg, #00ff85, #007a3d); box-shadow: 0 5px 0 #004522; }
-        .btn-put { background: linear-gradient(180deg, #ff3b6a, #9e0025); box-shadow: 0 5px 0 #5c0016; }
-        .btn-ready { opacity: 1; transform: translateY(0); }
-        
-        .positions-wrapper { flex: 1; min-height: 0; background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; display: flex; flex-direction: column; overflow: hidden; }
-        .op-header { padding: 10px; background: rgba(255,255,255,0.05); display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
-        .op-list { flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 5px; }
-        .op-card { display: flex; justify-content: space-between; padding: 10px; background: rgba(30,35,40,0.9); border-radius: 4px; border-left: 4px solid #555; align-items: center; font-size: 0.95rem; flex-shrink: 0; }
-        
-        .account-badge { background: #111; color: #fff; padding: 12px; text-align: center; border-radius: 6px; border: 1px solid #444; font-weight: bold; cursor: pointer; transition: 0.3s; margin-bottom: 15px; user-select: none; letter-spacing: 1px; }
-        .account-badge:hover { border-color: var(--neon-cyan); color: var(--neon-cyan); box-shadow: 0 0 15px rgba(0,243,255,0.1); }
-        .is-demo { color: #f1c40f; border-color: rgba(241, 196, 15, 0.5); }
-        .is-real { color: #2ecc71; border-color: rgba(46, 204, 113, 0.5); }
-        
-        /* HARD RESET BUTTON */
-        #hardResetBtn { position: fixed; bottom: 10px; right: 10px; z-index: 10000; background: red; color: white; border: none; padding: 5px 10px; font-size: 0.7rem; cursor: pointer; opacity: 0.5; }
+        /* ACCOUNT BADGE */
+        .account-badge { 
+            background: rgba(0,0,0,0.4); color: #fff; padding: 15px; text-align: center; 
+            border-radius: 2px; border: 1px solid #333; font-weight: 800; 
+            cursor: pointer; transition: 0.3s; margin-bottom: 20px; 
+            user-select: none; letter-spacing: 2px; font-size: 0.9rem;
+        }
+        .account-badge:hover { border-color: var(--cyber-blue); color: var(--cyber-blue); box-shadow: 0 0 20px rgba(0,243,255,0.1); }
+        .is-demo { color: var(--cyber-gold); border-color: rgba(255, 215, 0, 0.3); }
+        .is-real { color: var(--cyber-green); border-color: rgba(0, 255, 65, 0.3); }
+
+        /* SCROLLBAR */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #050a14; }
+        ::-webkit-scrollbar-thumb { background: #2a3b55; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--cyber-blue); }
+
+        #hardResetBtn { position: fixed; bottom: 10px; right: 10px; z-index: 10000; background: var(--cyber-red); color: white; border: none; padding: 5px 10px; font-size: 0.7rem; cursor: pointer; opacity: 0.3; }
         #hardResetBtn:hover { opacity: 1; }
     </style>
 
     <div id="loginOverlay">
         <div class="login-content">
-            <div class="brand-logo" style="font-size: 3rem; margin-bottom: 20px;">JARVIS TRADER</div>
+            <div class="brand-logo" style="font-size: 3.5rem; margin-bottom: 30px;">JARVIS V20</div>
+            <div style="color:#8899a6; letter-spacing:2px; margin-bottom:30px;">COMMAND CENTER // HYPER-SCALPING PROTOCOL</div>
             <button class="login-btn" onclick="connectDeriv()">INICIAR SISTEMA</button>
-            <div style="margin-top: 20px; font-size: 0.8rem; color: #666;">V19.4 - PROFESSIONAL MODE</div>
         </div>
     </div>
 
     <div class="interface-grid" id="mainUI">
         <div class="sidebar-left">
-            <div class="brand-logo">JARVIS <span style="color:#fff">TRADER</span></div>
-            <div class="brand-subtitle">CÓDIGO QUE ESCOLHE INTELIGÊNCIA QUE PROTEGE</div>
+            <div class="brand-logo">JARVIS <span style="color:#fff">V20</span></div>
+            <div class="brand-subtitle">COMMAND CENTER // INSTITUTIONAL</div>
             <div id="accBadge" class="account-badge" onclick="switchAccount()">CARREGANDO...</div>
             
             <div class="config-group">
-                <span class="label-sm">AUTO TRADER (IA)</span>
+                <span class="label-sm">AUTO PILOT (IA)</span>
                 <div class="switch-row">
-                    <span style="font-size:0.8rem; color:#aaa;">PILOTO AUTOMÁTICO</span>
+                    <span style="font-size:0.9rem; color:#fff; font-weight:bold;">MODO AUTOMÁTICO</span>
                     <label class="switch"><input type="checkbox" id="autoTradeToggle" onchange="saveState()"><span class="slider"></span></label>
                 </div>
             </div>
@@ -116,95 +331,96 @@
                 <input type="number" id="stakeInput" value="1.00" step="0.50" min="0.35" onchange="saveState()">
             </div>
             <div class="config-group">
-                <span class="label-sm">EXPIRAÇÃO</span>
+                <span class="label-sm">EXPIRAÇÃO (SEGURANÇA)</span>
                 <select id="durationSelect" onchange="saveState()">
-                    <option value="1">1 Minuto</option>
-                    <option value="2">2 Minutos</option>
-                    <option value="5">5 Minutos</option>
-                    <option value="10">10 Minutos</option>
-                    <option value="15">15 Minutos</option>
+                    <option value="60">1 Hora (Recomendado)</option>
                     <option value="30">30 Minutos</option>
-                    <option value="60">1 Hora</option>
+                    <option value="15">15 Minutos</option>
+                    <option value="5">5 Minutos</option>
+                    <option value="1">1 Minuto (Arriscado)</option>
                 </select>
             </div>
             <div class="config-group">
-                <span class="label-sm" style="color:var(--neon-green)">TAKE PROFIT</span>
-                <input type="number" id="tpInput" value="10.00" step="0.05" onchange="saveState()">
-                <div class="switch-row">
-                    <span style="font-size:0.7rem;">AUTO FECHAR</span>
-                    <label class="switch"><input type="checkbox" id="tpToggle" onchange="saveState()"><span class="slider"></span></label>
-                </div>
+                <span class="label-sm" style="color:var(--cyber-gold)">SCALPING TARGET (LUCRO RÁPIDO)</span>
+                <div style="font-size:0.8rem; color:#888; margin-bottom:5px;">Fecha ao atingir % do lucro:</div>
+                <input type="number" id="scalpPercent" value="10" step="1" min="1" max="100" onchange="saveState()">
             </div>
-            <div class="config-group" style="border-color: rgba(255,0,60,0.3);">
-                <span class="label-sm" style="color:var(--neon-red)">STOP LOSS</span>
-                <input type="number" id="slInput" value="-20.00" style="color:var(--neon-red)" step="0.05" onchange="saveState()">
-                <div class="switch-row">
-                    <span style="font-size:0.7rem;">PROTEÇÃO</span>
-                    <label class="switch"><input type="checkbox" id="slToggle" onchange="saveState()"><span class="slider"></span></label>
-                </div>
-            </div>
-            <div style="margin-top:auto; font-size:0.9rem; border-top:1px solid #333; padding-top:10px;">
-                <div class="status-row" style="display:flex; justify-content:space-between;"><span>RSI (14)</span><span id="rsiVal" style="font-weight:bold; color:#fff;">--</span></div>
-                <div class="status-row" style="font-size:1.4rem; color:var(--neon-cyan); margin-top:10px; font-weight:900; text-align:right;">
+            
+            <div style="margin-top:auto; font-size:0.9rem; border-top:1px solid rgba(255,255,255,0.1); padding-top:20px;">
+                <div class="status-row" style="display:flex; justify-content:space-between;"><span>RSI (14)</span><span id="rsiVal" style="font-weight:bold; color:var(--cyber-blue);">--</span></div>
+                <div class="status-row" style="font-size:1.8rem; color:var(--cyber-blue); margin-top:15px; font-weight:900; text-align:right; text-shadow:0 0 20px rgba(0,243,255,0.4);">
                     <span id="balanceVal">--</span>
                 </div>
             </div>
         </div>
+        
         <div class="main-stage">
             <div class="chart-wrapper" id="chartContainer">
                 <div id="tvChart"></div>
                 <div class="jarvis-container" id="jarvisAnim">
-                    <div class="energy-fog"></div>
                     <div class="neon-ring"></div>
-                    <img src="jarvis.gif?v=19.2" class="jarvis-img" onerror="this.style.display='none'">
+                    <img src="jarvis.gif?v=20.0" class="jarvis-img" onerror="this.style.display='none'">
                 </div>
-                <div class="live-price" id="priceTag">--.--</div>
+                <div class="live-price" id="priceTag" style="position:absolute; right:10px; top:10px; font-size:1.5rem; font-weight:bold; z-index:5;">--.--</div>
                 <div class="result-overlay" id="resultBig">CALL</div>
             </div>
+            
             <button class="btn-decode" id="btnDecode" onclick="runAI('MANUAL')">
                 <span>DECODIFICAR MERCADO</span>
-                <span id="btnSubText" style="font-size:0.8rem; color:#00ff41; margin-top:5px; text-shadow:0 0 10px #00ff41; letter-spacing:1px;">JARVIS ONLINE</span>
+                <span id="btnSubText" style="font-size:0.9rem; color:var(--cyber-green); margin-top:8px; text-shadow:0 0 10px var(--cyber-green); letter-spacing:2px; font-weight:700;">SISTEMA ONLINE</span>
             </button>
+            
             <div class="action-grid">
-                <button class="btn-action btn-call" id="btnCall" onclick="placeTrade('CALL')" disabled>CALL ⬆</button>
-                <button class="btn-action btn-put" id="btnPut" onclick="placeTrade('PUT')" disabled>PUT ⬇</button>
+                <button class="btn-action btn-call" id="btnCall" onclick="placeTrade('CALL')" disabled>COMPRAR ⬆</button>
+                <button class="btn-action btn-put" id="btnPut" onclick="placeTrade('PUT')" disabled>VENDER ⬇</button>
             </div>
+            
             <div class="positions-wrapper">
                 <div class="op-header">
-                    <span style="font-size:0.8rem; font-weight:bold;">LUCRO ABERTO: <span id="openPL" style="color:#fff;">0.00</span></span>
-                    <button onclick="closeAllPositions()" style="background:#ff003c; border:none; color:white; font-weight:bold; cursor:pointer; padding:4px 10px; font-size:0.7rem; border-radius:3px;">FECHAR TUDO</button>
+                    <span style="font-size:0.9rem; font-weight:bold; letter-spacing:1px;">LUCRO ABERTO: <span id="openPL" style="color:#fff;">0.00</span></span>
+                    <button onclick="closeAllPositions()" style="background:var(--cyber-red); border:none; color:white; font-weight:bold; cursor:pointer; padding:6px 15px; font-size:0.8rem; border-radius:2px; letter-spacing:1px;">FECHAR TUDO</button>
                 </div>
                 <div class="op-list" id="posList">
-                    <div style="text-align:center; color:#555; padding:20px; font-style:italic;">Nenhuma operação ativa.</div>
+                    <div style="text-align:center; color:#445566; padding:30px; font-style:italic;">AGUARDANDO OPERAÇÕES...</div>
                 </div>
             </div>
         </div>
+        
         <div class="sidebar-right">
-            <div style="background:rgba(255,255,255,0.03); padding:20px; border-radius:8px; text-align:center; border:1px solid #333;">
-                <div style="font-size:0.8rem; color:#888; letter-spacing:2px;">RESULTADO DO DIA</div>
-                <div id="sessionPL" style="font-size:2.5rem; font-weight:900; margin-top:5px; color:white;">0.00</div>
+            <div style="background:rgba(255,255,255,0.02); padding:25px; border-radius:4px; text-align:center; border:1px solid rgba(255,255,255,0.05);">
+                <div style="font-size:0.8rem; color:#8899a6; letter-spacing:3px; font-weight:bold;">RESULTADO DO DIA</div>
+                <div id="sessionPL" style="font-size:3rem; font-weight:900; margin-top:10px; color:white; text-shadow:0 0 30px rgba(255,255,255,0.2);">0.00</div>
             </div>
-            <div style="border-bottom:1px solid #333; padding-bottom:5px; margin-top:20px;">
+            
+            <div class="config-group" style="margin-top:20px; border-color:rgba(255,0,60,0.3);">
+                <span class="label-sm" style="color:var(--cyber-red)">STOP LOSS (DIÁRIO)</span>
+                <input type="number" id="slInput" value="-50.00" style="color:var(--cyber-red)" step="1" onchange="saveState()">
+            </div>
+             <div class="config-group" style="border-color:rgba(0,255,65,0.3);">
+                <span class="label-sm" style="color:var(--cyber-green)">META DE LUCRO (DIÁRIA)</span>
+                <input type="number" id="tpInput" value="50.00" style="color:var(--cyber-green)" step="1" onchange="saveState()">
+            </div>
+
+            <div style="border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:10px; margin-top:30px;">
                 <span class="label-sm">HISTÓRICO RECENTE</span>
             </div>
             <div id="histList" style="flex:1; overflow-y:auto; padding-right:5px;">
-                <div style="text-align:center; color:#444; font-size:0.8rem; margin-top:30px;">Histórico vazio.</div>
+                <div style="text-align:center; color:#445566; font-size:0.8rem; margin-top:40px;">Histórico vazio.</div>
             </div>
-            <button onclick="fullLogout()" style="background:transparent; border:1px solid #444; color:#666; padding:12px; cursor:pointer; width:100%; border-radius:4px; font-weight:bold; transition:0.2s;">SAIR DA CONTA</button>
+            
+            <button onclick="fullLogout()" style="background:transparent; border:1px solid #2a3b55; color:#5f7e97; padding:15px; cursor:pointer; width:100%; border-radius:2px; font-weight:bold; transition:0.2s; letter-spacing:2px; text-transform:uppercase;">Encerrar Sessão</button>
         </div>
     </div>
     
     <button id="hardResetBtn" onclick="fullLogout()">HARD RESET</button>
 
 <script>
-    // --- HELPER DE SEGURANÇA MÁXIMA ---
+    // --- HELPER DE SEGURANÇA ---
     function getEl(id) {
         const el = document.getElementById(id);
         if (!el) {
             console.warn(`CRITICAL: Elemento #${id} não encontrado! Criando dummy...`);
-            const dummy = document.createElement('div');
-            // Retorna dummy para evitar crash de .style ou .innerText
-            return dummy;
+            return document.createElement('div');
         }
         return el;
     }
@@ -213,7 +429,7 @@
     window.onerror = function(msg, url, line) {
         if(localStorage.getItem('crash_loop_guard')) return;
         localStorage.setItem('crash_loop_guard', 'true');
-        alert("RECUPERAÇÃO DE FALHA V19.4:\\n" + msg);
+        alert("RECUPERAÇÃO DE FALHA V20:\\n" + msg);
         localStorage.removeItem('jarvis_accounts');
         setTimeout(() => {
             localStorage.removeItem('crash_loop_guard');
@@ -224,7 +440,8 @@
 
     const APP_ID = 114062; 
     const SYMBOL = "R_100"; 
-    const MAX_TRADES = 2; // V19.3 CONCURRENCY LIMIT
+    const MAX_TRADES = 2; 
+    const ANALYSIS_INTERVAL = 1000; // 1 Segundo (Hyper-Scalping)
     
     window.connectDeriv = function() {
         window.location.href = `https://oauth.deriv.com/oauth2/authorize?app_id=${APP_ID}&l=pt&brand=deriv`;
@@ -239,48 +456,46 @@
     let currentToken = "";
     let positions = new Map();
     let sessionProfit = 0.0;
-    let lastCandleTime = 0;
+    let lastAnalysisTime = 0;
 
-    // BOOT SEGURO
+    // BOOT
     window.addEventListener('DOMContentLoaded', () => {
-        console.log("DOM Loaded. Iniciando Jarvis V19.4...");
+        console.log("DOM Loaded. Iniciando Jarvis V20 Command Center...");
         try {
             checkAuth();
-            loadState(); // CARREGA O CACHE
+            loadState(); 
         } catch(e) {
             console.error("Boot Error:", e);
             getEl('loginOverlay').style.display = 'flex';
         }
     });
 
-    // --- STATE PERSISTENCE (CACHE) ---
+    // --- STATE PERSISTENCE ---
     function saveState() {
         const state = {
             autoTrade: getEl('autoTradeToggle').checked,
             stake: getEl('stakeInput').value,
             duration: getEl('durationSelect').value,
+            scalpPercent: getEl('scalpPercent').value,
             tp: getEl('tpInput').value,
-            tpOn: getEl('tpToggle').checked,
             sl: getEl('slInput').value,
-            slOn: getEl('slToggle').checked,
             sessionPL: sessionProfit,
             history: getEl('histList').innerHTML
         };
-        localStorage.setItem('jarvis_state_v19', JSON.stringify(state));
+        localStorage.setItem('jarvis_state_v20', JSON.stringify(state));
     }
 
     function loadState() {
-        const saved = localStorage.getItem('jarvis_state_v19');
+        const saved = localStorage.getItem('jarvis_state_v20');
         if (saved) {
             try {
                 const state = JSON.parse(saved);
                 getEl('autoTradeToggle').checked = state.autoTrade;
                 getEl('stakeInput').value = state.stake;
                 getEl('durationSelect').value = state.duration;
+                if(state.scalpPercent) getEl('scalpPercent').value = state.scalpPercent;
                 getEl('tpInput').value = state.tp;
-                getEl('tpToggle').checked = state.tpOn;
                 getEl('slInput').value = state.sl;
-                getEl('slToggle').checked = state.slOn;
                 sessionProfit = state.sessionPL || 0;
                 getEl('sessionPL').innerText = sessionProfit.toFixed(2);
                 getEl('sessionPL').style.color = sessionProfit >= 0 ? "#00ff41" : "#ff003c";
@@ -343,7 +558,7 @@
 
     function fullLogout() {
         localStorage.removeItem('jarvis_accounts');
-        localStorage.removeItem('jarvis_state_v19'); // Limpa o cache no logout
+        localStorage.removeItem('jarvis_state_v20'); 
         location.href = location.pathname;
     }
 
@@ -382,8 +597,8 @@
         chart = LightweightCharts.createChart(el, {
             width: container.clientWidth, 
             height: container.clientHeight,
-            layout: { backgroundColor: '#000000', textColor: '#666' },
-            grid: { vertLines: { color: '#111'}, horzLines: { color: '#111'} },
+            layout: { backgroundColor: '#050a14', textColor: '#5f7e97' },
+            grid: { vertLines: { color: '#1a2639'}, horzLines: { color: '#1a2639'} },
             timeScale: { timeVisible: true, secondsVisible: true }
         });
         series = chart.addCandlestickSeries({
@@ -405,10 +620,6 @@
             
             if (data.error) {
                 console.error("Deriv Error:", data.error);
-                const btn = getEl('btnDecode');
-                const old = btn.innerHTML;
-                btn.innerHTML = `<span style="color:red">ERRO: ${data.error.code}</span>`;
-                setTimeout(() => btn.innerHTML = old, 3000);
                 return;
             }
 
@@ -426,7 +637,6 @@
             if (data.msg_type === 'candles') {
                 candles = data.candles.map(c => ({ time: c.epoch, open: +c.open, high: +c.high, low: +c.low, close: +c.close }));
                 if(series) series.setData(candles);
-                if(candles.length > 0) lastCandleTime = candles[candles.length-1].time;
             }
             if (data.msg_type === 'proposal') {
                 if (data.proposal.id) ws.send(JSON.stringify({ buy: data.proposal.id, price: data.proposal.ask_price }));
@@ -439,21 +649,22 @@
         if (candles.length > 0 && candles[candles.length - 1].time === candle.time) {
             candles[candles.length - 1] = candle;
         } else { 
-            // NOVA VELA DETECTADA
             candles.push(candle); 
             if(candles.length > 300) candles.shift(); 
-            
-            // --- TRUE AUTO TRADER LOOP V19.3 ---
-            if (getEl('autoTradeToggle').checked && !isProcessing) {
-                console.log("Nova vela detectada. Auto Trader analisando...");
-                runAI('AUTO'); // Passa flag 'AUTO' para feedback visual
-            }
         }
         if(series) series.update(candle);
+        
         const priceEl = getEl('priceTag');
         priceEl.innerText = candle.close;
         priceEl.style.color = candle.close >= candle.open ? '#00ff41' : '#ff003c';
         updateRSI();
+
+        // --- HYPER-SCALPING LOOP (1s Interval) ---
+        const now = Date.now();
+        if (getEl('autoTradeToggle').checked && !isProcessing && (now - lastAnalysisTime > ANALYSIS_INTERVAL)) {
+            lastAnalysisTime = now;
+            runAI('AUTO');
+        }
     }
 
     function updateRSI() {
@@ -480,19 +691,6 @@
         return ema;
     }
 
-    function calculateBB(period, stdDev) {
-        if (candles.length < period) return null;
-        const slice = candles.slice(-period).map(c => c.close);
-        const mean = slice.reduce((a,b) => a+b) / period;
-        const variance = slice.reduce((a,b) => a + Math.pow(b - mean, 2), 0) / period;
-        const std = Math.sqrt(variance);
-        return {
-            upper: mean + (std * stdDev),
-            lower: mean - (std * stdDev),
-            middle: mean
-        };
-    }
-
     async function loadAI() {
         console.log("Carregando IA...");
         try {
@@ -515,29 +713,42 @@
         const originalSubText = sub.innerText;
 
         if (candles.length < 30) { 
-            sub.innerText = "AGUARDANDO DADOS...";
-            setTimeout(() => sub.innerText = originalSubText, 1500);
+            if(source === 'MANUAL') {
+                sub.innerText = "AGUARDANDO DADOS...";
+                setTimeout(() => sub.innerText = originalSubText, 1500);
+            }
             return; 
         }
         
         isProcessing = true;
         getEl('jarvisAnim').classList.add('processing'); 
         
-        // VISUAL FEEDBACK V19.4 (PROFESSIONAL MODE)
         if (source === 'AUTO') {
-            btn.style.borderColor = "var(--neon-orange)"; // Yellow/Orange
-            btn.style.boxShadow = "0 0 20px rgba(255, 157, 0, 0.3)";
+            btn.style.borderColor = "var(--cyber-gold)"; 
+            btn.style.boxShadow = "0 0 30px rgba(255, 215, 0, 0.2)";
             sub.innerText = "SISTEMA ANALISANDO";
-            sub.style.color = "var(--neon-orange)";
-            sub.style.textShadow = "0 0 10px var(--neon-orange)";
+            sub.style.color = "var(--cyber-gold)";
+            sub.style.textShadow = "0 0 10px var(--cyber-gold)";
         } else {
             sub.innerText = "CALIBRANDO MIRA...";
         }
         
         try {
-            let signal = "NEUTRO";
-            let signalSource = "TÉCNICA";
+            // CHECK DAILY LIMITS
+            const dailyPL = parseFloat(getEl('sessionPL').innerText);
+            const stopLoss = parseFloat(getEl('slInput').value);
+            const takeProfit = parseFloat(getEl('tpInput').value);
 
+            if (dailyPL <= stopLoss) {
+                throw new Error("STOP LOSS DIÁRIO ATINGIDO");
+            }
+            if (dailyPL >= takeProfit) {
+                throw new Error("META BATIDA! PARABÉNS");
+            }
+
+            let signal = "NEUTRO";
+            
+            // --- AI PREDICTION ---
             if (model && candles.length >= 60) {
                 try {
                     const inputData = candles.slice(-60).map(c => c.close);
@@ -549,31 +760,24 @@
                     const prediction = model.predict(tensor).dataSync()[0];
                     tensor.dispose();
                     
-                    if (prediction > 0.60) { signal = "CALL"; signalSource = "IA LSTM"; }
-                    else if (prediction < 0.40) { signal = "PUT"; signalSource = "IA LSTM"; }
-                } catch(e) {
-                    console.warn("LSTM falhou, usando fallback técnico.");
-                }
+                    if (prediction > 0.60) signal = "CALL";
+                    else if (prediction < 0.40) signal = "PUT";
+                } catch(e) { console.warn("AI Fallback"); }
             }
 
             if (signal === "NEUTRO") {
                 const last = candles[candles.length-1];
-                const prev = candles[candles.length-2];
                 const rsi = parseFloat(getEl('rsiVal').innerText);
-                
                 if (rsi < 30 && last.close > last.open) signal = "CALL"; 
                 else if (rsi > 70 && last.close < last.open) signal = "PUT"; 
-                else if (last.close > prev.close && rsi > 50 && rsi < 70) signal = "CALL";
-                else if (last.close < prev.close && rsi < 50 && rsi > 30) signal = "PUT";
             }
 
-            // --- SNIPER PROTOCOL V19.2 (MULTI-FACTOR FILTER) ---
+            // --- SNIPER FILTER ---
             const ema20 = calculateEMA(20);
             const rsi = parseFloat(getEl('rsiVal').innerText);
             const currentPrice = candles[candles.length-1].close;
-            const lastCandle = candles[candles.length-1];
-            const isGreen = lastCandle.close > lastCandle.open;
-            const isRed = lastCandle.close < lastCandle.open;
+            const isGreen = candles[candles.length-1].close > candles[candles.length-1].open;
+            const isRed = candles[candles.length-1].close < candles[candles.length-1].open;
             
             let blocked = false;
             let reason = "";
@@ -593,12 +797,15 @@
 
             setTimeout(() => {
                 if (blocked) {
-                     sub.innerHTML = `<span style='color:orange'>BUSCANDO ALVO...</span> <span style='font-size:0.6rem; color:#888'>(${reason})</span>`;
-                     setTimeout(resetBtn, 2000);
+                     if (source === 'MANUAL') {
+                        sub.innerHTML = `<span style='color:orange'>BUSCANDO ALVO...</span> <span style='font-size:0.6rem; color:#888'>(${reason})</span>`;
+                        setTimeout(resetBtn, 2000);
+                     } else {
+                         resetBtn();
+                     }
                 } else {
                     showResult(signal);
                     if(signal !== "NEUTRO" && getEl('autoTradeToggle').checked) {
-                        // V19.3 CONCURRENCY CHECK
                         if (positions.size >= MAX_TRADES) {
                             sub.innerHTML = "<span style='color:orange'>LIMITE DE ORDENS (2/2)</span>";
                             setTimeout(resetBtn, 2000);
@@ -610,13 +817,13 @@
                          resetBtn();
                     }
                 }
-
                 isProcessing = false;
                 getEl('jarvisAnim').classList.remove('processing');
-            }, 2000); 
+            }, 1000); // Faster analysis for V20
 
         } catch(e) { 
-            console.error("Critical Analysis Error:", e);
+            console.log("Analysis Info:", e.message);
+            if (source === 'MANUAL') alert(e.message);
             isProcessing = false; 
             getEl('jarvisAnim').classList.remove('processing');
             resetBtn();
@@ -627,7 +834,7 @@
             btn.style.boxShadow = "";
             sub.innerText = originalSubText;
             sub.style.color = originalSubColor;
-            sub.style.textShadow = "0 0 10px #00ff41";
+            sub.style.textShadow = "";
         }
     }
 
@@ -644,13 +851,9 @@
         const duration = getEl('durationSelect').value;
         const acc = availableAccounts.find(a=>a.token===currentToken);
         
-        if(!acc) {
-            console.error("Conta não encontrada!");
-            return;
-        }
+        if(!acc) return;
         
         const btn = direction === 'CALL' ? getEl('btnCall') : getEl('btnPut');
-        const originalColor = btn.style.background;
         btn.style.filter = "brightness(1.5)";
         setTimeout(() => btn.style.filter = "none", 500);
 
@@ -676,11 +879,20 @@
         } else {
             positions.set(p.contract_id, p);
             const profit = Number(p.profit || 0);
-            const tp = Number(getEl('tpInput').value);
-            const sl = Number(getEl('slInput').value) * -1; 
+            const stake = Number(p.buy_price || 0);
+            
+            // --- HYPER-SCALPING LOGIC V20 ---
+            const scalpPercent = parseFloat(getEl('scalpPercent').value) / 100;
+            const targetProfit = stake * scalpPercent;
+            
             if (p.is_valid_to_sell) {
-                if (getEl('tpToggle').checked && profit >= tp) sellPosition(p.contract_id);
-                if (getEl('slToggle').checked && profit <= sl) sellPosition(p.contract_id);
+                // Auto-Close on Profit Target (Scalping)
+                if (profit >= targetProfit) {
+                    console.log(`SCALPING: Alvo atingido (${profit.toFixed(2)}). Fechando...`);
+                    sellPosition(p.contract_id);
+                }
+                // Safety Stop Loss (Individual Trade) - Optional, usually handled by daily SL
+                // if (profit <= -stake * 0.5) sellPosition(p.contract_id); 
             }
         }
         renderPositions();
@@ -693,7 +905,7 @@
         const list = getEl('posList');
         list.innerHTML = "";
         let total = 0;
-        if(positions.size === 0) list.innerHTML = '<div style="text-align:center; color:#555; padding:20px; font-style:italic;">Nenhuma operação ativa.</div>';
+        if(positions.size === 0) list.innerHTML = '<div style="text-align:center; color:#445566; padding:30px; font-style:italic;">AGUARDANDO OPERAÇÕES...</div>';
         
         positions.forEach(p => {
             const profit = Number(p.profit || 0);
@@ -702,7 +914,7 @@
             const div = document.createElement('div');
             div.className = "op-card";
             div.style.borderLeftColor = profit >= 0 ? "#00ff41" : "#ff003c";
-            div.innerHTML = `<div><b>${cType}</b></div><div style="color:${profit>=0?'#00ff41':'#ff003c'}">${profit.toFixed(2)}</div><button onclick="sellPosition(${p.contract_id})" style="background:#ff003c; border:none; color:white; font-weight:bold; cursor:pointer;">X</button>`;
+            div.innerHTML = `<div><b>${cType}</b></div><div style="color:${profit>=0?'#00ff41':'#ff003c'}">${profit.toFixed(2)}</div><button onclick="sellPosition(${p.contract_id})" style="background:var(--cyber-red); border:none; color:white; font-weight:bold; cursor:pointer;">X</button>`;
             list.prepend(div);
         });
         getEl('openPL').innerText = total.toFixed(2);
@@ -714,12 +926,12 @@
         getEl('sessionPL').innerText = sessionProfit.toFixed(2);
         getEl('sessionPL').style.color = sessionProfit >= 0 ? "#00ff41" : "#ff003c";
         const div = document.createElement('div');
-        div.style.cssText = "display:flex; justify-content:space-between; padding:10px; border-bottom:1px solid #333; font-size:0.85rem;";
+        div.style.cssText = "display:flex; justify-content:space-between; padding:10px; border-bottom:1px solid rgba(255,255,255,0.05); font-size:0.9rem;";
         div.innerHTML = `<span style="color:${p.contract_type==='CALL'?'#00ff41':'#ff003c'}">${p.contract_type}</span><span style="font-weight:bold; color:${Number(p.profit)>=0?'#00ff41':'#ff003c'}">${Number(p.profit).toFixed(2)}</span>`;
         const h = getEl('histList');
         if(h.innerText.includes("vazio")) h.innerHTML = "";
         h.prepend(div);
-        saveState(); // SALVA O HISTÓRICO
+        saveState(); 
     }
 </script>
 </body>
