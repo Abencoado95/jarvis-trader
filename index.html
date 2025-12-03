@@ -6,7 +6,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
-    <title>JARVIS COMMAND CENTER V20.2</title>
+    <title>JARVIS COMMAND CENTER V20.3</title>
     <link rel="icon" type="image/jpeg" href="JARVIS ROSTO.jpg">
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700;800;900&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
@@ -193,7 +193,7 @@
         
         /* CHART */
         .chart-wrapper { 
-            height: 50vh; 
+            height: 38vh; /* V20.3: REDUCED HEIGHT */
             flex-shrink: 0; 
             position: relative; 
             background: #050a14; 
@@ -216,30 +216,29 @@
             border: 2px solid rgba(0,243,255,0.3); 
         }
         
+        /* V20.3 CONTINUOUS ANIMATION */
         .neon-ring { 
             position: absolute; width: 150px; height: 150px; border-radius: 50%; 
             border: 2px dashed var(--cyber-blue); border-top-color: transparent; border-bottom-color: transparent; 
-            z-index: 21; animation: spinSlow 10s linear infinite; 
+            z-index: 21; 
+            animation: spinSlow 10s linear infinite; /* Always spinning */
             box-shadow: 0 0 15px rgba(0,243,255,0.2); 
         }
         
-        /* V20.2 ENERGY WAVE */
         .energy-wave {
             position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            width: 400px; height: 400px; /* MASSIVE */
+            width: 400px; height: 400px; 
             background: radial-gradient(circle, rgba(0, 243, 255, 0.3) 0%, transparent 70%);
             opacity: 0; z-index: 10; pointer-events: none;
             border-radius: 50%;
+            animation: wavePulse 2s infinite ease-out; /* Always pulsing */
         }
 
-        /* PROCESSING STATES */
+        /* PROCESSING STATES (Only affects intensity if needed, but animation is constant now) */
         .processing .neon-ring { 
-            border-color: var(--cyber-gold); border-top-color: transparent; border-bottom-color: transparent; 
-            animation: spinFast 0.5s linear infinite; box-shadow: 0 0 30px var(--cyber-gold); 
-        }
-        
-        .processing .energy-wave {
-            animation: wavePulse 1.5s infinite ease-out;
+            border-color: var(--cyber-gold); 
+            box-shadow: 0 0 30px var(--cyber-gold); 
+            animation: spinFast 0.5s linear infinite;
         }
         
         @keyframes spinSlow { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
@@ -324,7 +323,7 @@
 
     <div id="loginOverlay">
         <div class="login-content">
-            <div class="brand-logo" style="font-size: 3.5rem; margin-bottom: 30px;">JARVIS V20.2</div>
+            <div class="brand-logo" style="font-size: 3.5rem; margin-bottom: 30px;">JARVIS V20.3</div>
             <div style="color:#8899a6; letter-spacing:2px; margin-bottom:30px;">COMMAND CENTER // HYPER-SCALPING PROTOCOL</div>
             <button class="login-btn" onclick="connectDeriv()">INICIAR SISTEMA</button>
         </div>
@@ -447,7 +446,7 @@
     window.onerror = function(msg, url, line) {
         if(localStorage.getItem('crash_loop_guard')) return;
         localStorage.setItem('crash_loop_guard', 'true');
-        alert("RECUPERAÇÃO DE FALHA V20.2:\\n" + msg);
+        alert("RECUPERAÇÃO DE FALHA V20.3:\\n" + msg);
         localStorage.removeItem('jarvis_accounts');
         setTimeout(() => {
             localStorage.removeItem('crash_loop_guard');
@@ -478,7 +477,7 @@
 
     // BOOT
     window.addEventListener('DOMContentLoaded', () => {
-        console.log("DOM Loaded. Iniciando Jarvis V20.2 Command Center...");
+        console.log("DOM Loaded. Iniciando Jarvis V20.3 Command Center...");
         try {
             checkAuth();
             loadState(); 
@@ -739,7 +738,8 @@
         }
         
         isProcessing = true;
-        getEl('jarvisAnim').classList.add('processing'); 
+        // NOTE: In V20.3, we DO NOT add 'processing' class to jarvisAnim to keep animation continuous.
+        // We only animate the button.
         
         if (source === 'AUTO') {
             btn.style.borderColor = "var(--cyber-gold)"; 
@@ -779,17 +779,17 @@
                     const prediction = model.predict(tensor).dataSync()[0];
                     tensor.dispose();
                     
-                    // LOWER THRESHOLD FOR MORE ACTIVITY
                     if (prediction > 0.55) signal = "CALL";
                     else if (prediction < 0.45) signal = "PUT";
                 } catch(e) { console.warn("AI Fallback"); }
             }
 
+            // --- V20.3 AGGRESSIVE FALLBACK ---
             if (signal === "NEUTRO") {
-                const last = candles[candles.length-1];
                 const rsi = parseFloat(getEl('rsiVal').innerText);
-                if (rsi < 30 && last.close > last.open) signal = "CALL"; 
-                else if (rsi > 70 && last.close < last.open) signal = "PUT"; 
+                // AGGRESSIVE THRESHOLDS: 45/55 (Was 30/70)
+                if (rsi < 45) signal = "CALL"; 
+                else if (rsi > 55) signal = "PUT"; 
             }
 
             // --- SNIPER FILTER ---
@@ -806,18 +806,17 @@
                 if (signal === "CALL") {
                     if (currentPrice < ema20) { blocked = true; reason = "CONTRA TENDÊNCIA"; }
                     else if (rsi > 70) { blocked = true; reason = "RSI ESTICADO"; }
-                    else if (!isGreen) { blocked = true; reason = "SEM FORÇA COMPRADORA"; }
+                    // Removed "isGreen" check for V20.3 to allow reversal entries
                 }
                 if (signal === "PUT") {
                     if (currentPrice > ema20) { blocked = true; reason = "CONTRA TENDÊNCIA"; }
                     else if (rsi < 30) { blocked = true; reason = "RSI ESTICADO"; }
-                    else if (!isRed) { blocked = true; reason = "SEM FORÇA VENDEDORA"; }
+                    // Removed "isRed" check for V20.3 to allow reversal entries
                 }
             }
 
             setTimeout(() => {
                 if (blocked) {
-                    // ALWAYS SHOW FEEDBACK IN V20.2
                     sub.innerHTML = `<span style='color:orange'>BUSCANDO ALVO...</span> <span style='font-size:0.6rem; color:#888'>(${reason})</span>`;
                     setTimeout(resetBtn, 2000);
                 } else {
@@ -835,14 +834,13 @@
                     }
                 }
                 isProcessing = false;
-                getEl('jarvisAnim').classList.remove('processing');
+                // No need to remove class from jarvisAnim
             }, 1000); 
 
         } catch(e) { 
             console.log("Analysis Info:", e.message);
             if (source === 'MANUAL') alert(e.message);
             isProcessing = false; 
-            getEl('jarvisAnim').classList.remove('processing');
             resetBtn();
         }
 
