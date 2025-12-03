@@ -6,7 +6,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
-    <title>JARVIS COMMAND CENTER V20</title>
+    <title>JARVIS COMMAND CENTER V20.2</title>
     <link rel="icon" type="image/jpeg" href="JARVIS ROSTO.jpg">
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700;800;900&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
@@ -223,14 +223,31 @@
             box-shadow: 0 0 15px rgba(0,243,255,0.2); 
         }
         
+        /* V20.2 ENERGY WAVE */
+        .energy-wave {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            width: 400px; height: 400px; /* MASSIVE */
+            background: radial-gradient(circle, rgba(0, 243, 255, 0.3) 0%, transparent 70%);
+            opacity: 0; z-index: 10; pointer-events: none;
+            border-radius: 50%;
+        }
+
         /* PROCESSING STATES */
         .processing .neon-ring { 
             border-color: var(--cyber-gold); border-top-color: transparent; border-bottom-color: transparent; 
             animation: spinFast 0.5s linear infinite; box-shadow: 0 0 30px var(--cyber-gold); 
         }
         
+        .processing .energy-wave {
+            animation: wavePulse 1.5s infinite ease-out;
+        }
+        
         @keyframes spinSlow { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         @keyframes spinFast { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        @keyframes wavePulse {
+            0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0.8; }
+            100% { transform: translate(-50%, -50%) scale(1.5); opacity: 0; }
+        }
         
         /* BUTTONS */
         .btn-decode { 
@@ -307,7 +324,7 @@
 
     <div id="loginOverlay">
         <div class="login-content">
-            <div class="brand-logo" style="font-size: 3.5rem; margin-bottom: 30px;">JARVIS V20</div>
+            <div class="brand-logo" style="font-size: 3.5rem; margin-bottom: 30px;">JARVIS V20.2</div>
             <div style="color:#8899a6; letter-spacing:2px; margin-bottom:30px;">COMMAND CENTER // HYPER-SCALPING PROTOCOL</div>
             <button class="login-btn" onclick="connectDeriv()">INICIAR SISTEMA</button>
         </div>
@@ -358,8 +375,9 @@
             <div class="chart-wrapper" id="chartContainer">
                 <div id="tvChart"></div>
                 <div class="jarvis-container" id="jarvisAnim">
+                    <div class="energy-wave"></div>
                     <div class="neon-ring"></div>
-                    <img src="jarvisnovo.gif" class="jarvis-img" onerror="this.style.display='none'">
+                    <img src="jarvis.gif" class="jarvis-img" style="width:130px; height:130px;" onerror="this.style.display='none'">
                 </div>
                 <div class="live-price" id="priceTag" style="position:absolute; right:10px; top:10px; font-size:1.5rem; font-weight:bold; z-index:5;">--.--</div>
                 <div class="result-overlay" id="resultBig">CALL</div>
@@ -429,7 +447,7 @@
     window.onerror = function(msg, url, line) {
         if(localStorage.getItem('crash_loop_guard')) return;
         localStorage.setItem('crash_loop_guard', 'true');
-        alert("RECUPERAÇÃO DE FALHA V20:\\n" + msg);
+        alert("RECUPERAÇÃO DE FALHA V20.2:\\n" + msg);
         localStorage.removeItem('jarvis_accounts');
         setTimeout(() => {
             localStorage.removeItem('crash_loop_guard');
@@ -460,7 +478,7 @@
 
     // BOOT
     window.addEventListener('DOMContentLoaded', () => {
-        console.log("DOM Loaded. Iniciando Jarvis V20 Command Center...");
+        console.log("DOM Loaded. Iniciando Jarvis V20.2 Command Center...");
         try {
             checkAuth();
             loadState(); 
@@ -749,7 +767,7 @@
 
             let signal = "NEUTRO";
             
-            // --- AI PREDICTION ---
+            // --- AI PREDICTION (TUNED V20.2) ---
             if (model && candles.length >= 60) {
                 try {
                     const inputData = candles.slice(-60).map(c => c.close);
@@ -761,8 +779,9 @@
                     const prediction = model.predict(tensor).dataSync()[0];
                     tensor.dispose();
                     
-                    if (prediction > 0.60) signal = "CALL";
-                    else if (prediction < 0.40) signal = "PUT";
+                    // LOWER THRESHOLD FOR MORE ACTIVITY
+                    if (prediction > 0.55) signal = "CALL";
+                    else if (prediction < 0.45) signal = "PUT";
                 } catch(e) { console.warn("AI Fallback"); }
             }
 
@@ -798,12 +817,9 @@
 
             setTimeout(() => {
                 if (blocked) {
-                     if (source === 'MANUAL') {
-                        sub.innerHTML = `<span style='color:orange'>BUSCANDO ALVO...</span> <span style='font-size:0.6rem; color:#888'>(${reason})</span>`;
-                        setTimeout(resetBtn, 2000);
-                     } else {
-                         resetBtn();
-                     }
+                    // ALWAYS SHOW FEEDBACK IN V20.2
+                    sub.innerHTML = `<span style='color:orange'>BUSCANDO ALVO...</span> <span style='font-size:0.6rem; color:#888'>(${reason})</span>`;
+                    setTimeout(resetBtn, 2000);
                 } else {
                     showResult(signal);
                     if(signal !== "NEUTRO" && getEl('autoTradeToggle').checked) {
@@ -820,7 +836,7 @@
                 }
                 isProcessing = false;
                 getEl('jarvisAnim').classList.remove('processing');
-            }, 1000); // Faster analysis for V20
+            }, 1000); 
 
         } catch(e) { 
             console.log("Analysis Info:", e.message);
@@ -892,8 +908,6 @@
                     console.log(`SCALPING: Alvo atingido (${profit.toFixed(2)}). Fechando...`);
                     sellPosition(p.contract_id);
                 }
-                // Safety Stop Loss (Individual Trade) - Optional, usually handled by daily SL
-                // if (profit <= -stake * 0.5) sellPosition(p.contract_id); 
             }
         }
         renderPositions();
