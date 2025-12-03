@@ -94,7 +94,7 @@
         <div class="login-content">
             <div class="brand-logo" style="font-size: 3rem; margin-bottom: 20px;">JARVIS TRADER</div>
             <button class="login-btn" onclick="connectDeriv()">INICIAR SISTEMA</button>
-            <div style="margin-top: 20px; font-size: 0.8rem; color: #666;">V19.3 - AUTONOMOUS MODE</div>
+            <div style="margin-top: 20px; font-size: 0.8rem; color: #666;">V19.4 - PROFESSIONAL MODE</div>
         </div>
     </div>
 
@@ -163,7 +163,7 @@
             </div>
             <button class="btn-decode" id="btnDecode" onclick="runAI('MANUAL')">
                 <span>DECODIFICAR MERCADO</span>
-                <span style="font-size:0.8rem; color:#00ff41; margin-top:5px; text-shadow:0 0 10px #00ff41; letter-spacing:1px;">JARVIS ONLINE</span>
+                <span id="btnSubText" style="font-size:0.8rem; color:#00ff41; margin-top:5px; text-shadow:0 0 10px #00ff41; letter-spacing:1px;">JARVIS ONLINE</span>
             </button>
             <div class="action-grid">
                 <button class="btn-action btn-call" id="btnCall" onclick="placeTrade('CALL')" disabled>CALL ⬆</button>
@@ -213,7 +213,7 @@
     window.onerror = function(msg, url, line) {
         if(localStorage.getItem('crash_loop_guard')) return;
         localStorage.setItem('crash_loop_guard', 'true');
-        alert("RECUPERAÇÃO DE FALHA V19.3:\\n" + msg);
+        alert("RECUPERAÇÃO DE FALHA V19.4:\\n" + msg);
         localStorage.removeItem('jarvis_accounts');
         setTimeout(() => {
             localStorage.removeItem('crash_loop_guard');
@@ -243,7 +243,7 @@
 
     // BOOT SEGURO
     window.addEventListener('DOMContentLoaded', () => {
-        console.log("DOM Loaded. Iniciando Jarvis V19.3...");
+        console.log("DOM Loaded. Iniciando Jarvis V19.4...");
         try {
             checkAuth();
             loadState(); // CARREGA O CACHE
@@ -509,22 +509,29 @@
         if (isProcessing) return;
         
         const btn = getEl('btnDecode');
-        const originalContent = btn.innerHTML;
+        const sub = getEl('btnSubText');
+        const originalBorder = btn.style.borderColor;
+        const originalSubColor = sub.style.color;
+        const originalSubText = sub.innerText;
 
         if (candles.length < 30) { 
-            btn.innerHTML = "<span>AGUARDANDO DADOS...</span>";
-            setTimeout(() => btn.innerHTML = originalContent, 1500);
+            sub.innerText = "AGUARDANDO DADOS...";
+            setTimeout(() => sub.innerText = originalSubText, 1500);
             return; 
         }
         
         isProcessing = true;
         getEl('jarvisAnim').classList.add('processing'); 
         
-        // VISUAL FEEDBACK FOR AUTO TRADER
+        // VISUAL FEEDBACK V19.4 (PROFESSIONAL MODE)
         if (source === 'AUTO') {
-            btn.innerHTML = "<span style='color:var(--neon-purple)'>🤖 ROBÔ ANALISANDO...</span>";
+            btn.style.borderColor = "var(--neon-orange)"; // Yellow/Orange
+            btn.style.boxShadow = "0 0 20px rgba(255, 157, 0, 0.3)";
+            sub.innerText = "SISTEMA ANALISANDO";
+            sub.style.color = "var(--neon-orange)";
+            sub.style.textShadow = "0 0 10px var(--neon-orange)";
         } else {
-            btn.innerHTML = "<span>CALIBRANDO MIRA...</span>";
+            sub.innerText = "CALIBRANDO MIRA...";
         }
         
         try {
@@ -586,20 +593,22 @@
 
             setTimeout(() => {
                 if (blocked) {
-                     btn.innerHTML = `<span style='color:orange'>BUSCANDO ALVO...</span><span style='font-size:0.6rem; color:#888'>${reason}</span>`;
-                     setTimeout(() => btn.innerHTML = originalContent, 2000);
+                     sub.innerHTML = `<span style='color:orange'>BUSCANDO ALVO...</span> <span style='font-size:0.6rem; color:#888'>(${reason})</span>`;
+                     setTimeout(resetBtn, 2000);
                 } else {
                     showResult(signal);
                     if(signal !== "NEUTRO" && getEl('autoTradeToggle').checked) {
                         // V19.3 CONCURRENCY CHECK
                         if (positions.size >= MAX_TRADES) {
-                            btn.innerHTML = "<span style='color:orange'>LIMITE DE ORDENS (2/2)</span>";
-                            setTimeout(() => btn.innerHTML = originalContent, 2000);
+                            sub.innerHTML = "<span style='color:orange'>LIMITE DE ORDENS (2/2)</span>";
+                            setTimeout(resetBtn, 2000);
                         } else {
                             placeTrade(signal);
+                            resetBtn();
                         }
+                    } else {
+                         resetBtn();
                     }
-                    if (!blocked && !getEl('autoTradeToggle').checked) btn.innerHTML = originalContent;
                 }
 
                 isProcessing = false;
@@ -610,7 +619,15 @@
             console.error("Critical Analysis Error:", e);
             isProcessing = false; 
             getEl('jarvisAnim').classList.remove('processing');
-            btn.innerHTML = originalContent;
+            resetBtn();
+        }
+
+        function resetBtn() {
+            btn.style.borderColor = ""; 
+            btn.style.boxShadow = "";
+            sub.innerText = originalSubText;
+            sub.style.color = originalSubColor;
+            sub.style.textShadow = "0 0 10px #00ff41";
         }
     }
 
