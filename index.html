@@ -6,7 +6,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
-    <title>JARVIS COMMAND CENTER V20.3</title>
+    <title>JARVIS COMMAND CENTER V20.4</title>
     <link rel="icon" type="image/jpeg" href="JARVIS ROSTO.jpg">
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700;800;900&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
@@ -193,7 +193,7 @@
         
         /* CHART */
         .chart-wrapper { 
-            height: 38vh; /* V20.3: REDUCED HEIGHT */
+            height: 38vh; 
             flex-shrink: 0; 
             position: relative; 
             background: #050a14; 
@@ -216,33 +216,37 @@
             border: 2px solid rgba(0,243,255,0.3); 
         }
         
-        /* V20.3 CONTINUOUS ANIMATION */
         .neon-ring { 
             position: absolute; width: 150px; height: 150px; border-radius: 50%; 
             border: 2px dashed var(--cyber-blue); border-top-color: transparent; border-bottom-color: transparent; 
             z-index: 21; 
-            animation: spinSlow 10s linear infinite; /* Always spinning */
+            animation: spinSlow 10s linear infinite; 
             box-shadow: 0 0 15px rgba(0,243,255,0.2); 
+            transition: all 0.5s ease;
         }
         
+        /* V20.4 DYNAMIC WAVE */
         .energy-wave {
             position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
             width: 400px; height: 400px; 
             background: radial-gradient(circle, rgba(0, 243, 255, 0.3) 0%, transparent 70%);
             opacity: 0; z-index: 10; pointer-events: none;
             border-radius: 50%;
-            animation: wavePulse 2s infinite ease-out; /* Always pulsing */
+            animation: wavePulse 2s infinite ease-out;
+            transition: background 0.5s ease; /* Smooth color transition */
         }
 
-        /* PROCESSING STATES (Only affects intensity if needed, but animation is constant now) */
-        .processing .neon-ring { 
-            border-color: var(--cyber-gold); 
-            box-shadow: 0 0 30px var(--cyber-gold); 
-            animation: spinFast 0.5s linear infinite;
-        }
+        /* V20.4 SENTIMENT COLORS */
+        .sentiment-bullish .energy-wave { background: radial-gradient(circle, rgba(0, 255, 65, 0.3) 0%, transparent 70%); }
+        .sentiment-bullish .neon-ring { border-color: var(--cyber-green); box-shadow: 0 0 20px rgba(0,255,65,0.3); }
         
+        .sentiment-bearish .energy-wave { background: radial-gradient(circle, rgba(255, 0, 60, 0.3) 0%, transparent 70%); }
+        .sentiment-bearish .neon-ring { border-color: var(--cyber-red); box-shadow: 0 0 20px rgba(255,0,60,0.3); }
+        
+        .sentiment-neutral .energy-wave { background: radial-gradient(circle, rgba(0, 243, 255, 0.3) 0%, transparent 70%); }
+        .sentiment-neutral .neon-ring { border-color: var(--cyber-blue); box-shadow: 0 0 15px rgba(0,243,255,0.2); }
+
         @keyframes spinSlow { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        @keyframes spinFast { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         @keyframes wavePulse {
             0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0.8; }
             100% { transform: translate(-50%, -50%) scale(1.5); opacity: 0; }
@@ -323,8 +327,8 @@
 
     <div id="loginOverlay">
         <div class="login-content">
-            <div class="brand-logo" style="font-size: 3.5rem; margin-bottom: 30px;">JARVIS V20.3</div>
-            <div style="color:#8899a6; letter-spacing:2px; margin-bottom:30px;">COMMAND CENTER // HYPER-SCALPING PROTOCOL</div>
+            <div class="brand-logo" style="font-size: 3.5rem; margin-bottom: 30px;">JARVIS V20.4</div>
+            <div style="color:#8899a6; letter-spacing:2px; margin-bottom:30px;">COMMAND CENTER // MOMENTUM SCALPER</div>
             <button class="login-btn" onclick="connectDeriv()">INICIAR SISTEMA</button>
         </div>
     </div>
@@ -446,7 +450,7 @@
     window.onerror = function(msg, url, line) {
         if(localStorage.getItem('crash_loop_guard')) return;
         localStorage.setItem('crash_loop_guard', 'true');
-        alert("RECUPERAÇÃO DE FALHA V20.3:\\n" + msg);
+        alert("RECUPERAÇÃO DE FALHA V20.4:\\n" + msg);
         localStorage.removeItem('jarvis_accounts');
         setTimeout(() => {
             localStorage.removeItem('crash_loop_guard');
@@ -477,7 +481,7 @@
 
     // BOOT
     window.addEventListener('DOMContentLoaded', () => {
-        console.log("DOM Loaded. Iniciando Jarvis V20.3 Command Center...");
+        console.log("DOM Loaded. Iniciando Jarvis V20.4 Command Center...");
         try {
             checkAuth();
             loadState(); 
@@ -725,8 +729,7 @@
         
         const btn = getEl('btnDecode');
         const sub = getEl('btnSubText');
-        const originalBorder = btn.style.borderColor;
-        const originalSubColor = sub.style.color;
+        const jarvisContainer = getEl('jarvisAnim');
         const originalSubText = sub.innerText;
 
         if (candles.length < 30) { 
@@ -738,15 +741,12 @@
         }
         
         isProcessing = true;
-        // NOTE: In V20.3, we DO NOT add 'processing' class to jarvisAnim to keep animation continuous.
-        // We only animate the button.
         
         if (source === 'AUTO') {
             btn.style.borderColor = "var(--cyber-gold)"; 
             btn.style.boxShadow = "0 0 30px rgba(255, 215, 0, 0.2)";
             sub.innerText = "SISTEMA ANALISANDO";
             sub.style.color = "var(--cyber-gold)";
-            sub.style.textShadow = "0 0 10px var(--cyber-gold)";
         } else {
             sub.innerText = "CALIBRANDO MIRA...";
         }
@@ -758,16 +758,12 @@
             const stopLossLimit = -Math.abs(slInput); // FORCE NEGATIVE
             const takeProfit = parseFloat(getEl('tpInput').value);
 
-            if (dailyPL <= stopLossLimit) {
-                throw new Error("STOP LOSS DIÁRIO ATINGIDO");
-            }
-            if (dailyPL >= takeProfit) {
-                throw new Error("META BATIDA! PARABÉNS");
-            }
+            if (dailyPL <= stopLossLimit) throw new Error("STOP LOSS DIÁRIO ATINGIDO");
+            if (dailyPL >= takeProfit) throw new Error("META BATIDA! PARABÉNS");
 
             let signal = "NEUTRO";
             
-            // --- AI PREDICTION (TUNED V20.2) ---
+            // --- AI PREDICTION ---
             if (model && candles.length >= 60) {
                 try {
                     const inputData = candles.slice(-60).map(c => c.close);
@@ -784,44 +780,32 @@
                 } catch(e) { console.warn("AI Fallback"); }
             }
 
-            // --- V20.3 AGGRESSIVE FALLBACK ---
+            // --- V20.4 MOMENTUM SCALPER (EMA 9) ---
+            // If AI is Neutral, we use Trend Following to force trades
             if (signal === "NEUTRO") {
+                const ema9 = calculateEMA(9);
+                const currentPrice = candles[candles.length-1].close;
                 const rsi = parseFloat(getEl('rsiVal').innerText);
-                // AGGRESSIVE THRESHOLDS: 45/55 (Was 30/70)
-                if (rsi < 45) signal = "CALL"; 
-                else if (rsi > 55) signal = "PUT"; 
-            }
-
-            // --- SNIPER FILTER ---
-            const ema20 = calculateEMA(20);
-            const rsi = parseFloat(getEl('rsiVal').innerText);
-            const currentPrice = candles[candles.length-1].close;
-            const isGreen = candles[candles.length-1].close > candles[candles.length-1].open;
-            const isRed = candles[candles.length-1].close < candles[candles.length-1].open;
-            
-            let blocked = false;
-            let reason = "";
-
-            if (ema20) {
-                if (signal === "CALL") {
-                    if (currentPrice < ema20) { blocked = true; reason = "CONTRA TENDÊNCIA"; }
-                    else if (rsi > 70) { blocked = true; reason = "RSI ESTICADO"; }
-                    // Removed "isGreen" check for V20.3 to allow reversal entries
-                }
-                if (signal === "PUT") {
-                    if (currentPrice > ema20) { blocked = true; reason = "CONTRA TENDÊNCIA"; }
-                    else if (rsi < 30) { blocked = true; reason = "RSI ESTICADO"; }
-                    // Removed "isRed" check for V20.3 to allow reversal entries
+                
+                if (ema9) {
+                    // Trend Following: Price > EMA9 = CALL, Price < EMA9 = PUT
+                    // Safety: Don't buy if RSI > 70, Don't sell if RSI < 30
+                    if (currentPrice > ema9 && rsi < 70) signal = "CALL";
+                    else if (currentPrice < ema9 && rsi > 30) signal = "PUT";
                 }
             }
+
+            // --- V20.4 CHAMELEON ANIMATION ---
+            jarvisContainer.classList.remove('sentiment-bullish', 'sentiment-bearish', 'sentiment-neutral');
+            if (signal === "CALL") jarvisContainer.classList.add('sentiment-bullish');
+            else if (signal === "PUT") jarvisContainer.classList.add('sentiment-bearish');
+            else jarvisContainer.classList.add('sentiment-neutral');
 
             setTimeout(() => {
-                if (blocked) {
-                    sub.innerHTML = `<span style='color:orange'>BUSCANDO ALVO...</span> <span style='font-size:0.6rem; color:#888'>(${reason})</span>`;
-                    setTimeout(resetBtn, 2000);
-                } else {
+                // V20.4: NO MORE "NEUTRO" TEXT
+                if (signal !== "NEUTRO") {
                     showResult(signal);
-                    if(signal !== "NEUTRO" && getEl('autoTradeToggle').checked) {
+                    if(getEl('autoTradeToggle').checked) {
                         if (positions.size >= MAX_TRADES) {
                             sub.innerHTML = "<span style='color:orange'>LIMITE DE ORDENS (2/2)</span>";
                             setTimeout(resetBtn, 2000);
@@ -832,9 +816,11 @@
                     } else {
                          resetBtn();
                     }
+                } else {
+                    // If still neutral (rare with Momentum Scalper), just reset silently
+                    resetBtn();
                 }
                 isProcessing = false;
-                // No need to remove class from jarvisAnim
             }, 1000); 
 
         } catch(e) { 
@@ -847,9 +833,8 @@
         function resetBtn() {
             btn.style.borderColor = ""; 
             btn.style.boxShadow = "";
-            sub.innerText = originalSubText;
-            sub.style.color = originalSubColor;
-            sub.style.textShadow = "";
+            sub.innerText = "SISTEMA ONLINE"; // Reset to default text
+            sub.style.color = "var(--cyber-green)";
         }
     }
 
