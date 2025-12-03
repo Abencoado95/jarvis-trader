@@ -12,7 +12,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
     <script src="https://unpkg.com/lightweight-charts@3.8.0/dist/lightweight-charts.standalone.production.js"></script>
     <style>
-        :root { --neon-cyan: #00f3ff; --neon-red: #ff003c; --neon-green: #00ff41; --neon-orange: #ff9d00; --glass: rgba(10, 14, 18, 0.95); }
+        :root { --neon-cyan: #00f3ff; --neon-red: #ff003c; --neon-green: #00ff41; --neon-orange: #ff9d00; --neon-purple: #b026ff; --glass: rgba(10, 14, 18, 0.95); }
         * { box-sizing: border-box; outline: none; user-select: none; }
         body { background-color: #0d1117; color: white; font-family: 'Rajdhani', sans-serif; margin: 0; height: 100vh; overflow: hidden; display: flex; justify-content: center; align-items: center; background: radial-gradient(circle at 50% 50%, #1a1a1a 0%, #000 100%); }
         
@@ -94,7 +94,7 @@
         <div class="login-content">
             <div class="brand-logo" style="font-size: 3rem; margin-bottom: 20px;">JARVIS TRADER</div>
             <button class="login-btn" onclick="connectDeriv()">INICIAR SISTEMA</button>
-            <div style="margin-top: 20px; font-size: 0.8rem; color: #666;">V19.2 - SNIPER PROTOCOL</div>
+            <div style="margin-top: 20px; font-size: 0.8rem; color: #666;">V19.3 - AUTONOMOUS MODE</div>
         </div>
     </div>
 
@@ -161,7 +161,7 @@
                 <div class="live-price" id="priceTag">--.--</div>
                 <div class="result-overlay" id="resultBig">CALL</div>
             </div>
-            <button class="btn-decode" id="btnDecode" onclick="runAI()">
+            <button class="btn-decode" id="btnDecode" onclick="runAI('MANUAL')">
                 <span>DECODIFICAR MERCADO</span>
                 <span style="font-size:0.8rem; color:#00ff41; margin-top:5px; text-shadow:0 0 10px #00ff41; letter-spacing:1px;">JARVIS ONLINE</span>
             </button>
@@ -213,7 +213,7 @@
     window.onerror = function(msg, url, line) {
         if(localStorage.getItem('crash_loop_guard')) return;
         localStorage.setItem('crash_loop_guard', 'true');
-        alert("RECUPERAÇÃO DE FALHA V19.2:\\n" + msg);
+        alert("RECUPERAÇÃO DE FALHA V19.3:\\n" + msg);
         localStorage.removeItem('jarvis_accounts');
         setTimeout(() => {
             localStorage.removeItem('crash_loop_guard');
@@ -224,6 +224,7 @@
 
     const APP_ID = 114062; 
     const SYMBOL = "R_100"; 
+    const MAX_TRADES = 2; // V19.3 CONCURRENCY LIMIT
     
     window.connectDeriv = function() {
         window.location.href = `https://oauth.deriv.com/oauth2/authorize?app_id=${APP_ID}&l=pt&brand=deriv`;
@@ -242,7 +243,7 @@
 
     // BOOT SEGURO
     window.addEventListener('DOMContentLoaded', () => {
-        console.log("DOM Loaded. Iniciando Jarvis V19.2...");
+        console.log("DOM Loaded. Iniciando Jarvis V19.3...");
         try {
             checkAuth();
             loadState(); // CARREGA O CACHE
@@ -442,10 +443,10 @@
             candles.push(candle); 
             if(candles.length > 300) candles.shift(); 
             
-            // --- TRUE AUTO TRADER LOOP ---
+            // --- TRUE AUTO TRADER LOOP V19.3 ---
             if (getEl('autoTradeToggle').checked && !isProcessing) {
                 console.log("Nova vela detectada. Auto Trader analisando...");
-                runAI();
+                runAI('AUTO'); // Passa flag 'AUTO' para feedback visual
             }
         }
         if(series) series.update(candle);
@@ -504,7 +505,7 @@
         }
     }
 
-    async function runAI() {
+    async function runAI(source = 'MANUAL') {
         if (isProcessing) return;
         
         const btn = getEl('btnDecode');
@@ -518,11 +519,17 @@
         
         isProcessing = true;
         getEl('jarvisAnim').classList.add('processing'); 
-        btn.innerHTML = "<span>CALIBRANDO MIRA...</span>";
+        
+        // VISUAL FEEDBACK FOR AUTO TRADER
+        if (source === 'AUTO') {
+            btn.innerHTML = "<span style='color:var(--neon-purple)'>🤖 ROBÔ ANALISANDO...</span>";
+        } else {
+            btn.innerHTML = "<span>CALIBRANDO MIRA...</span>";
+        }
         
         try {
             let signal = "NEUTRO";
-            let source = "TÉCNICA";
+            let signalSource = "TÉCNICA";
 
             if (model && candles.length >= 60) {
                 try {
@@ -535,8 +542,8 @@
                     const prediction = model.predict(tensor).dataSync()[0];
                     tensor.dispose();
                     
-                    if (prediction > 0.60) { signal = "CALL"; source = "IA LSTM"; }
-                    else if (prediction < 0.40) { signal = "PUT"; source = "IA LSTM"; }
+                    if (prediction > 0.60) { signal = "CALL"; signalSource = "IA LSTM"; }
+                    else if (prediction < 0.40) { signal = "PUT"; signalSource = "IA LSTM"; }
                 } catch(e) {
                     console.warn("LSTM falhou, usando fallback técnico.");
                 }
@@ -565,20 +572,11 @@
             let reason = "";
 
             if (ema20) {
-                // CALL SNIPER RULES:
-                // 1. Trend: Price > EMA
-                // 2. RSI: Not Overbought (>70)
-                // 3. Candle Color: MUST BE GREEN (Momentum)
                 if (signal === "CALL") {
                     if (currentPrice < ema20) { blocked = true; reason = "CONTRA TENDÊNCIA"; }
                     else if (rsi > 70) { blocked = true; reason = "RSI ESTICADO"; }
                     else if (!isGreen) { blocked = true; reason = "SEM FORÇA COMPRADORA"; }
                 }
-
-                // PUT SNIPER RULES:
-                // 1. Trend: Price < EMA
-                // 2. RSI: Not Oversold (<30)
-                // 3. Candle Color: MUST BE RED (Momentum)
                 if (signal === "PUT") {
                     if (currentPrice > ema20) { blocked = true; reason = "CONTRA TENDÊNCIA"; }
                     else if (rsi < 30) { blocked = true; reason = "RSI ESTICADO"; }
@@ -593,9 +591,15 @@
                 } else {
                     showResult(signal);
                     if(signal !== "NEUTRO" && getEl('autoTradeToggle').checked) {
-                        placeTrade(signal);
+                        // V19.3 CONCURRENCY CHECK
+                        if (positions.size >= MAX_TRADES) {
+                            btn.innerHTML = "<span style='color:orange'>LIMITE DE ORDENS (2/2)</span>";
+                            setTimeout(() => btn.innerHTML = originalContent, 2000);
+                        } else {
+                            placeTrade(signal);
+                        }
                     }
-                    btn.innerHTML = originalContent;
+                    if (!blocked && !getEl('autoTradeToggle').checked) btn.innerHTML = originalContent;
                 }
 
                 isProcessing = false;
