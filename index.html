@@ -6,7 +6,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
-    <title>JARVIS COMMAND CENTER V21.9</title>
+    <title>JARVIS COMMAND CENTER V21.10</title>
     <link rel="icon" type="image/jpeg" href="JARVIS ROSTO.jpg">
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700;800;900&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
@@ -340,8 +340,8 @@
     <div id="loginOverlay">
         <div class="login-content">
             <img src="JARVIS ROSTO.jpg" class="login-avatar" onerror="this.src='jarvis.gif'">
-            <div class="brand-logo" style="font-size: 3.5rem; margin-bottom: 30px;">JARVIS V21.9</div>
-            <div style="color:#8899a6; letter-spacing:2px; margin-bottom:30px;">COMMAND CENTER // TRAILING SNIPER</div>
+            <div class="brand-logo" style="font-size: 3.5rem; margin-bottom: 30px;">JARVIS V21.10</div>
+            <div style="color:#8899a6; letter-spacing:2px; margin-bottom:30px;">COMMAND CENTER // BACK TO ORIGIN</div>
             <button class="login-btn" onclick="connectDeriv()">INICIAR SISTEMA</button>
         </div>
     </div>
@@ -376,9 +376,9 @@
                     </select>
                 </div>
                 <div class="config-group">
-                    <span class="label-sm" style="color:var(--cyber-gold)">TRAILING STOP (LUCRO)</span>
-                    <div style="font-size:0.8rem; color:#888; margin-bottom:5px;">Ativa em 50% e segue o preço.</div>
-                    <input type="number" id="scalpPercent" value="50" step="1" min="10" max="100" onchange="saveState()" style="color:var(--cyber-gold)">
+                    <span class="label-sm" style="color:var(--cyber-gold)">TAKE PROFIT % (POR ORDEM)</span>
+                    <div style="font-size:0.8rem; color:#888; margin-bottom:5px;">Fecha ao atingir % de lucro:</div>
+                    <input type="number" id="scalpPercent" value="10" step="1" min="1" max="100" onchange="saveState()" style="color:var(--cyber-gold)">
                 </div>
                 <div class="config-group" style="border-color:rgba(255,0,60,0.3);">
                     <span class="label-sm" style="color:var(--cyber-red)">STOP LOSS % (POR ORDEM)</span>
@@ -859,19 +859,18 @@
                          sub.innerText = `RECUPERANDO... (IA: ${confidence}%)`;
                     }
 
-                    // V21.8: CHRONOS PRECISION PROTOCOL
+                    // V21.10: ROLLBACK TO V21.6 (CHRONOS SUPER-BOOSTER)
+                    // REMOVED: Candle Color Sync, RSI Guard
+                    // RESTORED: EMA 50 Trend Context & Smart Thresholds
+                    
                     let thresholdCall = 0.55;
                     let thresholdPut = 0.45;
                     
                     const ema50 = calculateEMA(50);
                     const currentPrice = candles[candles.length-1].close;
-                    const openPrice = candles[candles.length-1].open;
-                    const isGreen = currentPrice > openPrice;
-                    const isRed = currentPrice < openPrice;
-                    const rsi = parseFloat(getEl('rsiVal').innerText);
 
                     if (martingaleLevel === 0 && ema50) {
-                        // CONTEXTO DE TENDÊNCIA
+                        // CONTEXTO DE TENDÊNCIA (V21.6)
                         if (currentPrice > ema50) {
                             thresholdCall = 0.55; 
                             thresholdPut = 0.40; 
@@ -883,27 +882,14 @@
                             sub.innerText = `CHRONOS: TENDÊNCIA BAIXA (IA: ${confidence}%)`;
                             sub.style.color = "var(--cyber-red)";
                         }
-
-                        // V21.8: FILTROS DE PRECISÃO (SÓ NIVEL 0)
-                        // 1. Candle Color Sync
-                        // 2. RSI Guard
-                        if (prediction > thresholdCall) {
-                            if (isGreen && rsi < 75) signal = "CALL";
-                            else if (!isGreen) sub.innerText = "AGUARDANDO CONFIRMAÇÃO (COR)...";
-                            else if (rsi >= 75) sub.innerText = "AGUARDANDO MELHOR PREÇO (RSI)...";
-                        } else if (prediction < thresholdPut) {
-                            if (isRed && rsi > 25) signal = "PUT";
-                            else if (!isRed) sub.innerText = "AGUARDANDO CONFIRMAÇÃO (COR)...";
-                            else if (rsi <= 25) sub.innerText = "AGUARDANDO MELHOR PREÇO (RSI)...";
-                        }
-
                     } else if (martingaleLevel > 0) {
-                        // RECOVERY: PURE AI (SPEED) - IGNORA TUDO
+                        // RECOVERY: PURE AI (SPEED)
                         thresholdCall = 0.55; 
                         thresholdPut = 0.45; 
-                        if (prediction > thresholdCall) signal = "CALL";
-                        else if (prediction < thresholdPut) signal = "PUT";
                     }
+
+                    if (prediction > thresholdCall) signal = "CALL";
+                    else if (prediction < thresholdPut) signal = "PUT";
 
                 } catch(e) { console.warn("AI Fallback"); }
             }
@@ -1022,45 +1008,30 @@
                 ws.send(JSON.stringify({ balance: 1 })); 
             }
         } else {
-            // V21.9: Initialize Max Profit for Trailing Stop
             if (!positions.has(p.contract_id)) {
                 p.entryTime = new Date().toLocaleTimeString();
-                p.maxProfit = -9999; 
             } else {
                 const existing = positions.get(p.contract_id);
                 p.entryTime = existing.entryTime;
-                p.maxProfit = existing.maxProfit || -9999;
             }
+            
+            positions.set(p.contract_id, p);
             
             const profit = Number(p.profit || 0);
             const stake = Number(p.buy_price || 0);
             const profitPercent = (profit / stake) * 100;
             
-            // Update High Water Mark
-            if (profitPercent > p.maxProfit) p.maxProfit = profitPercent;
-
-            positions.set(p.contract_id, p);
-            
+            const scalpPercent = parseFloat(getEl('scalpPercent').value);
             const slTradePercent = parseFloat(getEl('slTradePercent').value);
-            const scalpPercent = parseFloat(getEl('scalpPercent').value); // Use as activation
-            
-            // V21.9: TRAILING STOP LOGIC
-            const trailingActivation = scalpPercent; // Activate at User Configured % (e.g., 50%)
-            const trailingCallback = 10;   // Close if drops 10% from peak
             
             if (p.is_valid_to_sell) {
-                // 1. Strict Stop Loss
-                if (profitPercent <= -slTradePercent) {
+                // V21.10: ROLLBACK TO FIXED TARGET (NO TRAILING)
+                if (profitPercent >= scalpPercent) {
+                    console.log(`TAKE PROFIT: Alvo atingido (${profitPercent.toFixed(2)}%). Fechando...`);
+                    sellPosition(p.contract_id);
+                } else if (profitPercent <= -slTradePercent) {
                     console.log(`STOP LOSS: Limite atingido (-${profitPercent.toFixed(2)}%). Fechando...`);
                     sellPosition(p.contract_id);
-                }
-                
-                // 2. Trailing Stop
-                if (p.maxProfit >= trailingActivation) {
-                    if (profitPercent <= (p.maxProfit - trailingCallback)) {
-                        console.log(`TRAILING STOP: Lucro devolvido (Peak: ${p.maxProfit.toFixed(1)}%, Curr: ${profitPercent.toFixed(1)}%). Fechando...`);
-                        sellPosition(p.contract_id);
-                    }
                 }
             }
         }
