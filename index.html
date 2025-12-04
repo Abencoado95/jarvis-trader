@@ -6,7 +6,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
-    <title>JARVIS COMMAND CENTER V21.3</title>
+    <title>JARVIS COMMAND CENTER V21.4</title>
     <link rel="icon" type="image/jpeg" href="JARVIS ROSTO.jpg">
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700;800;900&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
@@ -333,8 +333,8 @@
 
     <div id="loginOverlay">
         <div class="login-content">
-            <div class="brand-logo" style="font-size: 3.5rem; margin-bottom: 30px;">JARVIS V21.3</div>
-            <div style="color:#8899a6; letter-spacing:2px; margin-bottom:30px;">COMMAND CENTER // HYPER AGGRESSIVE</div>
+            <div class="brand-logo" style="font-size: 3.5rem; margin-bottom: 30px;">JARVIS V21.4</div>
+            <div style="color:#8899a6; letter-spacing:2px; margin-bottom:30px;">COMMAND CENTER // BALANCED RECOVERY</div>
             <button class="login-btn" onclick="connectDeriv()">INICIAR SISTEMA</button>
         </div>
     </div>
@@ -823,9 +823,9 @@
             let signal = "NEUTRO";
             let currentStrategy = "AI";
 
-            // V21.3: MARTINGALE STATUS
+            // V21.4: MARTINGALE STATUS (SHOW LIMIT)
             if (martingaleLevel > 0) {
-                sub.innerText = `MODO RECUPERAÇÃO (NÍVEL ${martingaleLevel})`;
+                sub.innerText = `MODO RECUPERAÇÃO (NÍVEL ${martingaleLevel}/${MAX_MARTINGALE_LEVELS})`;
                 sub.style.color = "var(--cyber-red)";
             }
             
@@ -846,13 +846,13 @@
                          sub.innerText = `RECUPERANDO... (IA: ${confidence}%)`;
                     }
 
-                    // V21.3: HYPER AGGRESSIVE RECOVERY
+                    // V21.4: BALANCED RECOVERY (STANDARD SAFETY)
                     let thresholdCall = 0.55;
                     let thresholdPut = 0.45;
                     
                     if (martingaleLevel > 0) {
-                        thresholdCall = 0.50; // ANY Bias
-                        thresholdPut = 0.50;  // ANY Bias
+                        thresholdCall = 0.55; // Standard
+                        thresholdPut = 0.45;  // Standard
                     }
 
                     if (prediction > thresholdCall) signal = "CALL";
@@ -872,13 +872,13 @@
                     const isGreen = currentPrice > openPrice;
                     const isRed = currentPrice < openPrice;
                     
-                    // V21.3: HYPER AGGRESSIVE RECOVERY (NO RSI)
+                    // V21.4: BALANCED RECOVERY (STANDARD RSI)
                     let rsiCall = 65;
                     let rsiPut = 35;
                     
                     if (martingaleLevel > 0) {
-                        rsiCall = 101; // Impossible to block
-                        rsiPut = -1;   // Impossible to block
+                        rsiCall = 65; // Standard
+                        rsiPut = 35;  // Standard
                     }
 
                     if (currentPrice > ema9 && isGreen && rsi < rsiCall) signal = "CALL";
