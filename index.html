@@ -6,7 +6,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
-    <title>JARVIS COMMAND CENTER V21.4</title>
+    <title>JARVIS COMMAND CENTER V21.5</title>
     <link rel="icon" type="image/jpeg" href="JARVIS ROSTO.jpg">
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700;800;900&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
@@ -333,8 +333,8 @@
 
     <div id="loginOverlay">
         <div class="login-content">
-            <div class="brand-logo" style="font-size: 3.5rem; margin-bottom: 30px;">JARVIS V21.4</div>
-            <div style="color:#8899a6; letter-spacing:2px; margin-bottom:30px;">COMMAND CENTER // BALANCED RECOVERY</div>
+            <div class="brand-logo" style="font-size: 3.5rem; margin-bottom: 30px;">JARVIS V21.5</div>
+            <div style="color:#8899a6; letter-spacing:2px; margin-bottom:30px;">COMMAND CENTER // PURE AI RECOVERY</div>
             <button class="login-btn" onclick="connectDeriv()">INICIAR SISTEMA</button>
         </div>
     </div>
@@ -699,6 +699,7 @@
             
             if (data.error) {
                 console.error("Deriv Error:", data.error);
+                alert("ERRO DERIV: " + data.error.message); // V21.5: Visible Error
                 return;
             }
 
@@ -872,13 +873,13 @@
                     const isGreen = currentPrice > openPrice;
                     const isRed = currentPrice < openPrice;
                     
-                    // V21.4: BALANCED RECOVERY (STANDARD RSI)
+                    // V21.5: PURE AI RECOVERY (NO RSI)
                     let rsiCall = 65;
                     let rsiPut = 35;
                     
                     if (martingaleLevel > 0) {
-                        rsiCall = 65; // Standard
-                        rsiPut = 35;  // Standard
+                        rsiCall = 101; // Impossible to block
+                        rsiPut = -1;   // Impossible to block
                     }
 
                     if (currentPrice > ema9 && isGreen && rsi < rsiCall) signal = "CALL";
@@ -1067,7 +1068,7 @@
         if (profit < 0) {
             if (martingaleLevel < MAX_MARTINGALE_LEVELS) {
                 martingaleLevel++;
-                currentStake = currentStake * MARTINGALE_FACTOR;
+                currentStake = parseFloat((currentStake * MARTINGALE_FACTOR).toFixed(2)); // V21.5: Fix Precision
                 console.warn(`LOSS. ATIVANDO MARTINGALE NÍVEL ${martingaleLevel}. NOVA STAKE: ${currentStake.toFixed(2)}`);
             } else {
                 console.error("MARTINGALE MÁXIMO ATINGIDO. RESETANDO.");
