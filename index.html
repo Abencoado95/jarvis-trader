@@ -6,7 +6,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
-    <title>JARVIS COMMAND CENTER V20.7</title>
+    <title>JARVIS COMMAND CENTER V20.8</title>
     <link rel="icon" type="image/jpeg" href="JARVIS ROSTO.jpg">
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700;800;900&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
@@ -333,8 +333,8 @@
 
     <div id="loginOverlay">
         <div class="login-content">
-            <div class="brand-logo" style="font-size: 3.5rem; margin-bottom: 30px;">JARVIS V20.7</div>
-            <div style="color:#8899a6; letter-spacing:2px; margin-bottom:30px;">COMMAND CENTER // ADAPTIVE LEARNING</div>
+            <div class="brand-logo" style="font-size: 3.5rem; margin-bottom: 30px;">JARVIS V20.8</div>
+            <div style="color:#8899a6; letter-spacing:2px; margin-bottom:30px;">COMMAND CENTER // ACTIVE RECOVERY</div>
             <button class="login-btn" onclick="connectDeriv()">INICIAR SISTEMA</button>
         </div>
     </div>
@@ -491,7 +491,7 @@
     window.onerror = function(msg, url, line) {
         if(localStorage.getItem('crash_loop_guard')) return;
         localStorage.setItem('crash_loop_guard', 'true');
-        alert("RECUPERAÇÃO DE FALHA V20.7:\\n" + msg);
+        alert("RECUPERAÇÃO DE FALHA V20.8:\\n" + msg);
         localStorage.removeItem('jarvis_accounts');
         setTimeout(() => {
             localStorage.removeItem('crash_loop_guard');
@@ -519,18 +519,18 @@
     let positions = new Map();
     let sessionProfit = 0.0;
     let lastAnalysisTime = 0;
-    let lastStrategy = "AI"; // Track last used strategy
-    let strategyMap = new Map(); // Map contract_id -> strategy name
+    let lastStrategy = "AI"; 
+    let strategyMap = new Map(); 
 
-    // V20.7 ADAPTIVE LEARNING STATS
+    // V20.8 ADAPTIVE LEARNING STATS
     let strategyStats = {
-        AI: { consecutiveLosses: 0, cooldownUntil: 0 },
-        MOMENTUM: { consecutiveLosses: 0, cooldownUntil: 0 }
+        AI: { consecutiveLosses: 0, cooldownUntil: 0, isRecovering: false },
+        MOMENTUM: { consecutiveLosses: 0, cooldownUntil: 0, isRecovering: false }
     };
 
     // BOOT
     window.addEventListener('DOMContentLoaded', () => {
-        console.log("DOM Loaded. Iniciando Jarvis V20.7 Command Center...");
+        console.log("DOM Loaded. Iniciando Jarvis V20.8 Command Center...");
         try {
             checkAuth();
             loadState(); 
@@ -716,7 +716,6 @@
                 if (data.proposal.id) ws.send(JSON.stringify({ buy: data.proposal.id, price: data.proposal.ask_price }));
             }
             if (data.msg_type === 'buy') {
-                // V20.7: Map contract ID to the strategy used
                 strategyMap.set(data.buy.contract_id, lastStrategy);
             }
             if (data.msg_type === 'proposal_open_contract') handlePosition(data.proposal_open_contract);
@@ -737,7 +736,6 @@
         priceEl.style.color = candle.close >= candle.open ? '#00ff41' : '#ff003c';
         updateRSI();
 
-        // --- HYPER-SCALPING LOOP (1s Interval) ---
         const now = Date.now();
         if (getEl('autoTradeToggle').checked && !isProcessing && (now - lastAnalysisTime > ANALYSIS_INTERVAL)) {
             lastAnalysisTime = now;
@@ -809,10 +807,9 @@
         }
         
         try {
-            // CHECK DAILY LIMITS
             const dailyPL = parseFloat(getEl('sessionPL').innerText);
             const slInput = parseFloat(getEl('slInput').value);
-            const stopLossLimit = -Math.abs(slInput); // FORCE NEGATIVE
+            const stopLossLimit = -Math.abs(slInput); 
             const takeProfit = parseFloat(getEl('tpInput').value);
 
             if (dailyPL <= stopLossLimit) throw new Error("STOP LOSS DIÁRIO ATINGIDO");
@@ -821,19 +818,30 @@
             let signal = "NEUTRO";
             let currentStrategy = "AI";
 
-            // V20.7: CHECK COOLDOWNS
+            // V20.8: COOLDOWN TIMER & RECOVERY LOGIC
             const now = Date.now();
-            const aiCooldown = strategyStats.AI.cooldownUntil > now;
-            const momCooldown = strategyStats.MOMENTUM.cooldownUntil > now;
+            const aiStats = strategyStats.AI;
+            const momStats = strategyStats.MOMENTUM;
 
-            if (aiCooldown && momCooldown) {
-                sub.innerText = "APRENDENDO (PAUSA TÁTICA)";
+            // Check if BOTH are in cooldown (or just check active strategy logic)
+            // For simplicity, if AI is in cooldown, we try Momentum. If Momentum is also in cooldown, we pause.
+            
+            let aiAvailable = aiStats.cooldownUntil <= now;
+            let momAvailable = momStats.cooldownUntil <= now;
+
+            if (!aiAvailable && !momAvailable) {
+                // Show Timer for the one that takes longest
+                const maxCooldown = Math.max(aiStats.cooldownUntil, momStats.cooldownUntil);
+                const timeLeft = Math.ceil((maxCooldown - now) / 1000);
+                const m = Math.floor(timeLeft / 60);
+                const s = timeLeft % 60;
+                sub.innerText = `PAUSA TÁTICA (${m}:${s.toString().padStart(2, '0')})`;
                 sub.style.color = "var(--cyber-blue)";
                 throw new Error("Cooling Down");
             }
             
             // --- AI PREDICTION ---
-            if (model && candles.length >= 60 && !aiCooldown) {
+            if (model && candles.length >= 60 && aiAvailable) {
                 try {
                     const inputData = candles.slice(-60).map(c => c.close);
                     const mean = inputData.reduce((a, b) => a + b) / inputData.length;
@@ -844,13 +852,20 @@
                     const prediction = model.predict(tensor).dataSync()[0];
                     tensor.dispose();
                     
-                    if (prediction > 0.55) signal = "CALL";
-                    else if (prediction < 0.45) signal = "PUT";
+                    // V20.8: ACTIVE RECOVERY (STRICTER THRESHOLDS)
+                    if (aiStats.isRecovering) {
+                        sub.innerText = "MODO RECUPERAÇÃO (SNIPER)";
+                        if (prediction > 0.70) signal = "CALL";
+                        else if (prediction < 0.30) signal = "PUT";
+                    } else {
+                        if (prediction > 0.55) signal = "CALL";
+                        else if (prediction < 0.45) signal = "PUT";
+                    }
                 } catch(e) { console.warn("AI Fallback"); }
             }
 
-            // --- V20.5 SMART MOMENTUM (EMA 9 + CANDLE COLOR + RSI) ---
-            if (signal === "NEUTRO" && !momCooldown) {
+            // --- MOMENTUM PREDICTION ---
+            if (signal === "NEUTRO" && momAvailable) {
                 currentStrategy = "MOMENTUM";
                 const ema9 = calculateEMA(9);
                 const currentPrice = candles[candles.length-1].close;
@@ -861,15 +876,19 @@
                     const isGreen = currentPrice > openPrice;
                     const isRed = currentPrice < openPrice;
                     
-                    // CALL: Price > EMA + GREEN Candle + RSI < 65 (Not Overbought)
-                    if (currentPrice > ema9 && isGreen && rsi < 65) signal = "CALL";
-                    
-                    // PUT: Price < EMA + RED Candle + RSI > 35 (Not Oversold)
-                    else if (currentPrice < ema9 && isRed && rsi > 35) signal = "PUT";
+                    // V20.8: ACTIVE RECOVERY (STRICTER RSI)
+                    if (momStats.isRecovering) {
+                         sub.innerText = "MODO RECUPERAÇÃO (SNIPER)";
+                         if (currentPrice > ema9 && isGreen && rsi < 55) signal = "CALL"; // Stricter
+                         else if (currentPrice < ema9 && isRed && rsi > 45) signal = "PUT"; // Stricter
+                    } else {
+                         if (currentPrice > ema9 && isGreen && rsi < 65) signal = "CALL";
+                         else if (currentPrice < ema9 && isRed && rsi > 35) signal = "PUT";
+                    }
                 }
             }
 
-            // --- V20.4 CHAMELEON ANIMATION ---
+            // --- CHAMELEON ANIMATION ---
             jarvisContainer.classList.remove('sentiment-bullish', 'sentiment-bearish', 'sentiment-neutral');
             if (signal === "CALL") jarvisContainer.classList.add('sentiment-bullish');
             else if (signal === "PUT") jarvisContainer.classList.add('sentiment-bearish');
@@ -896,10 +915,10 @@
             }, 1000); 
 
         } catch(e) { 
-            console.log("Analysis Info:", e.message);
-            if (source === 'MANUAL') alert(e.message);
+            if(e.message !== "Cooling Down") console.log("Analysis Info:", e.message);
+            if (source === 'MANUAL' && e.message !== "Cooling Down") alert(e.message);
             isProcessing = false; 
-            resetBtn();
+            if(e.message !== "Cooling Down") resetBtn();
         }
 
         function resetBtn() {
@@ -925,7 +944,7 @@
         
         if(!acc) return;
         
-        lastStrategy = strategy; // Store for mapping
+        lastStrategy = strategy; 
 
         const btn = direction === 'CALL' ? getEl('btnCall') : getEl('btnPut');
         btn.style.filter = "brightness(1.5)";
@@ -944,7 +963,6 @@
     }
 
     function handlePosition(p) {
-        // V20.7: STRICT VALIDATION (PHANTOM FIX)
         if (!p.buy_price || !p.contract_type) return;
 
         if (p.is_sold) {
@@ -956,7 +974,6 @@
                 ws.send(JSON.stringify({ balance: 1 })); 
             }
         } else {
-            // V20.6: Add Entry Time if new
             if (!positions.has(p.contract_id)) {
                 p.entryTime = new Date().toLocaleTimeString();
             } else {
@@ -1045,15 +1062,21 @@
         getEl('sessionPL').innerText = sessionProfit.toFixed(2);
         getEl('sessionPL').style.color = sessionProfit >= 0 ? "#00ff41" : "#ff003c";
         
-        // V20.7: ADAPTIVE LEARNING UPDATE
+        // V20.8: ADAPTIVE LEARNING & RECOVERY
         if (profit < 0) {
             strategyStats[strategy].consecutiveLosses++;
             if (strategyStats[strategy].consecutiveLosses >= 3) {
-                strategyStats[strategy].cooldownUntil = Date.now() + 300000; // 5 Minutes
-                console.warn(`ESTRATÉGIA ${strategy} FALHOU 3 VEZES. PAUSANDO POR 5 MINUTOS.`);
+                strategyStats[strategy].cooldownUntil = Date.now() + 180000; // 3 Minutes (Was 5)
+                strategyStats[strategy].isRecovering = true; // ENABLE RECOVERY MODE
+                console.warn(`ESTRATÉGIA ${strategy} FALHOU 3 VEZES. PAUSA + RECUPERAÇÃO.`);
             }
         } else {
             strategyStats[strategy].consecutiveLosses = 0;
+            // Clear Recovery Mode on Win
+            if (strategyStats[strategy].isRecovering) {
+                 strategyStats[strategy].isRecovering = false;
+                 console.log(`ESTRATÉGIA ${strategy} RECUPERADA COM SUCESSO.`);
+            }
         }
 
         const div = document.createElement('div');
