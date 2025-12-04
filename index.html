@@ -6,7 +6,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
-    <title>JARVIS COMMAND CENTER V21.10</title>
+    <title>JARVIS COMMAND CENTER V21.11</title>
     <link rel="icon" type="image/jpeg" href="JARVIS ROSTO.jpg">
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700;800;900&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
@@ -340,8 +340,8 @@
     <div id="loginOverlay">
         <div class="login-content">
             <img src="JARVIS ROSTO.jpg" class="login-avatar" onerror="this.src='jarvis.gif'">
-            <div class="brand-logo" style="font-size: 3.5rem; margin-bottom: 30px;">JARVIS V21.10</div>
-            <div style="color:#8899a6; letter-spacing:2px; margin-bottom:30px;">COMMAND CENTER // BACK TO ORIGIN</div>
+            <div class="brand-logo" style="font-size: 3.5rem; margin-bottom: 30px;">JARVIS V21.11</div>
+            <div style="color:#8899a6; letter-spacing:2px; margin-bottom:30px;">COMMAND CENTER // TITAN UNLEASHED</div>
             <button class="login-btn" onclick="connectDeriv()">INICIAR SISTEMA</button>
         </div>
     </div>
@@ -784,6 +784,15 @@
         }
         return ema;
     }
+    
+    // V21.11: VOLATILITY CALCULATION
+    function calculateVolatility(period = 20) {
+        if (candles.length < period) return 0;
+        const slice = candles.slice(-period).map(c => c.close);
+        const mean = slice.reduce((a,b) => a+b) / period;
+        const variance = slice.reduce((a,b) => a + Math.pow(b - mean, 2), 0) / period;
+        return Math.sqrt(variance);
+    }
 
     async function loadAI() {
         console.log("Carregando IA...");
@@ -859,37 +868,29 @@
                          sub.innerText = `RECUPERANDO... (IA: ${confidence}%)`;
                     }
 
-                    // V21.10: ROLLBACK TO V21.6 (CHRONOS SUPER-BOOSTER)
-                    // REMOVED: Candle Color Sync, RSI Guard
-                    // RESTORED: EMA 50 Trend Context & Smart Thresholds
+                    // V21.11: TITAN UNLEASHED (PURE AI + DYNAMIC THRESHOLD)
+                    // REMOVED: Color, RSI, EMA
+                    // ADDED: Volatility Adjustment
                     
-                    let thresholdCall = 0.55;
-                    let thresholdPut = 0.45;
+                    const volatility = calculateVolatility(20);
+                    let baseThreshold = 0.50; // Aggressive Base
                     
-                    const ema50 = calculateEMA(50);
-                    const currentPrice = candles[candles.length-1].close;
-
-                    if (martingaleLevel === 0 && ema50) {
-                        // CONTEXTO DE TENDÊNCIA (V21.6)
-                        if (currentPrice > ema50) {
-                            thresholdCall = 0.55; 
-                            thresholdPut = 0.40; 
-                            sub.innerText = `CHRONOS: TENDÊNCIA ALTA (IA: ${confidence}%)`;
-                            sub.style.color = "var(--cyber-green)";
-                        } else {
-                            thresholdCall = 0.60; 
-                            thresholdPut = 0.45; 
-                            sub.innerText = `CHRONOS: TENDÊNCIA BAIXA (IA: ${confidence}%)`;
-                            sub.style.color = "var(--cyber-red)";
-                        }
-                    } else if (martingaleLevel > 0) {
-                        // RECOVERY: PURE AI (SPEED)
-                        thresholdCall = 0.55; 
-                        thresholdPut = 0.45; 
+                    // Dynamic Adjustment: If volatility is high (> 0.5), increase threshold
+                    // This prevents "maniac" trading in chaotic markets
+                    let dynamicThreshold = baseThreshold;
+                    if (volatility > 0.5) {
+                        dynamicThreshold = 0.60; // Safe Mode
+                        sub.innerText = `TITAN: MERCADO AGITADO (REQ: 60% | IA: ${confidence}%)`;
+                    } else {
+                        dynamicThreshold = 0.50; // Sniper Mode
+                        sub.innerText = `TITAN: SNIPER MODE (REQ: 50% | IA: ${confidence}%)`;
                     }
+                    
+                    // Recovery Override
+                    if (martingaleLevel > 0) dynamicThreshold = 0.50;
 
-                    if (prediction > thresholdCall) signal = "CALL";
-                    else if (prediction < thresholdPut) signal = "PUT";
+                    if (prediction > dynamicThreshold) signal = "CALL";
+                    else if (prediction < (1 - dynamicThreshold)) signal = "PUT"; // Symmetric for Put
 
                 } catch(e) { console.warn("AI Fallback"); }
             }
