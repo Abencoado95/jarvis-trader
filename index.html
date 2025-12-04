@@ -6,7 +6,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
-    <title>JARVIS COMMAND CENTER V20.6</title>
+    <title>JARVIS COMMAND CENTER V20.7</title>
     <link rel="icon" type="image/jpeg" href="JARVIS ROSTO.jpg">
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700;800;900&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
@@ -99,7 +99,7 @@
         /* MAIN INTERFACE */
         .interface-grid { 
             display: none; 
-            grid-template-columns: 350px 1fr 350px; /* Wider sidebars for 1920px */
+            grid-template-columns: 350px 1fr 350px; 
             width: 100%; 
             height: 100%; 
             background: var(--glass-panel); 
@@ -203,7 +203,7 @@
         
         /* CHART */
         .chart-wrapper { 
-            height: 45vh; /* Increased height for 1080p */
+            height: 45vh; 
             flex-shrink: 0; 
             position: relative; 
             background: #050a14; 
@@ -290,7 +290,7 @@
         .btn-ready { opacity: 1; }
         .btn-ready:hover { filter: brightness(1.2); transform: translateY(-2px); }
         
-        /* POSITIONS TABLE (V20.6) */
+        /* POSITIONS TABLE */
         .positions-wrapper { 
             flex: 1; min-height: 0; 
             background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.05); 
@@ -333,8 +333,8 @@
 
     <div id="loginOverlay">
         <div class="login-content">
-            <div class="brand-logo" style="font-size: 3.5rem; margin-bottom: 30px;">JARVIS V20.6</div>
-            <div style="color:#8899a6; letter-spacing:2px; margin-bottom:30px;">COMMAND CENTER // AUTO-SCALE</div>
+            <div class="brand-logo" style="font-size: 3.5rem; margin-bottom: 30px;">JARVIS V20.7</div>
+            <div style="color:#8899a6; letter-spacing:2px; margin-bottom:30px;">COMMAND CENTER // ADAPTIVE LEARNING</div>
             <button class="login-btn" onclick="connectDeriv()">INICIAR SISTEMA</button>
         </div>
     </div>
@@ -491,7 +491,7 @@
     window.onerror = function(msg, url, line) {
         if(localStorage.getItem('crash_loop_guard')) return;
         localStorage.setItem('crash_loop_guard', 'true');
-        alert("RECUPERAÇÃO DE FALHA V20.6:\\n" + msg);
+        alert("RECUPERAÇÃO DE FALHA V20.7:\\n" + msg);
         localStorage.removeItem('jarvis_accounts');
         setTimeout(() => {
             localStorage.removeItem('crash_loop_guard');
@@ -502,7 +502,7 @@
 
     const APP_ID = 114062; 
     const SYMBOL = "R_100"; 
-    const MAX_TRADES = 5; // V20.6: INCREASED TO 5
+    const MAX_TRADES = 5; 
     const ANALYSIS_INTERVAL = 1000; 
     
     window.connectDeriv = function() {
@@ -519,14 +519,22 @@
     let positions = new Map();
     let sessionProfit = 0.0;
     let lastAnalysisTime = 0;
+    let lastStrategy = "AI"; // Track last used strategy
+    let strategyMap = new Map(); // Map contract_id -> strategy name
+
+    // V20.7 ADAPTIVE LEARNING STATS
+    let strategyStats = {
+        AI: { consecutiveLosses: 0, cooldownUntil: 0 },
+        MOMENTUM: { consecutiveLosses: 0, cooldownUntil: 0 }
+    };
 
     // BOOT
     window.addEventListener('DOMContentLoaded', () => {
-        console.log("DOM Loaded. Iniciando Jarvis V20.6 Command Center...");
+        console.log("DOM Loaded. Iniciando Jarvis V20.7 Command Center...");
         try {
             checkAuth();
             loadState(); 
-            setInterval(updateTimers, 1000); // Start Timer Loop
+            setInterval(updateTimers, 1000); 
         } catch(e) {
             console.error("Boot Error:", e);
             getEl('loginOverlay').style.display = 'flex';
@@ -540,7 +548,7 @@
             stake: getEl('stakeInput').value,
             duration: getEl('durationSelect').value,
             scalpPercent: getEl('scalpPercent').value,
-            slTradePercent: getEl('slTradePercent').value, // V20.6
+            slTradePercent: getEl('slTradePercent').value,
             tp: getEl('tpInput').value,
             sl: getEl('slInput').value,
             sessionPL: sessionProfit,
@@ -558,7 +566,7 @@
                 getEl('stakeInput').value = state.stake;
                 getEl('durationSelect').value = state.duration;
                 if(state.scalpPercent) getEl('scalpPercent').value = state.scalpPercent;
-                if(state.slTradePercent) getEl('slTradePercent').value = state.slTradePercent; // V20.6
+                if(state.slTradePercent) getEl('slTradePercent').value = state.slTradePercent;
                 getEl('tpInput').value = state.tp;
                 getEl('slInput').value = state.sl;
                 sessionProfit = state.sessionPL || 0;
@@ -707,6 +715,10 @@
             if (data.msg_type === 'proposal') {
                 if (data.proposal.id) ws.send(JSON.stringify({ buy: data.proposal.id, price: data.proposal.ask_price }));
             }
+            if (data.msg_type === 'buy') {
+                // V20.7: Map contract ID to the strategy used
+                strategyMap.set(data.buy.contract_id, lastStrategy);
+            }
             if (data.msg_type === 'proposal_open_contract') handlePosition(data.proposal_open_contract);
         };
     }
@@ -807,9 +819,21 @@
             if (dailyPL >= takeProfit) throw new Error("META BATIDA! PARABÉNS");
 
             let signal = "NEUTRO";
+            let currentStrategy = "AI";
+
+            // V20.7: CHECK COOLDOWNS
+            const now = Date.now();
+            const aiCooldown = strategyStats.AI.cooldownUntil > now;
+            const momCooldown = strategyStats.MOMENTUM.cooldownUntil > now;
+
+            if (aiCooldown && momCooldown) {
+                sub.innerText = "APRENDENDO (PAUSA TÁTICA)";
+                sub.style.color = "var(--cyber-blue)";
+                throw new Error("Cooling Down");
+            }
             
             // --- AI PREDICTION ---
-            if (model && candles.length >= 60) {
+            if (model && candles.length >= 60 && !aiCooldown) {
                 try {
                     const inputData = candles.slice(-60).map(c => c.close);
                     const mean = inputData.reduce((a, b) => a + b) / inputData.length;
@@ -826,7 +850,8 @@
             }
 
             // --- V20.5 SMART MOMENTUM (EMA 9 + CANDLE COLOR + RSI) ---
-            if (signal === "NEUTRO") {
+            if (signal === "NEUTRO" && !momCooldown) {
+                currentStrategy = "MOMENTUM";
                 const ema9 = calculateEMA(9);
                 const currentPrice = candles[candles.length-1].close;
                 const openPrice = candles[candles.length-1].open;
@@ -858,7 +883,7 @@
                             sub.innerHTML = `<span style='color:orange'>LIMITE DE ORDENS (${MAX_TRADES}/${MAX_TRADES})</span>`;
                             setTimeout(resetBtn, 2000);
                         } else {
-                            placeTrade(signal);
+                            placeTrade(signal, currentStrategy);
                             resetBtn();
                         }
                     } else {
@@ -893,13 +918,15 @@
         setTimeout(() => el.classList.remove('show-res'), 3000);
     }
 
-    function placeTrade(direction) {
+    function placeTrade(direction, strategy = "AI") {
         const stake = parseFloat(getEl('stakeInput').value);
         const duration = getEl('durationSelect').value;
         const acc = availableAccounts.find(a=>a.token===currentToken);
         
         if(!acc) return;
         
+        lastStrategy = strategy; // Store for mapping
+
         const btn = direction === 'CALL' ? getEl('btnCall') : getEl('btnPut');
         btn.style.filter = "brightness(1.5)";
         setTimeout(() => btn.style.filter = "none", 500);
@@ -917,10 +944,15 @@
     }
 
     function handlePosition(p) {
+        // V20.7: STRICT VALIDATION (PHANTOM FIX)
+        if (!p.buy_price || !p.contract_type) return;
+
         if (p.is_sold) {
             if (positions.has(p.contract_id)) { 
+                const strategy = strategyMap.get(p.contract_id) || "AI";
                 positions.delete(p.contract_id); 
-                addHistory(p); 
+                strategyMap.delete(p.contract_id);
+                addHistory(p, strategy); 
                 ws.send(JSON.stringify({ balance: 1 })); 
             }
         } else {
@@ -928,7 +960,6 @@
             if (!positions.has(p.contract_id)) {
                 p.entryTime = new Date().toLocaleTimeString();
             } else {
-                // Keep existing entry time
                 p.entryTime = positions.get(p.contract_id).entryTime;
             }
             
@@ -937,17 +968,14 @@
             const stake = Number(p.buy_price || 0);
             const profitPercent = (profit / stake) * 100;
             
-            // --- HYPER-SCALPING LOGIC V20.6 ---
             const scalpPercent = parseFloat(getEl('scalpPercent').value);
             const slTradePercent = parseFloat(getEl('slTradePercent').value);
             
             if (p.is_valid_to_sell) {
-                // 1. Profit Target
                 if (profitPercent >= scalpPercent) {
                     console.log(`SCALPING: Alvo atingido (+${profitPercent.toFixed(2)}%). Fechando...`);
                     sellPosition(p.contract_id);
                 }
-                // 2. Stop Loss per Trade (V20.6)
                 if (profitPercent <= -slTradePercent) {
                     console.log(`STOP LOSS: Limite atingido (-${profitPercent.toFixed(2)}%). Fechando...`);
                     sellPosition(p.contract_id);
@@ -960,7 +988,6 @@
     function sellPosition(id) { ws.send(JSON.stringify({ sell: id, price: 0 })); }
     function closeAllPositions() { positions.forEach((_, id) => sellPosition(id)); }
 
-    // V20.6: TIMER LOOP
     function updateTimers() {
         if(positions.size > 0) renderPositions();
     }
@@ -982,7 +1009,6 @@
                 const entry = p.buy_price || 0;
                 const current = (Number(p.buy_price) + Number(p.profit)).toFixed(2);
                 
-                // Calculate Remaining Time
                 let timeLeft = "--";
                 if (p.date_expiry) {
                     const now = Math.floor(Date.now() / 1000);
@@ -1013,13 +1039,26 @@
         getEl('openPL').style.color = total >= 0 ? "#00ff41" : "#ff003c";
     }
 
-    function addHistory(p) {
-        sessionProfit += Number(p.profit || 0);
+    function addHistory(p, strategy = "AI") {
+        const profit = Number(p.profit || 0);
+        sessionProfit += profit;
         getEl('sessionPL').innerText = sessionProfit.toFixed(2);
         getEl('sessionPL').style.color = sessionProfit >= 0 ? "#00ff41" : "#ff003c";
+        
+        // V20.7: ADAPTIVE LEARNING UPDATE
+        if (profit < 0) {
+            strategyStats[strategy].consecutiveLosses++;
+            if (strategyStats[strategy].consecutiveLosses >= 3) {
+                strategyStats[strategy].cooldownUntil = Date.now() + 300000; // 5 Minutes
+                console.warn(`ESTRATÉGIA ${strategy} FALHOU 3 VEZES. PAUSANDO POR 5 MINUTOS.`);
+            }
+        } else {
+            strategyStats[strategy].consecutiveLosses = 0;
+        }
+
         const div = document.createElement('div');
         div.style.cssText = "display:flex; justify-content:space-between; padding:10px; border-bottom:1px solid rgba(255,255,255,0.05); font-size:0.9rem;";
-        div.innerHTML = `<span style="color:${p.contract_type==='CALL'?'#00ff41':'#ff003c'}">${p.contract_type}</span><span style="font-weight:bold; color:${Number(p.profit)>=0?'#00ff41':'#ff003c'}">${Number(p.profit).toFixed(2)}</span>`;
+        div.innerHTML = `<span style="color:${p.contract_type==='CALL'?'#00ff41':'#ff003c'}">${p.contract_type}</span><span style="font-weight:bold; color:${profit>=0?'#00ff41':'#ff003c'}">${profit.toFixed(2)}</span>`;
         const h = getEl('histList');
         if(h.innerText.includes("vazio")) h.innerHTML = "";
         h.prepend(div);
