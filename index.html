@@ -6,7 +6,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
-    <title>JARVIS COMMAND CENTER V20.8</title>
+    <title>JARVIS COMMAND CENTER V21.0</title>
     <link rel="icon" type="image/jpeg" href="JARVIS ROSTO.jpg">
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700;800;900&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
@@ -333,8 +333,8 @@
 
     <div id="loginOverlay">
         <div class="login-content">
-            <div class="brand-logo" style="font-size: 3.5rem; margin-bottom: 30px;">JARVIS V20.8</div>
-            <div style="color:#8899a6; letter-spacing:2px; margin-bottom:30px;">COMMAND CENTER // ACTIVE RECOVERY</div>
+            <div class="brand-logo" style="font-size: 3.5rem; margin-bottom: 30px;">JARVIS V21.0</div>
+            <div style="color:#8899a6; letter-spacing:2px; margin-bottom:30px;">COMMAND CENTER // SMART RECOVERY</div>
             <button class="login-btn" onclick="connectDeriv()">INICIAR SISTEMA</button>
         </div>
     </div>
@@ -491,7 +491,7 @@
     window.onerror = function(msg, url, line) {
         if(localStorage.getItem('crash_loop_guard')) return;
         localStorage.setItem('crash_loop_guard', 'true');
-        alert("RECUPERAÇÃO DE FALHA V20.8:\\n" + msg);
+        alert("RECUPERAÇÃO DE FALHA V21.0:\\n" + msg);
         localStorage.removeItem('jarvis_accounts');
         setTimeout(() => {
             localStorage.removeItem('crash_loop_guard');
@@ -502,7 +502,7 @@
 
     const APP_ID = 114062; 
     const SYMBOL = "R_100"; 
-    const MAX_TRADES = 5; 
+    const MAX_TRADES = 1; // V21.0: SINGLE TRADE FOCUS
     const ANALYSIS_INTERVAL = 1000; 
     
     window.connectDeriv = function() {
@@ -522,15 +522,15 @@
     let lastStrategy = "AI"; 
     let strategyMap = new Map(); 
 
-    // V20.8 ADAPTIVE LEARNING STATS
-    let strategyStats = {
-        AI: { consecutiveLosses: 0, cooldownUntil: 0, isRecovering: false },
-        MOMENTUM: { consecutiveLosses: 0, cooldownUntil: 0, isRecovering: false }
-    };
+    // V21.0 MARTINGALE & RECOVERY
+    let martingaleLevel = 0;
+    let currentStake = 1.0;
+    const MAX_MARTINGALE_LEVELS = 3;
+    const MARTINGALE_FACTOR = 2.1;
 
     // BOOT
     window.addEventListener('DOMContentLoaded', () => {
-        console.log("DOM Loaded. Iniciando Jarvis V20.8 Command Center...");
+        console.log("DOM Loaded. Iniciando Jarvis V21.0 Command Center...");
         try {
             checkAuth();
             loadState(); 
@@ -552,7 +552,9 @@
             tp: getEl('tpInput').value,
             sl: getEl('slInput').value,
             sessionPL: sessionProfit,
-            history: getEl('histList').innerHTML
+            history: getEl('histList').innerHTML,
+            martingaleLevel: martingaleLevel, // Save Martingale State
+            currentStake: currentStake
         };
         localStorage.setItem('jarvis_state_v20', JSON.stringify(state));
     }
@@ -573,6 +575,10 @@
                 getEl('sessionPL').innerText = sessionProfit.toFixed(2);
                 getEl('sessionPL').style.color = sessionProfit >= 0 ? "#00ff41" : "#ff003c";
                 if(state.history) getEl('histList').innerHTML = state.history;
+                
+                // V21.0 Load Martingale
+                martingaleLevel = state.martingaleLevel || 0;
+                currentStake = state.currentStake || parseFloat(state.stake);
             } catch(e) {
                 console.warn("Erro ao carregar cache:", e);
             }
@@ -818,30 +824,14 @@
             let signal = "NEUTRO";
             let currentStrategy = "AI";
 
-            // V20.8: COOLDOWN TIMER & RECOVERY LOGIC
-            const now = Date.now();
-            const aiStats = strategyStats.AI;
-            const momStats = strategyStats.MOMENTUM;
-
-            // Check if BOTH are in cooldown (or just check active strategy logic)
-            // For simplicity, if AI is in cooldown, we try Momentum. If Momentum is also in cooldown, we pause.
-            
-            let aiAvailable = aiStats.cooldownUntil <= now;
-            let momAvailable = momStats.cooldownUntil <= now;
-
-            if (!aiAvailable && !momAvailable) {
-                // Show Timer for the one that takes longest
-                const maxCooldown = Math.max(aiStats.cooldownUntil, momStats.cooldownUntil);
-                const timeLeft = Math.ceil((maxCooldown - now) / 1000);
-                const m = Math.floor(timeLeft / 60);
-                const s = timeLeft % 60;
-                sub.innerText = `PAUSA TÁTICA (${m}:${s.toString().padStart(2, '0')})`;
-                sub.style.color = "var(--cyber-blue)";
-                throw new Error("Cooling Down");
+            // V21.0: MARTINGALE STATUS
+            if (martingaleLevel > 0) {
+                sub.innerText = `MODO RECUPERAÇÃO (NÍVEL ${martingaleLevel})`;
+                sub.style.color = "var(--cyber-red)";
             }
             
             // --- AI PREDICTION ---
-            if (model && candles.length >= 60 && aiAvailable) {
+            if (model && candles.length >= 60) {
                 try {
                     const inputData = candles.slice(-60).map(c => c.close);
                     const mean = inputData.reduce((a, b) => a + b) / inputData.length;
@@ -852,20 +842,22 @@
                     const prediction = model.predict(tensor).dataSync()[0];
                     tensor.dispose();
                     
-                    // V20.8: ACTIVE RECOVERY (STRICTER THRESHOLDS)
-                    if (aiStats.isRecovering) {
-                        sub.innerText = "MODO RECUPERAÇÃO (SNIPER)";
-                        if (prediction > 0.70) signal = "CALL";
-                        else if (prediction < 0.30) signal = "PUT";
-                    } else {
-                        if (prediction > 0.55) signal = "CALL";
-                        else if (prediction < 0.45) signal = "PUT";
+                    // V21.0: ANTI-STUBBORNNESS (HIGHER THRESHOLD IN RECOVERY)
+                    let thresholdCall = 0.55;
+                    let thresholdPut = 0.45;
+                    
+                    if (martingaleLevel > 0) {
+                        thresholdCall = 0.65; // Stricter
+                        thresholdPut = 0.35;  // Stricter
                     }
+
+                    if (prediction > thresholdCall) signal = "CALL";
+                    else if (prediction < thresholdPut) signal = "PUT";
                 } catch(e) { console.warn("AI Fallback"); }
             }
 
             // --- MOMENTUM PREDICTION ---
-            if (signal === "NEUTRO" && momAvailable) {
+            if (signal === "NEUTRO") {
                 currentStrategy = "MOMENTUM";
                 const ema9 = calculateEMA(9);
                 const currentPrice = candles[candles.length-1].close;
@@ -876,15 +868,17 @@
                     const isGreen = currentPrice > openPrice;
                     const isRed = currentPrice < openPrice;
                     
-                    // V20.8: ACTIVE RECOVERY (STRICTER RSI)
-                    if (momStats.isRecovering) {
-                         sub.innerText = "MODO RECUPERAÇÃO (SNIPER)";
-                         if (currentPrice > ema9 && isGreen && rsi < 55) signal = "CALL"; // Stricter
-                         else if (currentPrice < ema9 && isRed && rsi > 45) signal = "PUT"; // Stricter
-                    } else {
-                         if (currentPrice > ema9 && isGreen && rsi < 65) signal = "CALL";
-                         else if (currentPrice < ema9 && isRed && rsi > 35) signal = "PUT";
+                    // V21.0: ANTI-STUBBORNNESS (HIGHER RSI IN RECOVERY)
+                    let rsiCall = 65;
+                    let rsiPut = 35;
+                    
+                    if (martingaleLevel > 0) {
+                        rsiCall = 55; // Stricter
+                        rsiPut = 45;  // Stricter
                     }
+
+                    if (currentPrice > ema9 && isGreen && rsi < rsiCall) signal = "CALL";
+                    else if (currentPrice < ema9 && isRed && rsi > rsiPut) signal = "PUT";
                 }
             }
 
@@ -915,17 +909,19 @@
             }, 1000); 
 
         } catch(e) { 
-            if(e.message !== "Cooling Down") console.log("Analysis Info:", e.message);
-            if (source === 'MANUAL' && e.message !== "Cooling Down") alert(e.message);
+            console.log("Analysis Info:", e.message);
+            if (source === 'MANUAL') alert(e.message);
             isProcessing = false; 
-            if(e.message !== "Cooling Down") resetBtn();
+            resetBtn();
         }
 
         function resetBtn() {
             btn.style.borderColor = ""; 
             btn.style.boxShadow = "";
-            sub.innerText = "SISTEMA ONLINE"; 
-            sub.style.color = "var(--cyber-green)";
+            if (martingaleLevel === 0) {
+                sub.innerText = "SISTEMA ONLINE"; 
+                sub.style.color = "var(--cyber-green)";
+            }
         }
     }
 
@@ -938,7 +934,8 @@
     }
 
     function placeTrade(direction, strategy = "AI") {
-        const stake = parseFloat(getEl('stakeInput').value);
+        // V21.0: USE CURRENT STAKE (MARTINGALE)
+        const stake = currentStake; 
         const duration = getEl('durationSelect').value;
         const acc = availableAccounts.find(a=>a.token===currentToken);
         
@@ -1062,21 +1059,28 @@
         getEl('sessionPL').innerText = sessionProfit.toFixed(2);
         getEl('sessionPL').style.color = sessionProfit >= 0 ? "#00ff41" : "#ff003c";
         
-        // V20.8: ADAPTIVE LEARNING & RECOVERY
+        // V21.0: MARTINGALE LOGIC
+        const baseStake = parseFloat(getEl('stakeInput').value);
+        
         if (profit < 0) {
-            strategyStats[strategy].consecutiveLosses++;
-            if (strategyStats[strategy].consecutiveLosses >= 3) {
-                strategyStats[strategy].cooldownUntil = Date.now() + 180000; // 3 Minutes (Was 5)
-                strategyStats[strategy].isRecovering = true; // ENABLE RECOVERY MODE
-                console.warn(`ESTRATÉGIA ${strategy} FALHOU 3 VEZES. PAUSA + RECUPERAÇÃO.`);
+            // LOSS
+            if (martingaleLevel < MAX_MARTINGALE_LEVELS) {
+                martingaleLevel++;
+                currentStake = currentStake * MARTINGALE_FACTOR;
+                console.warn(`LOSS. ATIVANDO MARTINGALE NÍVEL ${martingaleLevel}. NOVA STAKE: ${currentStake.toFixed(2)}`);
+            } else {
+                // MAX LEVELS REACHED - RESET
+                console.error("MARTINGALE MÁXIMO ATINGIDO. RESETANDO.");
+                martingaleLevel = 0;
+                currentStake = baseStake;
             }
         } else {
-            strategyStats[strategy].consecutiveLosses = 0;
-            // Clear Recovery Mode on Win
-            if (strategyStats[strategy].isRecovering) {
-                 strategyStats[strategy].isRecovering = false;
-                 console.log(`ESTRATÉGIA ${strategy} RECUPERADA COM SUCESSO.`);
+            // WIN - RESET
+            if (martingaleLevel > 0) {
+                console.log("RECUPERAÇÃO BEM SUCEDIDA! RESETANDO.");
             }
+            martingaleLevel = 0;
+            currentStake = baseStake;
         }
 
         const div = document.createElement('div');
