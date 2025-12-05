@@ -6,7 +6,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
-    <title>JARVIS COMMAND CENTER V21.18</title>
+    <title>JARVIS COMMAND CENTER V21.19</title>
     <link rel="icon" type="image/jpeg" href="JARVIS ROSTO.jpg">
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700;800;900&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
@@ -347,8 +347,8 @@
     <div id="loginOverlay">
         <div class="login-content">
             <img src="JARVIS ROSTO.jpg" class="login-avatar" onerror="this.src='jarvis.gif'">
-            <div class="brand-logo" style="font-size: 3.5rem; margin-bottom: 30px;">JARVIS V21.18</div>
-            <div style="color:#8899a6; letter-spacing:2px; margin-bottom:30px;">COMMAND CENTER // QUANTUM PREDICTOR</div>
+            <div class="brand-logo" style="font-size: 3.5rem; margin-bottom: 30px;">JARVIS V21.19</div>
+            <div style="color:#8899a6; letter-spacing:2px; margin-bottom:30px;">COMMAND CENTER // HYBRID STRATEGY</div>
             <button class="login-btn" onclick="connectDeriv()">INICIAR SISTEMA</button>
         </div>
     </div>
@@ -863,24 +863,6 @@
         if (candles.length < 30) { 
             if(source === 'MANUAL') {
                 sub.innerText = "AGUARDANDO DADOS...";
-                setTimeout(() => sub.innerText = originalSubText, 1500);
-            }
-            return; 
-        }
-        
-        // V21.18: QUANTUM ANALYSIS (Advanced Indicators)
-        
-        isProcessing = true;
-        
-        if (source === 'AUTO') {
-            btn.style.borderColor = "var(--cyber-gold)"; 
-            btn.style.boxShadow = "0 0 30px rgba(255, 215, 0, 0.2)";
-            sub.innerText = "QUANTUM: ANALISANDO 500 CANDLES";
-            sub.style.color = "var(--cyber-gold)";
-        } else {
-            sub.innerText = "CALIBRANDO MIRA...";
-        }
-        
         try {
             const dailyPL = parseFloat(getEl('sessionPL').innerText);
             const slInput = parseFloat(getEl('slInput').value);
@@ -900,7 +882,7 @@
             }
 
             let signal = "NEUTRO";
-            let currentStrategy = "QUANTUM";
+            let currentStrategy = "HYBRID";
 
             // V21.4: MARTINGALE STATUS (SHOW LIMIT)
             if (martingaleLevel > 0) {
@@ -919,26 +901,38 @@
             // CALL: Price < Lower Band AND Price near Support
             // PUT: Price > Upper Band AND Price near Resistance
             
-            if (bb && sr) {
-                const distLow = Math.abs(price - bb.lower);
-                const distHigh = Math.abs(price - bb.upper);
+            // V21.19: HYBRID LOGIC
+            // 1. REVERSAL: Bollinger + RSI Extremes
+            // 2. MOMENTUM: Strong Trend + Safe RSI
+            
+            const rsi = parseFloat(getEl('rsiVal').innerText);
+            
+            if (bb) {
+                const price = candles[candles.length - 1].close;
                 
-                // Debug Info
-                // console.log(`Price: ${price} | BB Low: ${bb.lower.toFixed(2)} | BB High: ${bb.upper.toFixed(2)} | SR Low: ${sr.support} | SR High: ${sr.resistance}`);
-                
-                // CALL SIGNAL
-                if (price <= bb.lower && price <= (sr.support * 1.0005)) { // 0.05% tolerance
-                     if (trend !== "STRONG_DOWN") {
-                         signal = "CALL";
-                         sub.innerText = `QUANTUM: FUNDO DUPLO DETECTADO (${price})`;
-                     }
+                // --- STRATEGY 1: REVERSAL (Contra-Trend) ---
+                // "Esticou demais, vai voltar"
+                if (price <= bb.lower && rsi < 25) { 
+                    signal = "CALL"; 
+                    sub.innerText = `REVERSAL: FUNDO BOLINGER (RSI ${rsi})`;
+                }
+                else if (price >= bb.upper && rsi > 75) { 
+                    signal = "PUT"; 
+                    sub.innerText = `REVERSAL: TOPO BOLINGER (RSI ${rsi})`;
                 }
                 
-                // PUT SIGNAL
-                else if (price >= bb.upper && price >= (sr.resistance * 0.9995)) {
-                    if (trend !== "STRONG_UP") {
+                // --- STRATEGY 2: MOMENTUM (Trend Following) ---
+                // "Tendência forte, vai continuar"
+                else if (trend === "STRONG_UP" && rsi < 70) {
+                    if (price > bb.basis) { // Price above middle band
+                        signal = "CALL";
+                        sub.innerText = `MOMENTUM: TENDÊNCIA ALTA (RSI ${rsi})`;
+                    }
+                }
+                else if (trend === "STRONG_DOWN" && rsi > 30) {
+                    if (price < bb.basis) { // Price below middle band
                         signal = "PUT";
-                        sub.innerText = `QUANTUM: TOPO DUPLO DETECTADO (${price})`;
+                        sub.innerText = `MOMENTUM: TENDÊNCIA BAIXA (RSI ${rsi})`;
                     }
                 }
             }
