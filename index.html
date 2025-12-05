@@ -347,8 +347,8 @@
     <div id="loginOverlay">
         <div class="login-content">
             <img src="JARVIS ROSTO.jpg" class="login-avatar" onerror="this.src='jarvis.gif'">
-            <div class="brand-logo" style="font-size: 3.5rem; margin-bottom: 30px;">JARVIS V21.19</div>
-            <div style="color:#8899a6; letter-spacing:2px; margin-bottom:30px;">COMMAND CENTER // HYBRID STRATEGY</div>
+            <div class="brand-logo" style="font-size: 3.5rem; margin-bottom: 30px;">JARVIS V21.21</div>
+            <div style="color:#8899a6; letter-spacing:2px; margin-bottom:30px;">ACTIVE SCALPING // HYBRID</div>
             <button class="login-btn" onclick="connectDeriv()">INICIAR SISTEMA</button>
         </div>
     </div>
@@ -837,8 +837,9 @@
         const first = slice[0].close;
         const last = slice[slice.length-1].close;
         const change = ((last - first) / first) * 100;
-        if (change > 0.5) return "STRONG_UP";
-        if (change < -0.5) return "STRONG_DOWN";
+        // V21.21: Increased Sensitivity (0.5 -> 0.1) to catch micro-trends
+        if (change > 0.1) return "STRONG_UP";
+        if (change < -0.1) return "STRONG_DOWN";
         return "NEUTRAL";
     }
 
@@ -947,6 +948,19 @@
                     if (price < bb.basis) { // Price below middle band
                         signal = "PUT";
                         sub.innerText = `MOMENTUM: TENDÊNCIA BAIXA (RSI ${rsi})`;
+                    }
+                }
+
+                // --- STRATEGY 3: NEUTRAL SCALP (The "Unfreezer") ---
+                // "Mercado parado? Opera o meio campo"
+                else if (trend === "NEUTRAL") {
+                    if (price > bb.basis && rsi > 50 && rsi < 70) {
+                         signal = "CALL";
+                         sub.innerText = `SCALP: MEIO DE BANDA (ALTA)`;
+                    }
+                    else if (price < bb.basis && rsi < 50 && rsi > 30) {
+                         signal = "PUT";
+                         sub.innerText = `SCALP: MEIO DE BANDA (BAIXA)`;
                     }
                 }
             }
