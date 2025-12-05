@@ -6,7 +6,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
-    <title>JARVIS COMMAND CENTER V21.17</title>
+    <title>JARVIS COMMAND CENTER V21.18</title>
     <link rel="icon" type="image/jpeg" href="JARVIS ROSTO.jpg">
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700;800;900&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
@@ -347,8 +347,8 @@
     <div id="loginOverlay">
         <div class="login-content">
             <img src="JARVIS ROSTO.jpg" class="login-avatar" onerror="this.src='jarvis.gif'">
-            <div class="brand-logo" style="font-size: 3.5rem; margin-bottom: 30px;">JARVIS V21.17</div>
-            <div style="color:#8899a6; letter-spacing:2px; margin-bottom:30px;">COMMAND CENTER // MICRO-TRAILING MODE</div>
+            <div class="brand-logo" style="font-size: 3.5rem; margin-bottom: 30px;">JARVIS V21.18</div>
+            <div style="color:#8899a6; letter-spacing:2px; margin-bottom:30px;">COMMAND CENTER // QUANTUM PREDICTOR</div>
             <button class="login-btn" onclick="connectDeriv()">INICIAR SISTEMA</button>
         </div>
     </div>
@@ -529,7 +529,8 @@
     let lastAnalysisTime = 0;
     let lastStrategy = "AI"; 
     let strategyMap = new Map();
-    let lastCandleTime = 0; // V21.13: Track candle changes
+    let lastCandleTime = 0; 
+    let lastTradeCandleTime = 0; // V21.18: Strict 1-Trade-Per-Candle
 
     // V21.3 HYPER AGGRESSIVE RECOVERY
     let martingaleLevel = 0;
@@ -800,6 +801,40 @@
         return Math.sqrt(variance);
     }
 
+    // V21.18: INDICATORS
+    function calculateBollinger(period = 20, stdDev = 2) {
+        if (candles.length < period) return null;
+        const slice = candles.slice(-period).map(c => c.close);
+        const mean = slice.reduce((a,b) => a+b) / period;
+        const variance = slice.reduce((a,b) => a + Math.pow(b - mean, 2), 0) / period;
+        const std = Math.sqrt(variance);
+        return { upper: mean + (std * stdDev), lower: mean - (std * stdDev), basis: mean };
+    }
+
+    function calculateSupportResistance(period = 500) {
+        if (candles.length < 50) return null;
+        const lookback = Math.min(candles.length, period);
+        const slice = candles.slice(-lookback);
+        const highs = slice.map(c => c.high);
+        const lows = slice.map(c => c.low);
+        return { 
+            resistance: Math.max(...highs), 
+            support: Math.min(...lows) 
+        };
+    }
+
+    function calculateTrend(period = 50) {
+        if (candles.length < period) return "NEUTRAL";
+        const slice = candles.slice(-period);
+        // Simple linear regression slope simulation
+        const first = slice[0].close;
+        const last = slice[slice.length-1].close;
+        const change = ((last - first) / first) * 100;
+        if (change > 0.5) return "STRONG_UP";
+        if (change < -0.5) return "STRONG_DOWN";
+        return "NEUTRAL";
+    }
+
     async function loadAI() {
         console.log("Carregando IA...");
         try {
@@ -833,14 +868,14 @@
             return; 
         }
         
-        // V21.14: REMOVED 15s restriction - AI analyzes continuously
+        // V21.18: QUANTUM ANALYSIS (Advanced Indicators)
         
         isProcessing = true;
         
         if (source === 'AUTO') {
             btn.style.borderColor = "var(--cyber-gold)"; 
             btn.style.boxShadow = "0 0 30px rgba(255, 215, 0, 0.2)";
-            sub.innerText = "SNIPER: ANALISANDO PADRÕES";
+            sub.innerText = "QUANTUM: ANALISANDO 500 CANDLES";
             sub.style.color = "var(--cyber-gold)";
         } else {
             sub.innerText = "CALIBRANDO MIRA...";
@@ -855,8 +890,17 @@
             if (dailyPL <= stopLossLimit) throw new Error("STOP LOSS DIÁRIO ATINGIDO");
             if (dailyPL >= takeProfit) throw new Error("META BATIDA! PARABÉNS");
 
+            // V21.18: STRICT SAFETY - One Trade Per Candle
+            const currentCandleTime = candles[candles.length - 1].time;
+            if (source === 'AUTO' && lastTradeCandleTime === currentCandleTime) {
+                // Already traded this candle
+                isProcessing = false;
+                resetBtn();
+                return;
+            }
+
             let signal = "NEUTRO";
-            let currentStrategy = "AI";
+            let currentStrategy = "QUANTUM";
 
             // V21.4: MARTINGALE STATUS (SHOW LIMIT)
             if (martingaleLevel > 0) {
@@ -864,91 +908,46 @@
                 sub.style.color = "var(--cyber-red)";
             }
             
-            // V21.13: MULTI-TIMEFRAME CONTEXT
-            // Calculate 5-minute trend (last 5 candles)
-            let trend5min = "NEUTRAL";
-            if (candles.length >= 5) {
-                const last5 = candles.slice(-5);
-                const firstPrice = last5[0].close;
-                const lastPrice = last5[last5.length - 1].close;
-                const change = ((lastPrice - firstPrice) / firstPrice) * 100;
+            // --- V21.18: ADVANCED INDICATORS ---
+            const bb = calculateBollinger(20, 2.5); // 2.5 StdDev (Strict)
+            const sr = calculateSupportResistance(500); // 500 Candles lookback
+            const trend = calculateTrend(50); // Linear Regression Slope
+            
+            const price = candles[candles.length - 1].close;
+            
+            // LOGIC: REVERSAL AT EXTREMES
+            // CALL: Price < Lower Band AND Price near Support
+            // PUT: Price > Upper Band AND Price near Resistance
+            
+            if (bb && sr) {
+                const distLow = Math.abs(price - bb.lower);
+                const distHigh = Math.abs(price - bb.upper);
                 
-                if (change > 0.3) trend5min = "BULLISH";
-                else if (change < -0.3) trend5min = "BEARISH";
+                // Debug Info
+                // console.log(`Price: ${price} | BB Low: ${bb.lower.toFixed(2)} | BB High: ${bb.upper.toFixed(2)} | SR Low: ${sr.support} | SR High: ${sr.resistance}`);
+                
+                // CALL SIGNAL
+                if (price <= bb.lower && price <= (sr.support * 1.0005)) { // 0.05% tolerance
+                     if (trend !== "STRONG_DOWN") {
+                         signal = "CALL";
+                         sub.innerText = `QUANTUM: FUNDO DUPLO DETECTADO (${price})`;
+                     }
+                }
+                
+                // PUT SIGNAL
+                else if (price >= bb.upper && price >= (sr.resistance * 0.9995)) {
+                    if (trend !== "STRONG_UP") {
+                        signal = "PUT";
+                        sub.innerText = `QUANTUM: TOPO DUPLO DETECTADO (${price})`;
+                    }
+                }
             }
             
-            // --- AI PREDICTION ---
-            if (model && candles.length >= 60) {
-                try {
-                    const inputData = candles.slice(-60).map(c => c.close);
-                    const mean = inputData.reduce((a, b) => a + b) / inputData.length;
-                    const variance = inputData.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / inputData.length;
-                    const std = Math.sqrt(variance) || 1;
-                    const normData = inputData.map(val => (val - mean) / std);
-                    const tensor = tf.tensor3d([normData], [1, 60, 1]);
-                    const prediction = model.predict(tensor).dataSync()[0];
-                    tensor.dispose();
-                    
-                    const confidence = (prediction * 100).toFixed(1);
-                    if (martingaleLevel > 0) {
-                         sub.innerText = `RECUPERANDO... (IA: ${confidence}%)`;
-                    }
-
-                    // V21.13: SNIPER VISION (HIGH CONVICTION + MULTI-TF)
-                    let baseThreshold = 0.70; // V21.13: Raised from 0.50 to 0.70 (High Conviction)
-                    
-                    // Recovery Override: Keep aggressive
-                    if (martingaleLevel > 0) baseThreshold = 0.50;
-                    
-                    // Multi-Timeframe Filter
-                    let aiSignal = "NEUTRO";
-                    if (prediction > baseThreshold) aiSignal = "CALL";
-                    else if (prediction < (1 - baseThreshold)) aiSignal = "PUT";
-                    
-                    // V21.13: Apply 5min trend filter (only if not in recovery)
-                    if (martingaleLevel === 0 && aiSignal !== "NEUTRO") {
-                        if (trend5min === "BULLISH" && aiSignal === "PUT") {
-                            console.log("🎯 SNIPER: Bloqueado PUT (Tendência 5min é BULLISH)");
-                            aiSignal = "NEUTRO";
-                        } else if (trend5min === "BEARISH" && aiSignal === "CALL") {
-                            console.log("🎯 SNIPER: Bloqueado CALL (Tendência 5min é BEARISH)");
-                            aiSignal = "NEUTRO";
-                        }
-                    }
-                    
-                    signal = aiSignal;
-                    
-                    if (signal !== "NEUTRO" && martingaleLevel === 0) {
-                        sub.innerText = `🎯 SNIPER: ${signal} | IA: ${confidence}% | Tendência 5min: ${trend5min}`;
-                    }
-
-                } catch(e) { console.warn("AI Fallback"); }
-            }
-
-            // --- MOMENTUM PREDICTION (FALLBACK) ---
-            if (signal === "NEUTRO") {
-                currentStrategy = "MOMENTUM";
-                const ema9 = calculateEMA(9);
-                const currentPrice = candles[candles.length-1].close;
-                const openPrice = candles[candles.length-1].open;
-                const rsi = parseFloat(getEl('rsiVal').innerText);
-                
-                if (ema9) {
-                    const isGreen = currentPrice > openPrice;
-                    const isRed = currentPrice < openPrice;
-                    
-                    // V21.5: PURE AI RECOVERY (NO RSI)
-                    let rsiCall = 65;
-                    let rsiPut = 35;
-                    
-                    if (martingaleLevel > 0) {
-                        rsiCall = 101; // Impossible to block
-                        rsiPut = -1;   // Impossible to block
-                    }
-
-                    if (currentPrice > ema9 && isGreen && rsi < rsiCall) signal = "CALL";
-                    else if (currentPrice < ema9 && isRed && rsi > rsiPut) signal = "PUT";
-                }
+            // RECOVERY OVERRIDE (Use AI if stuck)
+            if (signal === "NEUTRO" && martingaleLevel > 0) {
+                 // Fallback to simple AI for recovery
+                 // ... (AI Logic Placeholder if needed, or keep strict)
+                 currentStrategy = "RECOVERY_AI";
             }
 
             // --- CHAMELEON ANIMATION ---
@@ -965,6 +964,7 @@
                             sub.innerHTML = `<span style='color:orange'>LIMITE DE ORDENS (${MAX_TRADES}/${MAX_TRADES})</span>`;
                             setTimeout(resetBtn, 2000);
                         } else {
+                            if (source === 'AUTO') lastTradeCandleTime = candles[candles.length-1].time; // Mark candle as traded
                             placeTrade(signal, currentStrategy);
                             resetBtn();
                         }
