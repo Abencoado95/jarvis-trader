@@ -637,6 +637,7 @@
     }
 
     function initSystem() {
+        console.log("DEBUG: initSystem CALLED");
         getEl('loginOverlay').style.display = 'none';
         getEl('mainUI').style.display = 'grid'; // Enable Grid
         // No resizeApp call strictly needed now, but keeping listener safe
@@ -706,8 +707,12 @@
     }
 
     function connectWS() {
+        console.log("DEBUG: connectWS CALLED");
         ws = new WebSocket(`wss://ws.binaryws.com/websockets/v3?app_id=${APP_ID}`);
-        ws.onopen = () => { ws.send(JSON.stringify({ authorize: currentToken })); };
+        ws.onopen = () => { 
+            console.log("DEBUG: WS OPEN");
+            ws.send(JSON.stringify({ authorize: currentToken })); 
+        };
         ws.onmessage = (msg) => {
             const data = JSON.parse(msg.data);
             
