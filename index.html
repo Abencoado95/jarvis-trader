@@ -865,6 +865,9 @@
         if (candles.length < 30) { 
             if(source === 'MANUAL') {
                 sub.innerText = "AGUARDANDO DADOS...";
+            }
+            return;
+        }
         try {
             const dailyPL = parseFloat(getEl('sessionPL').innerText);
             const slInput = parseFloat(getEl('slInput').value);
