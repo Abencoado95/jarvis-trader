@@ -6,7 +6,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
-    <title>JARVIS COMMAND CENTER V21.15</title>
+    <title>JARVIS COMMAND CENTER V21.17</title>
     <link rel="icon" type="image/jpeg" href="JARVIS ROSTO.jpg">
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700;800;900&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
@@ -347,8 +347,8 @@
     <div id="loginOverlay">
         <div class="login-content">
             <img src="JARVIS ROSTO.jpg" class="login-avatar" onerror="this.src='jarvis.gif'">
-            <div class="brand-logo" style="font-size: 3.5rem; margin-bottom: 30px;">JARVIS V21.15</div>
-            <div style="color:#8899a6; letter-spacing:2px; margin-bottom:30px;">COMMAND CENTER // UI RESTORED</div>
+            <div class="brand-logo" style="font-size: 3.5rem; margin-bottom: 30px;">JARVIS V21.17</div>
+            <div style="color:#8899a6; letter-spacing:2px; margin-bottom:30px;">COMMAND CENTER // MICRO-TRAILING MODE</div>
             <button class="login-btn" onclick="connectDeriv()">INICIAR SISTEMA</button>
         </div>
     </div>
@@ -1042,19 +1042,19 @@
             // V21.12: Initialize Max Profit Logic
             if (!positions.has(p.contract_id)) {
                 p.entryTime = new Date().toLocaleTimeString();
-                p.maxProfit = -9999;
+                p.maxProfitUSD = -9999; // Track Max Profit in USD
             } else {
                 const existing = positions.get(p.contract_id);
                 p.entryTime = existing.entryTime;
-                p.maxProfit = existing.maxProfit || -9999;
+                p.maxProfitUSD = existing.maxProfitUSD || -9999;
             }
             
             const profit = Number(p.profit || 0);
             const stake = Number(p.buy_price || 0);
             const profitPercent = (profit / stake) * 100;
 
-            // Track High Water Mark
-            if (profitPercent > p.maxProfit) p.maxProfit = profitPercent;
+            // Track High Water Mark (USD)
+            if (profit > p.maxProfitUSD) p.maxProfitUSD = profit;
 
             positions.set(p.contract_id, p);
             
@@ -1062,30 +1062,26 @@
             const slTradePercent = parseFloat(getEl('slTradePercent').value);
             
             if (p.is_valid_to_sell) {
-                // V21.12: PRECISION EXECUTION LOGIC
+                // V21.17: MICRO-TRAILING MAXIMIZER
                 
                 // 1. STRICT STOP LOSS (PRIORITY 1)
-                // "Colado no tick" - Close immediately if hit
                 if (profitPercent <= -slTradePercent) {
-                    console.warn(`⛔ STOP LOSS REAL-TIME: ${profitPercent.toFixed(2)}% <= -${slTradePercent}%`);
+                    console.warn(`⛔ STOP LOSS: ${profitPercent.toFixed(2)}% <= -${slTradePercent}%`);
                     sellPosition(p.contract_id);
-                    return; // Exit immediately
+                    return; 
                 }
 
-                // 2. SMART TAKE PROFIT
-                if (scalpPercent < 90) {
-                    // SCALPING MODE (< 90% Target)
-                    // "Já deu o lucro" - Close if near target (Target - 2%)
-                    if (profitPercent >= (scalpPercent - 2)) {
-                        console.log(`💰 SMART TP (PROXIMITY): ${profitPercent.toFixed(2)}% (Target: ${scalpPercent}%)`);
+                // 2. MICRO-TRAILING TP ($0.01 Retraction)
+                if (profitPercent >= scalpPercent) {
+                    // Target Met - Monitor Retraction
+                    const retractionUSD = p.maxProfitUSD - profit;
+                    
+                    if (retractionUSD >= 0.01) {
+                        // "Retornou 1 centavo" - CLOSE!
+                        console.log(`💰 MICRO-TRAILING: Lucro ${profit.toFixed(2)} (Pico: ${p.maxProfitUSD.toFixed(2)} | Retração: ${retractionUSD.toFixed(2)})`);
                         sellPosition(p.contract_id);
-                    }
-                } else {
-                    // MOONSHOT MODE (>= 90% Target)
-                    // "Wait for it" - Strict Target Logic
-                    if (profitPercent >= scalpPercent) {
-                        console.log(`🚀 MOONSHOT TP: ${profitPercent.toFixed(2)}%`);
-                        sellPosition(p.contract_id);
+                    } else {
+                         // console.log(`🚀 SUBINDO: ${profit.toFixed(2)} (Pico: ${p.maxProfitUSD.toFixed(2)})`);
                     }
                 }
             }
