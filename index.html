@@ -2,11 +2,11 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
-    <title>JARVIS COMMAND CENTER V21.14</title>
+    <title>JARVIS COMMAND CENTER V21.15</title>
     <link rel="icon" type="image/jpeg" href="JARVIS ROSTO.jpg">
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700;800;900&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
@@ -34,20 +34,10 @@
             height: 100vh; 
             overflow: hidden; 
             display: flex; 
-            justify-content: center; 
-            align-items: center; 
+            flex-direction: column;
         }
 
-        /* AUTO-SCALE CONTAINER */
-        #appContainer {
-            width: 1920px;
-            height: 1080px;
-            position: absolute;
-            transform-origin: center center;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
+        /* AUTO-SCALE REMOVED - FLUID LAYOUT IMPLEMENTED */
         
         /* LOGIN OVERLAY */
         #loginOverlay { 
@@ -102,52 +92,74 @@
             box-shadow: 0 0 30px var(--cyber-blue); 
         }
 
-        /* MAIN INTERFACE */
+        /* RESPONSIVE GRID INTERFACE */
         .interface-grid { 
-            display: none; 
-            grid-template-columns: 350px 1fr 350px; 
-            width: 100%; 
-            height: 100%; 
+            display: grid; 
+            grid-template-columns: 320px 1fr 320px; 
+            width: 100vw; 
+            height: 100vh; 
             background: var(--glass-panel); 
-            border: var(--glass-border); 
-            border-radius: 4px; 
-            position: relative; 
             overflow: hidden; 
             backdrop-filter: blur(20px); 
-            box-shadow: 0 0 100px rgba(0,0,0,0.8); 
         }
         
         .sidebar-left, .sidebar-right { 
-            padding: 30px; 
+            padding: 20px; 
             display: flex; 
             flex-direction: column; 
-            gap: 25px; 
+            gap: 15px; 
             z-index: 10; 
             background: rgba(0,0,0,0.2); 
+            overflow-y: auto; /* SCROLLABLE SIDEBARS */
+            height: 100%;
         }
         
         .sidebar-left { border-right: var(--glass-border); } 
         .sidebar-right { border-left: var(--glass-border); }
         
+        .main-stage { 
+            padding: 20px; 
+            display: flex; 
+            flex-direction: column; 
+            gap: 15px; 
+            position: relative; 
+            width: 100%; 
+            height: 100%;
+            overflow-y: auto;
+            background: radial-gradient(circle at center, rgba(0, 243, 255, 0.02) 0%, transparent 80%); 
+        }
+
+        /* MOBILE RESPONSIVE TWEAKS */
+        @media (max-width: 1200px) {
+            .interface-grid {
+                grid-template-columns: 1fr; /* Stack vertically */
+                grid-template-rows: auto auto auto;
+                overflow-y: auto; /* Allow full page scroll */
+            }
+            .sidebar-left { order: 2; height: auto; border-right: none; border-bottom: var(--glass-border); }
+            .sidebar-right { order: 3; height: auto; border-left: none; }
+            .main-stage { order: 1; height: auto; border-bottom: var(--glass-border); min-height: 100vh; }
+            #tvChart { height: 400px; }
+        }
+        
         .brand-logo { 
-            font-size: 2.5rem; 
-            letter-spacing: 8px; 
+            font-size: 2rem; 
+            letter-spacing: 4px; 
             color: var(--cyber-blue); 
             border-bottom: 1px solid rgba(255,255,255,0.1); 
-            padding-bottom: 20px; 
-            margin-bottom: 10px; 
+            padding-bottom: 15px;
+            margin-bottom: 5px; 
             font-weight: 900; 
             text-align: center; 
             text-shadow: 0 0 20px rgba(0, 243, 255, 0.4); 
         }
         
         .brand-subtitle { 
-            font-size: 0.8rem; 
+            font-size: 0.7rem; 
             color: #8899a6; 
-            letter-spacing: 3px; 
+            letter-spacing: 2px; 
             text-transform: uppercase; 
-            margin-top: -15px; 
-            margin-bottom: 20px; 
+            margin-bottom: 15px; 
             text-align: center; 
             font-weight: 600; 
         }
@@ -155,7 +167,7 @@
         /* CONFIG GROUPS */
         .config-group { 
             background: rgba(255,255,255,0.02); 
-            padding: 20px; 
+            padding: 15px; 
             border-radius: 2px; 
             border: 1px solid rgba(255,255,255,0.05); 
             transition: 0.3s;
@@ -163,11 +175,11 @@
         .config-group:hover { border-color: rgba(0, 243, 255, 0.3); }
         
         .label-sm { 
-            font-size: 0.9rem; 
+            font-size: 0.8rem; 
             color: #5f7e97; 
             letter-spacing: 1px; 
             font-weight: 700; 
-            margin-bottom: 10px; 
+            margin-bottom: 8px; 
             display: block; 
             text-transform: uppercase;
         }
@@ -176,10 +188,10 @@
             background: #080c14; 
             color: #fff; 
             border: 1px solid #2a3b55; 
-            padding: 12px; 
+            padding: 10px; 
             border-radius: 2px; 
             font-family: 'Rajdhani'; 
-            font-size: 1.3rem; 
+            font-size: 1.1rem; 
             font-weight: 700; 
             width: 100%; 
             text-align: center; 
@@ -189,27 +201,17 @@
         
         /* SWITCHES */
         .switch-row { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; }
-        .switch { position: relative; display: inline-block; width: 50px; height: 28px; }
+        .switch { position: relative; display: inline-block; width: 45px; height: 24px; }
         .switch input { opacity: 0; width: 0; height: 0; }
         .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #1a2639; transition: .4s; border-radius: 2px; }
-        .slider:before { position: absolute; content: ""; height: 20px; width: 20px; left: 4px; bottom: 4px; background-color: #5f7e97; transition: .4s; border-radius: 1px; }
+        .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 4px; bottom: 4px; background-color: #5f7e97; transition: .4s; border-radius: 1px; }
         input:checked + .slider { background-color: rgba(0, 255, 65, 0.2); border: 1px solid var(--cyber-green); }
-        input:checked + .slider:before { transform: translateX(22px); background-color: var(--cyber-green); }
-        
-        /* MAIN STAGE */
-        .main-stage { 
-            padding: 30px; 
-            display: flex; 
-            flex-direction: column; 
-            gap: 25px; 
-            position: relative; 
-            width: 100%; 
-            background: radial-gradient(circle at center, rgba(0, 243, 255, 0.02) 0%, transparent 80%); 
-        }
+        input:checked + .slider:before { transform: translateX(21px); background-color: var(--cyber-green); }
         
         /* CHART */
         .chart-wrapper { 
-            height: 45vh; 
+            height: 400px; /* Fixed height for chart */
+            min-height: 300px;
             flex-shrink: 0; 
             position: relative; 
             background: #050a14; 
@@ -222,18 +224,18 @@
         
         /* JARVIS VISUALS */
         .jarvis-container { 
-            position: absolute; top: 20px; left: 20px; width: 160px; height: 160px; z-index: 20; 
+            position: absolute; top: 20px; left: 20px; width: 120px; height: 120px; z-index: 20; 
             pointer-events: none; display: flex; justify-content: center; align-items: center; 
         }
         
         .jarvis-img { 
-            width: 130px; height: 130px; object-fit: cover; border-radius: 50%; 
+            width: 100px; height: 100px; object-fit: cover; border-radius: 50%; 
             position: relative; z-index: 22; background: #000; 
             border: 2px solid rgba(0,243,255,0.3); 
         }
         
         .neon-ring { 
-            position: absolute; width: 150px; height: 150px; border-radius: 50%; 
+            position: absolute; width: 110px; height: 110px; border-radius: 50%; 
             border: 2px dashed var(--cyber-blue); border-top-color: transparent; border-bottom-color: transparent; 
             z-index: 21; 
             animation: spinSlow 10s linear infinite; 
@@ -243,7 +245,7 @@
         
         .energy-wave {
             position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            width: 400px; height: 400px; 
+            width: 300px; height: 300px; 
             background: radial-gradient(circle, rgba(0, 243, 255, 0.3) 0%, transparent 70%);
             opacity: 0; z-index: 10; pointer-events: none;
             border-radius: 50%;
@@ -268,11 +270,11 @@
         
         /* BUTTONS */
         .btn-decode { 
-            width: 100%; padding: 25px; margin-top: 5px; 
+            width: 100%; padding: 20px; margin-top: 5px; 
             background: linear-gradient(90deg, rgba(0,0,0,0.8), rgba(0, 243, 255, 0.1), rgba(0,0,0,0.8)); 
             border: 1px solid var(--cyber-blue); 
             color: var(--cyber-blue); 
-            font-family: 'Rajdhani'; font-size: 2rem; font-weight: 900; 
+            font-family: 'Rajdhani'; font-size: 1.8rem; font-weight: 900; 
             letter-spacing: 4px; text-transform: uppercase; 
             cursor: pointer; transition: 0.3s; 
             display: flex; flex-direction: column; align-items: center; justify-content: center; 
@@ -285,9 +287,9 @@
         }
         .btn-decode:hover { background: rgba(0, 243, 255, 0.15); letter-spacing: 6px; }
         
-        .action-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; height: 80px; }
+        .action-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; height: 70px; }
         .btn-action { 
-            font-size: 2.2rem; font-weight: 900; border: none; color: white; 
+            font-size: 1.8rem; font-weight: 900; border: none; color: white; 
             cursor: pointer; border-radius: 2px; font-family: 'Rajdhani'; opacity: 0.4; 
             transition: 0.3s; letter-spacing: 2px;
         }
@@ -296,32 +298,37 @@
         .btn-ready { opacity: 1; }
         .btn-ready:hover { filter: brightness(1.2); transform: translateY(-2px); }
         
-        /* POSITIONS TABLE */
+        /* POSITIONS TABLE SCROLLABLE */
         .positions-wrapper { 
-            flex: 1; min-height: 0; 
+            flex: 1; 
+            min-height: 200px;
             background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.05); 
-            border-radius: 2px; display: flex; flex-direction: column; 
+            border-radius: 2px; display: flex; flex-direction: column;
+            overflow: hidden; /* Contains the scroll */
         }
         .op-header { 
-            padding: 15px; background: rgba(255,255,255,0.02); 
+            padding: 12px; background: rgba(255,255,255,0.02); 
             display: flex; justify-content: space-between; align-items: center; 
             border-bottom: 1px solid rgba(255,255,255,0.05);
+            flex-shrink: 0;
         }
         
-        .pos-table { width: 100%; border-collapse: collapse; font-size: 1rem; }
-        .pos-table th { text-align: left; padding: 10px; color: #5f7e97; font-weight: 700; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        .table-scroll { flex: 1; overflow-y: auto; } /* SCROLL CONTAINER */
+
+        .pos-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+        .pos-table th { text-align: left; padding: 10px; color: #5f7e97; font-weight: 700; border-bottom: 1px solid rgba(255,255,255,0.1); position: sticky; top: 0; background: #0b1629; z-index: 5; }
         .pos-table td { padding: 10px; color: #fff; border-bottom: 1px solid rgba(255,255,255,0.05); font-weight: 600; }
         .pos-table tr:hover { background: rgba(255,255,255,0.02); }
         
-        .result-overlay { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0); font-size: 8rem; font-weight: 900; z-index: 30; opacity: 0; transition: all 0.4s; text-shadow: 0 0 50px currentColor; pointer-events: none; }
+        .result-overlay { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0); font-size: 6rem; font-weight: 900; z-index: 30; opacity: 0; transition: all 0.4s; text-shadow: 0 0 50px currentColor; pointer-events: none; }
         .show-res { transform: translate(-50%, -50%) scale(1); opacity: 1; }
         
         /* ACCOUNT BADGE */
         .account-badge { 
-            background: rgba(0,0,0,0.4); color: #fff; padding: 20px; text-align: center; 
+            background: rgba(0,0,0,0.4); color: #fff; padding: 15px; text-align: center; 
             border-radius: 2px; border: 1px solid #333; font-weight: 800; 
-            cursor: pointer; transition: 0.3s; margin-bottom: 20px; 
-            user-select: none; letter-spacing: 2px; font-size: 1rem;
+            cursor: pointer; transition: 0.3s; 
+            user-select: none; letter-spacing: 2px; font-size: 0.9rem;
         }
         .account-badge:hover { border-color: var(--cyber-blue); color: var(--cyber-blue); box-shadow: 0 0 20px rgba(0,243,255,0.1); }
         .is-demo { color: var(--cyber-gold); border-color: rgba(255, 215, 0, 0.3); }
@@ -340,154 +347,144 @@
     <div id="loginOverlay">
         <div class="login-content">
             <img src="JARVIS ROSTO.jpg" class="login-avatar" onerror="this.src='jarvis.gif'">
-            <div class="brand-logo" style="font-size: 3.5rem; margin-bottom: 30px;">JARVIS V21.14</div>
-            <div style="color:#8899a6; letter-spacing:2px; margin-bottom:30px;">COMMAND CENTER // SNIPER UNLEASHED</div>
+            <div class="brand-logo" style="font-size: 3.5rem; margin-bottom: 30px;">JARVIS V21.15</div>
+            <div style="color:#8899a6; letter-spacing:2px; margin-bottom:30px;">COMMAND CENTER // UI RESTORED</div>
             <button class="login-btn" onclick="connectDeriv()">INICIAR SISTEMA</button>
         </div>
     </div>
 
-    <!-- AUTO-SCALE CONTAINER -->
-    <div id="appContainer">
-        <div class="interface-grid" id="mainUI">
-            <div class="sidebar-left">
-                <div class="brand-logo">JARVIS <span style="color:#fff">V20</span></div>
-                <div class="brand-subtitle">CÓDIGO QUE ESCOLHE INTELIGÊNCIA QUE PROTEGE</div>
-                <div id="accBadge" class="account-badge" onclick="switchAccount()">CARREGANDO...</div>
-                
-                <!-- V21.14: BALANCE AT TOP -->
-                <div style="margin-top:20px; border:1px solid rgba(0,243,255,0.3); padding:15px; border-radius:2px; background:rgba(0,0,0,0.3);">
-                    <div style="font-size:0.8rem; color:#5f7e97; letter-spacing:2px; margin-bottom:5px; text-align:center;">SALDO DA CONTA</div>
-                    <div id="balanceVal" style="font-size:3rem; color:var(--cyber-blue); font-weight:900; text-align:center; text-shadow:0 0 20px rgba(0,243,255,0.4);">--</div>
-                </div>
-                
-                <div class="config-group">
-                    <span class="label-sm">AUTO PILOT (CHRONOS)</span>
-                    <div class="switch-row">
-                        <span style="font-size:1rem; color:#fff; font-weight:bold;">MODO AUTOMÁTICO</span>
-                        <label class="switch"><input type="checkbox" id="autoTradeToggle" onchange="saveState()"><span class="slider"></span></label>
-                    </div>
-                </div>
-                <div class="config-group">
-                    <span class="label-sm">STAKE ($)</span>
-                    <input type="number" id="stakeInput" value="1.00" step="0.50" min="0.35" onchange="saveState()">
-                </div>
-                <div class="config-group">
-                    <span class="label-sm">EXPIRAÇÃO (SEGURANÇA)</span>
-                    <select id="durationSelect" onchange="saveState()">
-                        <option value="60">1 Hora (Recomendado)</option>
-                        <option value="30">30 Minutos</option>
-                        <option value="15">15 Minutos</option>
-                        <option value="5">5 Minutos</option>
-                        <option value="1">1 Minuto (Arriscado)</option>
-                    </select>
-                </div>
-                <div class="config-group">
-                    <span class="label-sm" style="color:var(--cyber-gold)">TAKE PROFIT % (POR ORDEM)</span>
-                    <div style="font-size:0.8rem; color:#888; margin-bottom:5px;">Fecha ao atingir % de lucro:</div>
-                    <input type="number" id="scalpPercent" value="10" step="1" min="1" max="100" onchange="saveState()" style="color:var(--cyber-gold)">
-                </div>
-                <div class="config-group" style="border-color:rgba(255,0,60,0.3);">
-                    <span class="label-sm" style="color:var(--cyber-red)">STOP LOSS % (POR ORDEM)</span>
-                    <div style="font-size:0.8rem; color:#888; margin-bottom:5px;">Fecha se perder % do valor:</div>
-                    <input type="number" id="slTradePercent" value="50" step="5" min="5" max="100" style="color:var(--cyber-red)" onchange="saveState()">
-                </div>
-                
-                <div style="margin-top:auto; font-size:1rem; border-top:1px solid rgba(255,255,255,0.1); padding-top:20px;">
-                    <div class="status-row" style="display:flex; justify-content:space-between;"><span>RSI (14)</span><span id="rsiVal" style="font-weight:bold; color:var(--cyber-blue);">--</span></div>
-                    </div>
-                </div>
+    <!-- RESPONSIVE GRID -->
+    <div class="interface-grid" id="mainUI">
+        <!-- LEFT SIDEBAR -->
+        <div class="sidebar-left">
+            <div class="brand-logo">JARVIS <span style="color:#fff">V20</span></div>
+            <div class="brand-subtitle">CÓDIGO QUE ESCOLHE INTELIGÊNCIA QUE PROTEGE</div>
+            <div id="accBadge" class="account-badge" onclick="switchAccount()">CARREGANDO...</div>
+            
+            <div style="border:1px solid rgba(0,243,255,0.3); padding:15px; border-radius:2px; background:rgba(0,0,0,0.3);">
+                <div style="font-size:0.8rem; color:#5f7e97; letter-spacing:2px; margin-bottom:5px; text-align:center;">SALDO DA CONTA</div>
+                <div id="balanceVal" style="font-size:2.5rem; color:var(--cyber-blue); font-weight:900; text-align:center; text-shadow:0 0 20px rgba(0,243,255,0.4);">--</div>
             </div>
             
-            <div class="main-stage">
-                <div class="chart-wrapper" id="chartContainer">
-                    <div id="tvChart"></div>
-                    <div class="jarvis-container" id="jarvisAnim">
-                        <div class="energy-wave"></div>
-                        <div class="neon-ring"></div>
-                        <img src="jarvis.gif" class="jarvis-img" style="width:130px; height:130px;" onerror="this.style.display='none'">
-                    </div>
-                    <div class="live-price" id="priceTag" style="position:absolute; right:10px; top:10px; font-size:1.5rem; font-weight:bold; z-index:5;">--.--</div>
-                    <div class="result-overlay" id="resultBig">CALL</div>
-                </div>
-                
-                <button class="btn-decode" id="btnDecode" onclick="runAI('MANUAL')">
-                    <span>DECODIFICAR MERCADO</span>
-                    <span id="btnSubText" style="font-size:1rem; color:var(--cyber-green); margin-top:8px; text-shadow:0 0 10px var(--cyber-green); letter-spacing:2px; font-weight:700;">SISTEMA ONLINE</span>
-                </button>
-                
-                <div class="action-grid">
-                    <button class="btn-action btn-call" id="btnCall" onclick="placeTrade('CALL')" disabled>COMPRAR ⬆</button>
-                    <button class="btn-action btn-put" id="btnPut" onclick="placeTrade('PUT')" disabled>VENDER ⬇</button>
-                </div>
-                
-                <div class="positions-wrapper">
-                    <div class="op-header">
-                        <span style="font-size:1rem; font-weight:bold; letter-spacing:1px;">LUCRO ABERTO: <span id="openPL" style="color:#fff;">0.00</span></span>
-                        <button onclick="closeAllPositions()" style="background:var(--cyber-red); border:none; color:white; font-weight:bold; cursor:pointer; padding:8px 20px; font-size:0.9rem; border-radius:2px; letter-spacing:1px;">FECHAR TUDO</button>
-                    </div>
-                    <div style="flex:1; overflow-y:auto;">
-                        <table class="pos-table">
-                            <thead>
-                                <tr>
-                                    <th>HORA</th>
-                                    <th>TIPO</th>
-                                    <th>ENTRADA</th>
-                                    <th>ATUAL</th>
-                                    <th>TIMER</th>
-                                    <th>LUCRO</th>
-                                    <th>AÇÃO</th>
-                                </tr>
-                            </thead>
-                            <tbody id="posList">
-                                <!-- Rows will be injected here -->
-                            </tbody>
-                        </table>
-                        <div id="emptyMsg" style="text-align:center; color:#445566; padding:30px; font-style:italic;">AGUARDANDO OPERAÇÕES...</div>
-                    </div>
+            <div class="config-group">
+                <span class="label-sm">AUTO PILOT (CHRONOS)</span>
+                <div class="switch-row">
+                    <span style="font-size:1rem; color:#fff; font-weight:bold;">MODO AUTOMÁTICO</span>
+                    <label class="switch"><input type="checkbox" id="autoTradeToggle" onchange="saveState()"><span class="slider"></span></label>
                 </div>
             </div>
+            <div class="config-group">
+                <span class="label-sm">STAKE ($)</span>
+                <input type="number" id="stakeInput" value="1.00" step="0.50" min="0.35" onchange="saveState()">
+            </div>
+            <div class="config-group">
+                <span class="label-sm">EXPIRAÇÃO (SEGURANÇA)</span>
+                <select id="durationSelect" onchange="saveState()">
+                    <option value="60">1 Hora (Recomendado)</option>
+                    <option value="30">30 Minutos</option>
+                    <option value="15">15 Minutos</option>
+                    <option value="5">5 Minutos</option>
+                    <option value="1">1 Minuto (Arriscado)</option>
+                </select>
+            </div>
+            <div class="config-group">
+                <span class="label-sm" style="color:var(--cyber-gold)">TAKE PROFIT % (POR ORDEM)</span>
+                <div style="font-size:0.7rem; color:#888; margin-bottom:5px;">Fecha ao atingir % de lucro:</div>
+                <input type="number" id="scalpPercent" value="10" step="1" min="1" max="100" onchange="saveState()" style="color:var(--cyber-gold)">
+            </div>
+            <div class="config-group" style="border-color:rgba(255,0,60,0.3);">
+                <span class="label-sm" style="color:var(--cyber-red)">STOP LOSS % (POR ORDEM)</span>
+                <div style="font-size:0.7rem; color:#888; margin-bottom:5px;">Fecha se perder % do valor:</div>
+                <input type="number" id="slTradePercent" value="50" step="5" min="5" max="100" style="color:var(--cyber-red)" onchange="saveState()">
+            </div>
             
-            <div class="sidebar-right">
-                <div style="background:rgba(255,255,255,0.02); padding:30px; border-radius:4px; text-align:center; border:1px solid rgba(255,255,255,0.05);">
-                    <div style="font-size:0.9rem; color:#8899a6; letter-spacing:3px; font-weight:bold;">RESULTADO DO DIA</div>
-                    <div id="sessionPL" style="font-size:3.5rem; font-weight:900; margin-top:10px; color:white; text-shadow:0 0 30px rgba(255,255,255,0.2);">0.00</div>
+            <div style="margin-top:auto; font-size:1rem; border-top:1px solid rgba(255,255,255,0.1); padding-top:20px;">
+                <div class="status-row" style="display:flex; justify-content:space-between;"><span>RSI (14)</span><span id="rsiVal" style="font-weight:bold; color:var(--cyber-blue);">--</span></div>
+            </div>
+        </div>
+        
+        <!-- MAIN STAGE -->
+        <div class="main-stage">
+            <div class="chart-wrapper" id="chartContainer">
+                <div id="tvChart"></div>
+                <div class="jarvis-container" id="jarvisAnim">
+                    <div class="energy-wave"></div>
+                    <div class="neon-ring"></div>
+                    <img src="jarvis.gif" class="jarvis-img" style="width:100px; height:100px;" onerror="this.style.display='none'">
                 </div>
-                
-                <div class="config-group" style="margin-top:20px; border-color:rgba(255,0,60,0.3);">
-                    <span class="label-sm" style="color:var(--cyber-red)">STOP LOSS (DIÁRIO)</span>
-                    <input type="number" id="slInput" value="50.00" style="color:var(--cyber-red)" step="1" onchange="saveState()">
+                <div class="live-price" id="priceTag" style="position:absolute; right:10px; top:10px; font-size:1.5rem; font-weight:bold; z-index:5;">--.--</div>
+                <div class="result-overlay" id="resultBig">CALL</div>
+            </div>
+            
+            <button class="btn-decode" id="btnDecode" onclick="runAI('MANUAL')">
+                <span>DECODIFICAR MERCADO</span>
+                <span id="btnSubText" style="font-size:0.9rem; color:var(--cyber-green); margin-top:8px; text-shadow:0 0 10px var(--cyber-green); letter-spacing:2px; font-weight:700;">SISTEMA ONLINE</span>
+            </button>
+            
+            <div class="action-grid">
+                <button class="btn-action btn-call" id="btnCall" onclick="placeTrade('CALL')" disabled>COMPRAR ⬆</button>
+                <button class="btn-action btn-put" id="btnPut" onclick="placeTrade('PUT')" disabled>VENDER ⬇</button>
+            </div>
+            
+            <div class="positions-wrapper">
+                <div class="op-header">
+                    <span style="font-size:1rem; font-weight:bold; letter-spacing:1px;">LUCRO ABERTO: <span id="openPL" style="color:#fff;">0.00</span></span>
+                    <button onclick="closeAllPositions()" style="background:var(--cyber-red); border:none; color:white; font-weight:bold; cursor:pointer; padding:6px 15px; font-size:0.8rem; border-radius:2px; letter-spacing:1px;">FECHAR TUDO</button>
                 </div>
-                 <div class="config-group" style="border-color:rgba(0,255,65,0.3);">
-                    <span class="label-sm" style="color:var(--cyber-green)">META DE LUCRO (DIÁRIA)</span>
-                    <input type="number" id="tpInput" value="50.00" style="color:var(--cyber-green)" step="1" onchange="saveState()">
+                <!-- SCROLL CONTAINER -->
+                <div class="table-scroll">
+                    <table class="pos-table">
+                        <thead>
+                            <tr>
+                                <th>HORA</th>
+                                <th>TIPO</th>
+                                <th>ENTRADA</th>
+                                <th>ATUAL</th>
+                                <th>TIMER</th>
+                                <th>LUCRO</th>
+                                <th>AÇÃO</th>
+                            </tr>
+                        </thead>
+                        <tbody id="posList">
+                            <!-- Rows will be injected here -->
+                        </tbody>
+                    </table>
+                    <div id="emptyMsg" style="text-align:center; color:#445566; padding:30px; font-style:italic;">AGUARDANDO OPERAÇÕES...</div>
                 </div>
+            </div>
+        </div>
+        
+        <!-- RIGHT SIDEBAR -->
+        <div class="sidebar-right">
+            <div style="background:rgba(255,255,255,0.02); padding:20px; border-radius:4px; text-align:center; border:1px solid rgba(255,255,255,0.05); flex-shrink:0;">
+                <div style="font-size:0.8rem; color:#8899a6; letter-spacing:3px; font-weight:bold;">RESULTADO DO DIA</div>
+                <div id="sessionPL" style="font-size:3rem; font-weight:900; margin-top:5px; color:white; text-shadow:0 0 30px rgba(255,255,255,0.2);">0.00</div>
+            </div>
+            
+            <div class="config-group" style="margin-top:10px; border-color:rgba(255,0,60,0.3); flex-shrink:0;">
+                <span class="label-sm" style="color:var(--cyber-red)">STOP LOSS (DIÁRIO)</span>
+                <input type="number" id="slInput" value="50.00" style="color:var(--cyber-red)" step="1" onchange="saveState()">
+            </div>
+             <div class="config-group" style="border-color:rgba(0,255,65,0.3); flex-shrink:0;">
+                <span class="label-sm" style="color:var(--cyber-green)">META DE LUCRO (DIÁRIA)</span>
+                <input type="number" id="tpInput" value="50.00" style="color:var(--cyber-green)" step="1" onchange="saveState()">
+            </div>
 
-                <div style="border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:10px; margin-top:30px;">
-                    <span class="label-sm">HISTÓRICO RECENTE</span>
-                </div>
-                <div id="histList" style="flex:1; overflow-y:auto; padding-right:5px;">
-                    <div style="text-align:center; color:#445566; font-size:0.8rem; margin-top:40px;">Histórico vazio.</div>
-                </div>
-                
-                <button onclick="fullLogout()" style="background:transparent; border:1px solid #2a3b55; color:#5f7e97; padding:20px; cursor:pointer; width:100%; border-radius:2px; font-weight:bold; transition:0.2s; letter-spacing:2px; text-transform:uppercase;">Encerrar Sessão</button>
+            <div style="border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:10px; margin-top:20px; flex-shrink:0;">
+                <span class="label-sm">HISTÓRICO RECENTE</span>
             </div>
+            <!-- SCROLLABLE HISTORY -->
+            <div id="histList" style="flex:1; overflow-y:auto; padding-right:5px; min-height:100px;">
+                <div style="text-align:center; color:#445566; font-size:0.8rem; margin-top:40px;">Histórico vazio.</div>
+            </div>
+            
+            <button onclick="fullLogout()" style="background:transparent; border:1px solid #2a3b55; color:#5f7e97; padding:15px; cursor:pointer; width:100%; border-radius:2px; font-weight:bold; transition:0.2s; letter-spacing:2px; text-transform:uppercase; flex-shrink:0;">Encerrar Sessão</button>
         </div>
     </div>
     
     <button id="hardResetBtn" onclick="fullLogout()">HARD RESET</button>
 
 <script>
-    // --- AUTO-SCALE LOGIC ---
-    function resizeApp() {
-        const app = document.getElementById('appContainer');
-        const winW = window.innerWidth;
-        const winH = window.innerHeight;
-        const scale = Math.min(winW / 1920, winH / 1080);
-        app.style.transform = `scale(${scale})`;
-    }
-    window.addEventListener('resize', resizeApp);
-    window.addEventListener('load', resizeApp);
-
     // --- HELPER DE SEGURANÇA ---
     function getEl(id) {
         const el = document.getElementById(id);
@@ -532,7 +529,7 @@
     let lastAnalysisTime = 0;
     let lastStrategy = "AI"; 
     let strategyMap = new Map();
-    let lastCandleTime = 0; // V21.13: Track candle changes 
+    let lastCandleTime = 0; // V21.13: Track candle changes
 
     // V21.3 HYPER AGGRESSIVE RECOVERY
     let martingaleLevel = 0;
@@ -638,8 +635,8 @@
 
     function initSystem() {
         getEl('loginOverlay').style.display = 'none';
-        getEl('mainUI').style.display = 'grid';
-        resizeApp(); // Force resize on init
+        getEl('mainUI').style.display = 'grid'; // Enable Grid
+        // No resizeApp call strictly needed now, but keeping listener safe
         setTimeout(() => {
             initChart();
             loadAI();
@@ -696,6 +693,8 @@
             upColor: '#00ff41', downColor: '#ff003c', 
             borderVisible: false, wickUpColor: '#00ff41', wickDownColor: '#ff003c'
         });
+        
+        // RESPONSIVE CHART
         new ResizeObserver(entries => {
             if (entries.length === 0 || !entries[0].contentRect) return;
             const { width, height } = entries[0].contentRect;
@@ -746,8 +745,6 @@
     }
 
     function updateCandles(candle) {
-        const isNewCandle = candles.length === 0 || candles[candles.length - 1].time !== candle.time;
-        
         if (candles.length > 0 && candles[candles.length - 1].time === candle.time) {
             candles[candles.length - 1] = candle;
         } else { 
