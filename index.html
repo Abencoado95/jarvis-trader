@@ -6,7 +6,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
-    <title>JARVIS COMMAND CENTER V21.12</title>
+    <title>JARVIS COMMAND CENTER V21.13</title>
     <link rel="icon" type="image/jpeg" href="JARVIS ROSTO.jpg">
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700;800;900&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
@@ -340,8 +340,8 @@
     <div id="loginOverlay">
         <div class="login-content">
             <img src="JARVIS ROSTO.jpg" class="login-avatar" onerror="this.src='jarvis.gif'">
-            <div class="brand-logo" style="font-size: 3.5rem; margin-bottom: 30px;">JARVIS V21.12</div>
-            <div style="color:#8899a6; letter-spacing:2px; margin-bottom:30px;">COMMAND CENTER // PRECISION EXECUTION</div>
+            <div class="brand-logo" style="font-size: 3.5rem; margin-bottom: 30px;">JARVIS V21.13</div>
+            <div style="color:#8899a6; letter-spacing:2px; margin-bottom:30px;">COMMAND CENTER // SNIPER VISION</div>
             <button class="login-btn" onclick="connectDeriv()">INICIAR SISTEMA</button>
         </div>
     </div>
@@ -527,7 +527,8 @@
     let sessionProfit = 0.0;
     let lastAnalysisTime = 0;
     let lastStrategy = "AI"; 
-    let strategyMap = new Map(); 
+    let strategyMap = new Map();
+    let lastCandleTime = 0; // V21.13: Track candle changes 
 
     // V21.3 HYPER AGGRESSIVE RECOVERY
     let martingaleLevel = 0;
@@ -741,11 +742,14 @@
     }
 
     function updateCandles(candle) {
+        const isNewCandle = candles.length === 0 || candles[candles.length - 1].time !== candle.time;
+        
         if (candles.length > 0 && candles[candles.length - 1].time === candle.time) {
             candles[candles.length - 1] = candle;
         } else { 
             candles.push(candle); 
             if(candles.length > 300) candles.shift(); 
+            lastCandleTime = candle.time; // V21.13: Track new candle
         }
         if(series) series.update(candle);
         
@@ -754,9 +758,8 @@
         priceEl.style.color = candle.close >= candle.open ? '#00ff41' : '#ff003c';
         updateRSI();
 
-        const now = Date.now();
-        if (getEl('autoTradeToggle').checked && !isProcessing && (now - lastAnalysisTime > ANALYSIS_INTERVAL)) {
-            lastAnalysisTime = now;
+        // V21.13: SNIPER TIMING - Only analyze on NEW candle (not every tick)
+        if (getEl('autoTradeToggle').checked && !isProcessing && isNewCandle) {
             runAI('AUTO');
         }
     }
@@ -809,6 +812,11 @@
     async function runAI(source = 'MANUAL') {
         if (isProcessing) return;
         
+        // V21.13: TRADE COOLDOWN - No analysis while position is open
+        if (positions.size > 0 && source === 'AUTO') {
+            return; // Silent block for AUTO mode
+        }
+        
         const btn = getEl('btnDecode');
         const sub = getEl('btnSubText');
         const jarvisContainer = getEl('jarvisAnim');
@@ -822,12 +830,24 @@
             return; 
         }
         
+        // V21.13: EARLY ENTRY CHECK - Only analyze in first 15s of candle
+        if (source === 'AUTO' && candles.length > 0) {
+            const currentCandle = candles[candles.length - 1];
+            const now = Math.floor(Date.now() / 1000);
+            const candleAge = now - currentCandle.time;
+            
+            if (candleAge > 15) {
+                // Candle is too old (move already happened)
+                return;
+            }
+        }
+        
         isProcessing = true;
         
         if (source === 'AUTO') {
             btn.style.borderColor = "var(--cyber-gold)"; 
             btn.style.boxShadow = "0 0 30px rgba(255, 215, 0, 0.2)";
-            sub.innerText = "SISTEMA ANALISANDO";
+            sub.innerText = "SNIPER: ANALISANDO INÍCIO DO CANDLE";
             sub.style.color = "var(--cyber-gold)";
         } else {
             sub.innerText = "CALIBRANDO MIRA...";
@@ -851,6 +871,19 @@
                 sub.style.color = "var(--cyber-red)";
             }
             
+            // V21.13: MULTI-TIMEFRAME CONTEXT
+            // Calculate 5-minute trend (last 5 candles)
+            let trend5min = "NEUTRAL";
+            if (candles.length >= 5) {
+                const last5 = candles.slice(-5);
+                const firstPrice = last5[0].close;
+                const lastPrice = last5[last5.length - 1].close;
+                const change = ((lastPrice - firstPrice) / firstPrice) * 100;
+                
+                if (change > 0.3) trend5min = "BULLISH";
+                else if (change < -0.3) trend5min = "BEARISH";
+            }
+            
             // --- AI PREDICTION ---
             if (model && candles.length >= 60) {
                 try {
@@ -868,29 +901,33 @@
                          sub.innerText = `RECUPERANDO... (IA: ${confidence}%)`;
                     }
 
-                    // V21.11: TITAN UNLEASHED (PURE AI + DYNAMIC THRESHOLD)
-                    // REMOVED: Color, RSI, EMA
-                    // ADDED: Volatility Adjustment
+                    // V21.13: SNIPER VISION (HIGH CONVICTION + MULTI-TF)
+                    let baseThreshold = 0.70; // V21.13: Raised from 0.50 to 0.70 (High Conviction)
                     
-                    const volatility = calculateVolatility(20);
-                    let baseThreshold = 0.50; // Aggressive Base
+                    // Recovery Override: Keep aggressive
+                    if (martingaleLevel > 0) baseThreshold = 0.50;
                     
-                    // Dynamic Adjustment: If volatility is high (> 0.5), increase threshold
-                    // This prevents "maniac" trading in chaotic markets
-                    let dynamicThreshold = baseThreshold;
-                    if (volatility > 0.5) {
-                        dynamicThreshold = 0.60; // Safe Mode
-                        sub.innerText = `TITAN: MERCADO AGITADO (REQ: 60% | IA: ${confidence}%)`;
-                    } else {
-                        dynamicThreshold = 0.50; // Sniper Mode
-                        sub.innerText = `TITAN: SNIPER MODE (REQ: 50% | IA: ${confidence}%)`;
+                    // Multi-Timeframe Filter
+                    let aiSignal = "NEUTRO";
+                    if (prediction > baseThreshold) aiSignal = "CALL";
+                    else if (prediction < (1 - baseThreshold)) aiSignal = "PUT";
+                    
+                    // V21.13: Apply 5min trend filter (only if not in recovery)
+                    if (martingaleLevel === 0 && aiSignal !== "NEUTRO") {
+                        if (trend5min === "BULLISH" && aiSignal === "PUT") {
+                            console.log("🎯 SNIPER: Bloqueado PUT (Tendência 5min é BULLISH)");
+                            aiSignal = "NEUTRO";
+                        } else if (trend5min === "BEARISH" && aiSignal === "CALL") {
+                            console.log("🎯 SNIPER: Bloqueado CALL (Tendência 5min é BEARISH)");
+                            aiSignal = "NEUTRO";
+                        }
                     }
                     
-                    // Recovery Override
-                    if (martingaleLevel > 0) dynamicThreshold = 0.50;
-
-                    if (prediction > dynamicThreshold) signal = "CALL";
-                    else if (prediction < (1 - dynamicThreshold)) signal = "PUT"; // Symmetric for Put
+                    signal = aiSignal;
+                    
+                    if (signal !== "NEUTRO" && martingaleLevel === 0) {
+                        sub.innerText = `🎯 SNIPER: ${signal} | IA: ${confidence}% | Tendência 5min: ${trend5min}`;
+                    }
 
                 } catch(e) { console.warn("AI Fallback"); }
             }
