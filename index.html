@@ -6,7 +6,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
-    <title>JARVIS COMMAND CENTER V21.13</title>
+    <title>JARVIS COMMAND CENTER V21.14</title>
     <link rel="icon" type="image/jpeg" href="JARVIS ROSTO.jpg">
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700;800;900&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
@@ -340,8 +340,8 @@
     <div id="loginOverlay">
         <div class="login-content">
             <img src="JARVIS ROSTO.jpg" class="login-avatar" onerror="this.src='jarvis.gif'">
-            <div class="brand-logo" style="font-size: 3.5rem; margin-bottom: 30px;">JARVIS V21.13</div>
-            <div style="color:#8899a6; letter-spacing:2px; margin-bottom:30px;">COMMAND CENTER // SNIPER VISION</div>
+            <div class="brand-logo" style="font-size: 3.5rem; margin-bottom: 30px;">JARVIS V21.14</div>
+            <div style="color:#8899a6; letter-spacing:2px; margin-bottom:30px;">COMMAND CENTER // SNIPER UNLEASHED</div>
             <button class="login-btn" onclick="connectDeriv()">INICIAR SISTEMA</button>
         </div>
     </div>
@@ -353,6 +353,12 @@
                 <div class="brand-logo">JARVIS <span style="color:#fff">V20</span></div>
                 <div class="brand-subtitle">CÓDIGO QUE ESCOLHE INTELIGÊNCIA QUE PROTEGE</div>
                 <div id="accBadge" class="account-badge" onclick="switchAccount()">CARREGANDO...</div>
+                
+                <!-- V21.14: BALANCE AT TOP -->
+                <div style="margin-top:20px; border:1px solid rgba(0,243,255,0.3); padding:15px; border-radius:2px; background:rgba(0,0,0,0.3);">
+                    <div style="font-size:0.8rem; color:#5f7e97; letter-spacing:2px; margin-bottom:5px; text-align:center;">SALDO DA CONTA</div>
+                    <div id="balanceVal" style="font-size:3rem; color:var(--cyber-blue); font-weight:900; text-align:center; text-shadow:0 0 20px rgba(0,243,255,0.4);">--</div>
+                </div>
                 
                 <div class="config-group">
                     <span class="label-sm">AUTO PILOT (CHRONOS)</span>
@@ -388,8 +394,6 @@
                 
                 <div style="margin-top:auto; font-size:1rem; border-top:1px solid rgba(255,255,255,0.1); padding-top:20px;">
                     <div class="status-row" style="display:flex; justify-content:space-between;"><span>RSI (14)</span><span id="rsiVal" style="font-weight:bold; color:var(--cyber-blue);">--</span></div>
-                    <div class="status-row" style="font-size:2.5rem; color:var(--cyber-blue); margin-top:15px; font-weight:900; text-align:right; text-shadow:0 0 20px rgba(0,243,255,0.4);">
-                        <span id="balanceVal">--</span>
                     </div>
                 </div>
             </div>
@@ -758,8 +762,10 @@
         priceEl.style.color = candle.close >= candle.open ? '#00ff41' : '#ff003c';
         updateRSI();
 
-        // V21.13: SNIPER TIMING - Only analyze on NEW candle (not every tick)
-        if (getEl('autoTradeToggle').checked && !isProcessing && isNewCandle) {
+        // V21.14: CONTINUOUS ANALYSIS (with smart throttling)
+        const now = Date.now();
+        if (getEl('autoTradeToggle').checked && !isProcessing && (now - lastAnalysisTime > 2000)) {
+            lastAnalysisTime = now;
             runAI('AUTO');
         }
     }
@@ -830,24 +836,14 @@
             return; 
         }
         
-        // V21.13: EARLY ENTRY CHECK - Only analyze in first 15s of candle
-        if (source === 'AUTO' && candles.length > 0) {
-            const currentCandle = candles[candles.length - 1];
-            const now = Math.floor(Date.now() / 1000);
-            const candleAge = now - currentCandle.time;
-            
-            if (candleAge > 15) {
-                // Candle is too old (move already happened)
-                return;
-            }
-        }
+        // V21.14: REMOVED 15s restriction - AI analyzes continuously
         
         isProcessing = true;
         
         if (source === 'AUTO') {
             btn.style.borderColor = "var(--cyber-gold)"; 
             btn.style.boxShadow = "0 0 30px rgba(255, 215, 0, 0.2)";
-            sub.innerText = "SNIPER: ANALISANDO INÍCIO DO CANDLE";
+            sub.innerText = "SNIPER: ANALISANDO PADRÕES";
             sub.style.color = "var(--cyber-gold)";
         } else {
             sub.innerText = "CALIBRANDO MIRA...";
