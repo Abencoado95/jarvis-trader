@@ -912,16 +912,20 @@
             
             const rsi = parseFloat(getEl('rsiVal').innerText);
             
+            // DEBUG LOGS (REMOVE LATER)
+            console.log(`ANALYSIS: Price=${price} | RSI=${rsi} | Trend=${trend} | BB_Lower=${bb?.lower.toFixed(2)} | BB_Upper=${bb?.upper.toFixed(2)}`);
+
             if (bb) {
                 const price = candles[candles.length - 1].close;
                 
                 // --- STRATEGY 1: REVERSAL (Contra-Trend) ---
                 // "Esticou demais, vai voltar"
-                if (price <= bb.lower && rsi < 25) { 
+                // V21.20: Relaxed RSI (30/70) for Reversal to test entry
+                if (price <= bb.lower && rsi < 30) { 
                     signal = "CALL"; 
                     sub.innerText = `REVERSAL: FUNDO BOLINGER (RSI ${rsi})`;
                 }
-                else if (price >= bb.upper && rsi > 75) { 
+                else if (price >= bb.upper && rsi > 70) { 
                     signal = "PUT"; 
                     sub.innerText = `REVERSAL: TOPO BOLINGER (RSI ${rsi})`;
                 }
