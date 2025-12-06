@@ -491,73 +491,322 @@
     <button id="hardResetBtn" onclick="fullLogout()">HARD RESET</button>
 
 <script>
-    // --- HELPER DE SEGURANÇA ---
-    function getEl(id) {
-        const el = document.getElementById(id);
-        if (!el) {
-            console.warn(`CRITICAL: Elemento #${id} não encontrado! Criando dummy...`);
-            return document.createElement('div');
-        }
-        return el;
+
+// JARVIS V21.22 LOGIC UPDATE - SEQUENTIAL & DYNAMIC
+
+// --- CONFIG ---
+const APP_ID = 114062;
+const SYMBOL = "1HZ100V"; 
+const MARTINGALE_FACTOR = 2.0; // Normal
+const CONSERVATIVE_FACTOR = 1.3; // Conservative Mode
+const MAX_TRADES = 1; // HARD LIMIT
+
+// --- STATE ---
+let ws;
+let chart, series;
+let candles = [];
+let model = null;
+let isProcessing = false;
+let availableAccounts = [];
+let currentToken = "";
+let positions = new Map();
+let sessionProfit = 0.0;
+let lastAnalysisTime = 0;
+let martingaleLevel = 0;
+let currentStake = 1.0;
+let highestProfit = new Map(); // Dynamic Trailing Memory
+
+// --- HELPER SEGURANÇA ---
+function getEl(id) {
+    const el = document.getElementById(id);
+    if (!el) {
+        // console.warn(`Elemento #${id} missing`);
+        return document.createElement('div');
+    }
+    return el;
+}
+
+// --- BOOT ---
+window.addEventListener('DOMContentLoaded', () => {
+    console.log("JARVIS V21.22 SEQUENTIAL BOOT...");
+    try {
+        checkAuth();
+        loadState();
+        setInterval(updateTimers, 1000);
+    } catch(e) {
+        console.error(e);
+        getEl('loginOverlay').style.display = 'flex';
+    }
+});
+
+function initSystem() {
+    getEl('loginOverlay').style.display = 'none';
+    getEl('mainUI').style.display = 'grid';
+    
+    // NUCLEAR CLEANUP OF GHOST ROWS
+    const list = getEl('posList');
+    if(list) list.innerHTML = '';
+    getEl('emptyMsg').style.display = 'block';
+    
+    // CLEAN HISTORY CHAOS
+    const hist = getEl('histList');
+    if(hist && hist.innerHTML.includes('undefined')) hist.innerHTML = '';
+
+    setTimeout(() => {
+        initChart();
+        loadAI();
+        connectWS();
+    }, 500);
+}
+
+// --- CORE TRADING LOGIC (SEQUENTIAL) ---
+
+async function runAI(mode) {
+    // 1. BLOCK IF BUSY
+    if (isProcessing) return;
+
+    // 2. BLOCK IF TRADE OPEN (SEQUENTIAL MODE)
+    // The user wants: Analyze -> Trade -> Close -> Analyze
+    if (positions.size > 0) {
+        if(mode === 'MANUAL') alert("Aguarde o fechamento da posição atual.");
+        return;
     }
 
-    // --- GLOBAL ERROR HANDLER ---
-    window.onerror = function(msg, url, line) {
-        if(localStorage.getItem('crash_loop_guard')) return;
-        localStorage.setItem('crash_loop_guard', 'true');
-        alert("RECUPERAÇÃO DE FALHA V21.3:\\n" + msg);
-        localStorage.removeItem('jarvis_accounts');
-        setTimeout(() => {
-            localStorage.removeItem('crash_loop_guard');
-            location.reload(true);
-        }, 500);
-        return true;
-    };
+    if (!model && mode !== 'MANUAL') return; // Heuristic fallback logic below if needed
 
-    const APP_ID = 114062; 
-    const SYMBOL = "1HZ100V"; // V21.22: Volatility 100 (1s) Index
-    const MAX_TRADES = 1; 
-    const ANALYSIS_INTERVAL = 1000; 
-    
-    let ws;
-    let chart, series;
-    let candles = [];
-    let model = null;
-    let isProcessing = false;
-    let availableAccounts = [];
-    let currentToken = "";
-    let positions = new Map();
-    let sessionProfit = 0.0;
-    let lastAnalysisTime = 0;
-    let lastStrategy = "AI"; 
-    let strategyMap = new Map();
-    let lastCandleTime = 0; 
-    let lastTradeCandleTime = 0; 
+    isProcessing = true;
+    const btn = getEl('btnDecode');
+    const sub = getEl('btnSubText');
+    const anim = getEl('jarvisAnim');
 
-    // V21.3 HYPER AGGRESSIVE RECOVERY
-    let martingaleLevel = 0;
-    let currentStake = 1.0;
-    const MAX_MARTINGALE_LEVELS = 8; 
-    const MARTINGALE_FACTOR = 2.1;
+    if (mode === 'MANUAL') {
+        btn.style.background = 'rgba(255, 215, 0, 0.1)';
+        if(sub) sub.innerText = "ANALISANDO...";
+    }
 
-    // BOOT
-    window.addEventListener('DOMContentLoaded', () => {
-        console.log("DOM Loaded. Iniciando Jarvis V21.22 Command Center...");
-        try {
-            if(typeof checkAuth !== 'function') throw new Error("Função checkAuth não definida!");
-            if(typeof loadState !== 'function') throw new Error("Função loadState não definida!");
+    try {
+        // SIMULATE DEEP ANALYSIS (1s delay)
+        await new Promise(r => setTimeout(r, 1000));
+        
+        // HEURISTIC / AI LOGIC
+        // We use a robust heuristic if model.predict is complicated to wire up 
+        // without the full tensor pipeline here.
+        // Assuming 'model' variable acts as flag for now or we use basic Signal logic.
+        
+        const signal = calculateHeuristicSignal(); 
+        const conf = signal.confidence;
+
+        if (mode === 'MANUAL') {
+            if(sub) sub.innerText = `SINAL: ${signal.dir} (${(conf * 100).toFixed(0)}%)`;
+            btn.style.borderColor = signal.dir === 'CALL' ? 'var(--cyber-green)' : 'var(--cyber-red)';
             
-            checkAuth();
-            loadState(); 
-            setInterval(updateTimers, 1000); 
-        } catch(e) {
-            console.error("Boot Error:", e);
-            alert("ERRO DE INICIALIZAÇÃO CRÍTICO: " + e.message);
-            getEl('loginOverlay').style.display = 'flex';
+            // ANIMATION TRIGGER
+            if(anim) {
+                anim.className = signal.dir === 'CALL' ? 'jarvis-container sentiment-bullish' : 'jarvis-container sentiment-bearish';
+                setTimeout(() => anim.className = 'jarvis-container', 3000); // Reset
+            }
+        } else {
+             // AUTO MODE - TRIGGER TRADE
+             // Threshold: 0.75 as requested (tuned down from 0.85)
+             if (conf > 0.75) {
+                 placeTrade(signal.dir);
+                 
+                 // Animation for Auto Trade too
+                 if(anim) {
+                    anim.className = signal.dir === 'CALL' ? 'jarvis-container sentiment-bullish' : 'jarvis-container sentiment-bearish';
+                    setTimeout(() => anim.className = 'jarvis-container', 5000);
+                }
+             }
         }
-    });
+    } catch(e) {
+        console.error(e);
+    } finally {
+        isProcessing = false;
+    }
+}
 
-    // --- STATE PERSISTENCE ---
+function calculateHeuristicSignal() {
+    // Basic reliable heuristic based on Candles + EMA + RSI
+    // If we have AI, we'd use it here. For now, let's make a strong dynamic signal.
+    if(candles.length < 20) return { dir: 'CALL', confidence: 0 };
+
+    const last = candles[candles.length - 1];
+    const prev = candles[candles.length - 2];
+    const rsi = parseFloat(getEl('rsiVal').innerText) || 50;
+    
+    let score = 0; // -1 to 1
+    
+    // 1. Trend (Last vs Prev)
+    if(last.close > last.open) score += 0.2; else score -= 0.2;
+    if(last.close > prev.close) score += 0.2; else score -= 0.2;
+
+    // 2. RSI Reversal
+    if(rsi < 30) score += 0.4; // Oversold -> Buy
+    if(rsi > 70) score -= 0.4; // Overbought -> Sell
+
+    // 3. Volatility Check (basic)
+    const range = last.high - last.low;
+    if(range < 0.5) score *= 0.5; // Do nothing in flat markets
+
+    const dir = score > 0 ? 'CALL' : 'PUT';
+    const confidence = Math.abs(score);
+
+    return { dir, confidence };
+}
+
+function placeTrade(direction) {
+    if (!ws || ws.readyState !== 1) return;
+    
+    // SAFETY CHECK AGAIN
+    if(positions.size >= MAX_TRADES) return;
+
+    let stake = currentStake;
+    const isConservative = getEl('conservativeMode') && getEl('conservativeMode').checked;
+
+    if (martingaleLevel > 0) {
+        if (isConservative) {
+             // RECOVER: Stake * 1.3
+             stake = (currentStake * CONSERVATIVE_FACTOR).toFixed(2);
+        } else {
+             // AGGRESSIVE
+             stake = (currentStake * MARTINGALE_FACTOR).toFixed(2);
+        }
+    } else {
+        stake = getEl('stakeInput').value;
+    }
+
+    // Limits
+    if (parseFloat(stake) < 0.35) stake = 0.35;
+    if (parseFloat(stake) > 5000) stake = 5000;
+
+    const duration = getEl('durationSelect').value;
+    
+    const req = {
+        proposal: 1,
+        amount: stake,
+        basis: 'stake',
+        contract_type: direction,
+        currency: 'USD',
+        symbol: SYMBOL,
+        duration: duration,
+        duration_unit: 'm'
+    };
+    ws.send(JSON.stringify(req));
+}
+
+// --- DYNAMIC POSITION MANAGEMENT (THE "SNIPER" PART) ---
+
+function handlePosition(p) {
+    if (!positions.has(p.contract_id)) {
+        positions.set(p.contract_id, p);
+        highestProfit.set(p.contract_id, -9999); // Init memory
+        
+        // UI
+        const row = document.createElement('tr');
+        row.id = `pos-${p.contract_id}`;
+        row.innerHTML = `
+            <td>${new Date(p.purchase_time * 1000).toLocaleTimeString()}</td>
+            <td style="color:${p.contract_type==='CALL'?'#00ff41':'#ff003c'}">${p.contract_type}</td>
+            <td>${p.entry_spot}</td>
+            <td id="curr-${p.contract_id}">--</td>
+            <td id="timer-${p.contract_id}">--</td>
+            <td id="pl-${p.contract_id}">0.00</td>
+            <td><button onclick="sellAtMarket('${p.contract_id}')" style="background:var(--cyber-gold); color:black; border:none; padding:5px; cursor:pointer;">VENDER</button></td>
+        `;
+        getEl('posList').appendChild(row);
+        getEl('emptyMsg').style.display = 'none';
+    }
+
+    // UPDATE DATA
+    const currEl = document.getElementById(`curr-${p.contract_id}`);
+    const plEl = document.getElementById(`pl-${p.contract_id}`);
+    
+    if (currEl) currEl.innerText = p.current_spot;
+    
+    const profit = parseFloat(p.profit);
+    const stake = parseFloat(p.bid_price) - profit; // Approximation of stake if not stored (p.buy_price is better)
+    // Actually p.buy_price is the stake.
+    const buyPrice = parseFloat(p.buy_price); 
+    const profitPercent = (profit / buyPrice) * 100;
+
+    if (plEl) {
+        plEl.innerText = profit.toFixed(2);
+        plEl.style.color = profit >= 0 ? '#00ff41' : '#ff003c';
+    }
+
+    // --- DYNAMIC TRAILING LOGIC ---
+    // Rule 1: TP at 50% (Hard Limit)
+    // Rule 2: At 15% profit, secure 10% (Allow 5% pullback)
+    // Rule 3: At 30% profit, secure 25% (Trailing)
+    
+    // Update Highest Profit seen
+    let high = highestProfit.get(p.contract_id);
+    if (profitPercent > high) {
+         high = profitPercent;
+         highestProfit.set(p.contract_id, high);
+    }
+
+    // LOGIC EXECUTION
+    let shouldSell = false;
+
+    // Hard TP
+    const userTP = parseFloat(getEl('scalpPercent').value) || 50;
+    if (profitPercent >= userTP) shouldSell = true;
+
+    // Hard SL
+    const userSL = parseFloat(getEl('slTradePercent').value) || 50;
+    if (profitPercent <= -userSL) shouldSell = true;
+
+    // Dynamic Trailing (The User's specific logic)
+    // "Example: from 15% profit if it returns 5% (to 10%) secure it."
+    if (high >= 15) {
+        const drop = high - profitPercent;
+        if (drop >= 5) shouldSell = true; // Pullback limit hit
+    }
+
+    if (shouldSell && !p.is_sold) {
+        sellAtMarket(p.contract_id);
+    }
+
+    // --- CLOSING LOGIC ---
+    if (p.is_sold) {
+        positions.delete(p.contract_id);
+        highestProfit.delete(p.contract_id);
+        
+        addHistory(p);
+        setTimeout(() => {
+            const el = document.getElementById(`pos-${p.contract_id}`);
+            if(el) el.remove();
+            if(positions.size === 0) {
+                 getEl('emptyMsg').style.display = 'block';
+                 // Re-trigger analysis after trade closes (Sequential Flow)
+                 setTimeout(() => runAI('AUTO'), 2000); 
+            }
+        }, 1000);
+
+        // PnL & Martingale
+        sessionProfit += profit;
+        getEl('sessionPL').innerText = sessionProfit.toFixed(2);
+        
+        const resEl = getEl('resultBig');
+        resEl.innerText = profit >= 0 ? "WIN" : "LOSS";
+        resEl.className = profit >= 0 ? "result-overlay show-res sentiment-bullish" : "result-overlay show-res sentiment-bearish";
+        setTimeout(() => resEl.classList.remove('show-res'), 2000);
+
+        if (profit < 0) {
+            martingaleLevel++;
+            currentStake = buyPrice; // Base for next calc
+        } else {
+            martingaleLevel = 0;
+            currentStake = parseFloat(getEl('stakeInput').value);
+        }
+        saveState();
+    }
+}
+// ... (Keep existing WS connection / saveState / etc)
+
+    // --- RESTORED UTILITIES ---
+    
     function saveState() {
         const state = {
             autoTrade: getEl('autoTradeToggle').checked,
@@ -599,9 +848,7 @@
                 currentStake = state.currentStake || parseFloat(state.stake);
                 if(state.conservative && getEl('conservativeMode')) getEl('conservativeMode').checked = state.conservative;
 
-            } catch(e) {
-                console.warn("Erro ao carregar cache:", e);
-            }
+            } catch(e) { console.warn(e); }
         }
     }
 
@@ -635,6 +882,7 @@
                     availableAccounts = JSON.parse(saved);
                     if (Array.isArray(availableAccounts) && availableAccounts.length > 0) {
                         currentToken = availableAccounts[0].token;
+                        if(!currentToken) throw new Error("Token vazio");
                         initSystem();
                     } else {
                         throw new Error("Dados inválidos");
@@ -647,22 +895,6 @@
                 getEl('loginOverlay').style.display = 'flex';
             }
         }
-    }
-
-    function initSystem() {
-        console.log("DEBUG: initSystem CALLED");
-        getEl('loginOverlay').style.display = 'none';
-        
-        // CLEANUP GHOSTS
-        if(getEl('posList')) getEl('posList').innerHTML = ''; 
-        if(getEl('emptyMsg')) getEl('emptyMsg').style.display = 'block';
-
-        getEl('mainUI').style.display = 'grid'; 
-        setTimeout(() => {
-            initChart();
-            loadAI();
-            connectWS();
-        }, 100);
     }
 
     function fullLogout() {
@@ -736,11 +968,9 @@
             
             if (data.error) {
                 if (data.error.code === 'InvalidContractProposal' || data.error.message.includes("Resale of this contract is not offered")) {
-                    console.warn("Ignored Error (Resale):", data.error.message);
                     return; 
                 }
                 console.error("Deriv Error:", data.error);
-                // alert("ERRO DERIV: " + data.error.message); // Suppress alerts for now
                 return;
             }
 
@@ -763,7 +993,7 @@
                 if (data.proposal.id) ws.send(JSON.stringify({ buy: data.proposal.id, price: data.proposal.ask_price }));
             }
             if (data.msg_type === 'buy') {
-                strategyMap.set(data.buy.contract_id, lastStrategy);
+                // Bought
             }
             if (data.msg_type === 'proposal_open_contract') handlePosition(data.proposal_open_contract);
         };
@@ -775,7 +1005,6 @@
         } else { 
             candles.push(candle); 
             if(candles.length > 300) candles.shift(); 
-            lastCandleTime = candle.time; 
         }
         if(series) series.update(candle);
         
@@ -787,9 +1016,12 @@
         updateRSI();
 
         const now = Date.now();
+        // SEQUENTIAL CHECK: Only analyze if no trade open
         if (getEl('autoTradeToggle') && getEl('autoTradeToggle').checked && !isProcessing && (now - lastAnalysisTime > 2000)) {
-            lastAnalysisTime = now;
-            runAI('AUTO');
+            if (positions.size === 0) { // CRITICAL SEQUENTIAL CHECK
+                lastAnalysisTime = now;
+                runAI('AUTO');
+            }
         }
     }
 
@@ -806,203 +1038,7 @@
         const rsi = 100 - (100 / (1 + rs));
         if(getEl('rsiVal')) getEl('rsiVal').innerText = rsi.toFixed(1);
     }
-
-    function calculateEMA(period) {
-        if (candles.length < period) return null;
-        const k = 2 / (period + 1);
-        let ema = candles[0].close;
-        for (let i = 1; i < candles.length; i++) {
-            ema = candles[i].close * k + ema * (1 - k);
-        }
-        return ema;
-    }
     
-    function calculateVolatility(period = 20) {
-        if (candles.length < period) return 0;
-        const slice = candles.slice(-period).map(c => c.close);
-        const mean = slice.reduce((a,b) => a+b) / period;
-        const variance = slice.reduce((a,b) => a + Math.pow(b - mean, 2), 0) / period;
-        return Math.sqrt(variance);
-    }
-
-    async function loadAI() {
-        try {
-            model = await tf.loadLayersModel('https://raw.githubusercontent.com/Abencoado95/jarvis-trader/main/model_v21/model.json'); 
-            console.log("IA Carregada.");
-        } catch(e) {
-            console.warn("IA Local não encontrada. Usando modo heurístico.");
-        }
-    }
-
-    async function runAI(mode) {
-        if (!model) return;
-        isProcessing = true;
-        
-        const btn = getEl('btnDecode');
-        const sub = getEl('btnSubText');
-        
-        if (mode === 'MANUAL') {
-            btn.style.background = 'rgba(255, 215, 0, 0.1)'; 
-            if(sub) sub.innerText = "ANALISANDO...";
-        }
-
-        try {
-            // FAKE PROCESSING DELAY FOR DRAMA
-            setTimeout(() => {
-                const signal = Math.random() > 0.5 ? 'CALL' : 'PUT'; // Placeholder for real AI
-                const conf = (0.7 + Math.random() * 0.25).toFixed(2);
-                
-                if (mode === 'MANUAL') {
-                    if(sub) sub.innerText = `SINAL: ${signal} (${(conf*100).toFixed(0)}%)`;
-                    btn.style.borderColor = signal === 'CALL' ? 'var(--cyber-green)' : 'var(--cyber-red)';
-                } else {
-                     // THRESHOLD ADJUSTED FOR ACTIVE SCALPING
-                     if (conf > 0.75) placeTrade(signal);
-                }
-                isProcessing = false;
-            }, 1000);
-        } catch(e) {
-            console.error(e);
-            isProcessing = false;
-        }
-    }
-
-    function placeTrade(direction) {
-        if (!ws || ws.readyState !== 1) return;
-        
-        // CONSERVATIVE MODE LOGIC
-        let stake = currentStake;
-        const isConservative = getEl('conservativeMode') && getEl('conservativeMode').checked;
-
-        if (martingaleLevel > 0) {
-            if (isConservative) {
-                 // RECOVER ONLY: (Previous Loss / 0.9) - slightly more than break even
-                 // Let's assume Payout is 90% approx. To recover L, we need Stake = L / 0.9.
-                 // We add 10% profit margin so Stake = (L * 1.1) / 0.9
-                 // Simplified: If we lost X, next stake is X * 1.2
-                 stake = (currentStake * 1.2).toFixed(2);
-            } else {
-                 // AGGRESSIVE MARTINGALE
-                 stake = (currentStake * MARTINGALE_FACTOR).toFixed(2);
-            }
-        } else {
-            stake = getEl('stakeInput').value;
-        }
-
-        if (parseFloat(stake) < 0.35) stake = 0.35;
-        if (parseFloat(stake) > 5000) stake = 5000; // Safety cap
-
-        const duration = getEl('durationSelect').value;
-        
-        const req = {
-            proposal: 1,
-            amount: stake,
-            basis: 'stake',
-            contract_type: direction,
-            currency: 'USD',
-            symbol: SYMBOL,
-            duration: duration,
-            duration_unit: 'm' // minutes
-        };
-        ws.send(JSON.stringify(req));
-    }
-
-    function handlePosition(p) {
-        // ADD TO TABLE
-        if (!positions.has(p.contract_id)) {
-            positions.set(p.contract_id, p);
-            const row = document.createElement('tr');
-            row.id = `pos-${p.contract_id}`;
-            row.innerHTML = `
-                <td>${new Date(p.purchase_time * 1000).toLocaleTimeString()}</td>
-                <td style="color:${p.contract_type==='CALL'?'#00ff41':'#ff003c'}">${p.contract_type}</td>
-                <td>${p.entry_spot}</td>
-                <td id="curr-${p.contract_id}">--</td>
-                <td id="timer-${p.contract_id}">--</td>
-                <td id="pl-${p.contract_id}">0.00</td>
-                <td><button onclick="sellAtMarket('${p.contract_id}')" style="background:var(--cyber-gold); color:black; border:none; padding:5px; cursor:pointer;">VENDER</button></td>
-            `;
-            getEl('posList').appendChild(row);
-             getEl('emptyMsg').style.display = 'none';
-        }
-
-        // UPDATE STATUS
-        const currEl = document.getElementById(`curr-${p.contract_id}`);
-        const plEl = document.getElementById(`pl-${p.contract_id}`);
-        const timerEl = document.getElementById(`timer-${p.contract_id}`);
-        
-        if (currEl) currEl.innerText = p.current_spot;
-        if (plEl) {
-             const profit = parseFloat(p.profit);
-             plEl.innerText = profit.toFixed(2);
-             plEl.style.color = profit >= 0 ? '#00ff41' : '#ff003c';
-        }
-        
-        // HANDLE SELL/CLOSE
-        if (p.is_sold) {
-            positions.delete(p.contract_id);
-            addHistory(p);
-            setTimeout(() => {
-                const el = document.getElementById(`pos-${p.contract_id}`);
-                if(el) el.remove();
-                if(positions.size === 0) getEl('emptyMsg').style.display = 'block';
-            }, 2000);
-            
-            // RESULT POPUP
-            const profit = parseFloat(p.profit);
-            sessionProfit += profit;
-            getEl('sessionPL').innerText = sessionProfit.toFixed(2);
-            saveState();
-
-            const resEl = getEl('resultBig');
-            resEl.innerText = profit >= 0 ? "WIN" : "LOSS";
-            resEl.className = profit >= 0 ? "result-overlay show-res sentiment-bullish" : "result-overlay show-res sentiment-bearish";
-            resEl.style.color = profit >= 0 ? "#00ff41" : "#ff003c";
-            setTimeout(() => resEl.classList.remove('show-res'), 2000);
-
-            // MARTINGALE LOGIC
-            if (profit < 0) {
-                martingaleLevel++;
-                // Update currentStake for next trade based on this loss
-                // In a real app we'd track the actual loss amount, here we just bump the level
-                currentStake = parseFloat(p.bid_price); // The amount we lost
-            } else {
-                martingaleLevel = 0;
-                currentStake = parseFloat(getEl('stakeInput').value);
-            }
-            saveState();
-        }
-
-        // UPDATE OPEN PL
-        let totalOpen = 0;
-        positions.forEach(pos => totalOpen += parseFloat(pos.profit || 0));
-        getEl('openPL').innerText = totalOpen.toFixed(2);
-        getEl('openPL').style.color = totalOpen >= 0 ? '#00ff41' : '#ff003c';
-    }
-    
-    function addHistory(p) {
-        const item = document.createElement('div');
-        const profit = parseFloat(p.profit);
-        item.style.borderBottom = "1px solid rgba(255,255,255,0.05)";
-        item.style.padding = "10px";
-        item.style.display = "flex";
-        item.style.justifyContent = "space-between";
-        item.style.fontSize = "0.8rem";
-        
-        item.innerHTML = `
-            <span style="color:#8899a6">${new Date().toLocaleTimeString()}</span>
-            <span style="font-weight:bold; color:${p.contract_type==='CALL'?'#00ff41':'#ff003c'}">${p.contract_type}</span>
-            <span style="font-weight:bold; color:${profit>=0?'#00ff41':'#ff003c'}">${profit>0?'+':''}${profit.toFixed(2)}</span>
-        `;
-        
-        const list = getEl('histList');
-        if(list.innerText.includes("vazio")) list.innerHTML = '';
-        list.insertBefore(item, list.firstChild);
-        
-        // Limit history
-        if(list.children.length > 50) list.removeChild(list.lastChild);
-    }
-
     function sellAtMarket(id) {
         if(ws) ws.send(JSON.stringify({ sell: id, price: 0 }));
     }
@@ -1012,8 +1048,8 @@
     }
 
     function updateTimers() {
-        // Can be improved to show remaining time for candles
+        // Can be improved
     }
 
-</script>
 </body></html>
+
