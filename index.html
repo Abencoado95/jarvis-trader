@@ -370,6 +370,24 @@
                     <label class="switch"><input type="checkbox" id="autoTradeToggle" onchange="saveState()"><span class="slider"></span></label>
                 </div>
             </div>
+
+            <div class="config-group" style="border-color:#00f3ff;">
+                <span class="label-sm" style="color:#00f3ff">TRAILING STOP (DINÂMICO)</span>
+                <div class="switch-row">
+                    <span style="font-size:0.8rem; color:#fff;">ATIVAR TRAILING</span>
+                    <label class="switch"><input type="checkbox" id="trailingToggle" onchange="saveState()"><span class="slider"></span></label>
+                </div>
+                <div style="display:flex; gap:10px; margin-top:10px;">
+                    <div style="flex:1;">
+                        <span style="font-size:0.6rem; color:#888;">GATILHO (%)</span>
+                        <input type="number" id="trailingTrigger" value="15" step="1" min="1" max="100" style="color:#00f3ff; font-size:1rem; padding:5px;" onchange="saveState()">
+                    </div>
+                    <div style="flex:1;">
+                        <span style="font-size:0.6rem; color:#888;">DISTÂNCIA (%)</span>
+                        <input type="number" id="trailingDistance" value="5" step="1" min="1" max="50" style="color:#00f3ff; font-size:1rem; padding:5px;" onchange="saveState()">
+                    </div>
+                </div>
+            </div>
             
             <div class="config-group" style="border-color:var(--cyber-blue);">
                 <span class="label-sm" style="color:var(--cyber-blue)">GESTÃO DE RISCO</span>
@@ -492,7 +510,8 @@
 
 <script>
 
-// JARVIS V21.22 LOGIC UPDATE - SEQUENTIAL & DYNAMIC
+
+// JARVIS V21.22 FLEXIBLE UPDATE - TRAILING CONFIG & STAKE HISTORY
 
 // --- CONFIG ---
 const APP_ID = 114062;
@@ -520,7 +539,6 @@ let highestProfit = new Map(); // Dynamic Trailing Memory
 function getEl(id) {
     const el = document.getElementById(id);
     if (!el) {
-        // console.warn(`Elemento #${id} missing`);
         return document.createElement('div');
     }
     return el;
@@ -528,7 +546,7 @@ function getEl(id) {
 
 // --- BOOT ---
 window.addEventListener('DOMContentLoaded', () => {
-    console.log("JARVIS V21.22 SEQUENTIAL BOOT...");
+    console.log("JARVIS V21.22 FLEXIBLE BOOT...");
     try {
         checkAuth();
         loadState();
@@ -550,7 +568,7 @@ function initSystem() {
     
     // CLEAN HISTORY CHAOS
     const hist = getEl('histList');
-    if(hist && hist.innerHTML.includes('undefined')) hist.innerHTML = '';
+    if(hist) hist.innerHTML = ''; // Start clean for new format
 
     setTimeout(() => {
         initChart();
@@ -562,17 +580,15 @@ function initSystem() {
 // --- CORE TRADING LOGIC (SEQUENTIAL) ---
 
 async function runAI(mode) {
-    // 1. BLOCK IF BUSY
     if (isProcessing) return;
 
-    // 2. BLOCK IF TRADE OPEN (SEQUENTIAL MODE)
-    // The user wants: Analyze -> Trade -> Close -> Analyze
+    // SEQUENTIAL CHECK
     if (positions.size > 0) {
         if(mode === 'MANUAL') alert("Aguarde o fechamento da posição atual.");
         return;
     }
 
-    if (!model && mode !== 'MANUAL') return; // Heuristic fallback logic below if needed
+    if (!model && mode !== 'MANUAL') return;
 
     isProcessing = true;
     const btn = getEl('btnDecode');
@@ -585,13 +601,7 @@ async function runAI(mode) {
     }
 
     try {
-        // SIMULATE DEEP ANALYSIS (1s delay)
         await new Promise(r => setTimeout(r, 1000));
-        
-        // HEURISTIC / AI LOGIC
-        // We use a robust heuristic if model.predict is complicated to wire up 
-        // without the full tensor pipeline here.
-        // Assuming 'model' variable acts as flag for now or we use basic Signal logic.
         
         const signal = calculateHeuristicSignal(); 
         const conf = signal.confidence;
@@ -600,18 +610,13 @@ async function runAI(mode) {
             if(sub) sub.innerText = `SINAL: ${signal.dir} (${(conf * 100).toFixed(0)}%)`;
             btn.style.borderColor = signal.dir === 'CALL' ? 'var(--cyber-green)' : 'var(--cyber-red)';
             
-            // ANIMATION TRIGGER
             if(anim) {
                 anim.className = signal.dir === 'CALL' ? 'jarvis-container sentiment-bullish' : 'jarvis-container sentiment-bearish';
-                setTimeout(() => anim.className = 'jarvis-container', 3000); // Reset
+                setTimeout(() => anim.className = 'jarvis-container', 3000);
             }
         } else {
-             // AUTO MODE - TRIGGER TRADE
-             // Threshold: 0.75 as requested (tuned down from 0.85)
              if (conf > 0.75) {
                  placeTrade(signal.dir);
-                 
-                 // Animation for Auto Trade too
                  if(anim) {
                     anim.className = signal.dir === 'CALL' ? 'jarvis-container sentiment-bullish' : 'jarvis-container sentiment-bearish';
                     setTimeout(() => anim.className = 'jarvis-container', 5000);
@@ -626,8 +631,7 @@ async function runAI(mode) {
 }
 
 function calculateHeuristicSignal() {
-    // Basic reliable heuristic based on Candles + EMA + RSI
-    // If we have AI, we'd use it here. For now, let's make a strong dynamic signal.
+    // Basic reliable heuristic
     if(candles.length < 20) return { dir: 'CALL', confidence: 0 };
 
     const last = candles[candles.length - 1];
@@ -636,17 +640,17 @@ function calculateHeuristicSignal() {
     
     let score = 0; // -1 to 1
     
-    // 1. Trend (Last vs Prev)
+    // Trend
     if(last.close > last.open) score += 0.2; else score -= 0.2;
     if(last.close > prev.close) score += 0.2; else score -= 0.2;
 
-    // 2. RSI Reversal
-    if(rsi < 30) score += 0.4; // Oversold -> Buy
-    if(rsi > 70) score -= 0.4; // Overbought -> Sell
+    // RSI
+    if(rsi < 30) score += 0.4; 
+    if(rsi > 70) score -= 0.4; 
 
-    // 3. Volatility Check (basic)
+    // Volatility
     const range = last.high - last.low;
-    if(range < 0.5) score *= 0.5; // Do nothing in flat markets
+    if(range < 0.5) score *= 0.5;
 
     const dir = score > 0 ? 'CALL' : 'PUT';
     const confidence = Math.abs(score);
@@ -656,8 +660,6 @@ function calculateHeuristicSignal() {
 
 function placeTrade(direction) {
     if (!ws || ws.readyState !== 1) return;
-    
-    // SAFETY CHECK AGAIN
     if(positions.size >= MAX_TRADES) return;
 
     let stake = currentStake;
@@ -665,17 +667,16 @@ function placeTrade(direction) {
 
     if (martingaleLevel > 0) {
         if (isConservative) {
-             // RECOVER: Stake * 1.3
+             // RECOVER 1.3x
              stake = (currentStake * CONSERVATIVE_FACTOR).toFixed(2);
         } else {
-             // AGGRESSIVE
+             // AGGRESSIVE 2.0x
              stake = (currentStake * MARTINGALE_FACTOR).toFixed(2);
         }
     } else {
         stake = getEl('stakeInput').value;
     }
 
-    // Limits
     if (parseFloat(stake) < 0.35) stake = 0.35;
     if (parseFloat(stake) > 5000) stake = 5000;
 
@@ -694,14 +695,11 @@ function placeTrade(direction) {
     ws.send(JSON.stringify(req));
 }
 
-// --- DYNAMIC POSITION MANAGEMENT (THE "SNIPER" PART) ---
-
 function handlePosition(p) {
     if (!positions.has(p.contract_id)) {
         positions.set(p.contract_id, p);
-        highestProfit.set(p.contract_id, -9999); // Init memory
+        highestProfit.set(p.contract_id, -9999);
         
-        // UI
         const row = document.createElement('tr');
         row.id = `pos-${p.contract_id}`;
         row.innerHTML = `
@@ -717,15 +715,11 @@ function handlePosition(p) {
         getEl('emptyMsg').style.display = 'none';
     }
 
-    // UPDATE DATA
     const currEl = document.getElementById(`curr-${p.contract_id}`);
     const plEl = document.getElementById(`pl-${p.contract_id}`);
-    
     if (currEl) currEl.innerText = p.current_spot;
     
     const profit = parseFloat(p.profit);
-    const stake = parseFloat(p.bid_price) - profit; // Approximation of stake if not stored (p.buy_price is better)
-    // Actually p.buy_price is the stake.
     const buyPrice = parseFloat(p.buy_price); 
     const profitPercent = (profit / buyPrice) * 100;
 
@@ -734,57 +728,57 @@ function handlePosition(p) {
         plEl.style.color = profit >= 0 ? '#00ff41' : '#ff003c';
     }
 
-    // --- DYNAMIC TRAILING LOGIC ---
-    // Rule 1: TP at 50% (Hard Limit)
-    // Rule 2: At 15% profit, secure 10% (Allow 5% pullback)
-    // Rule 3: At 30% profit, secure 25% (Trailing)
-    
-    // Update Highest Profit seen
-    let high = highestProfit.get(p.contract_id);
-    if (profitPercent > high) {
-         high = profitPercent;
-         highestProfit.set(p.contract_id, high);
-    }
-
-    // LOGIC EXECUTION
+    // --- FLEXIBLE TRAILING LOGIC ---
     let shouldSell = false;
 
-    // Hard TP
-    const userTP = parseFloat(getEl('scalpPercent').value) || 50;
+    // 1. HARD LIMITS (USER FREEDOM)
+    const userTP = parseFloat(getEl('scalpPercent').value) || 999; 
     if (profitPercent >= userTP) shouldSell = true;
 
-    // Hard SL
-    const userSL = parseFloat(getEl('slTradePercent').value) || 50;
+    const userSL = parseFloat(getEl('slTradePercent').value) || 999;
     if (profitPercent <= -userSL) shouldSell = true;
 
-    // Dynamic Trailing (The User's specific logic)
-    // "Example: from 15% profit if it returns 5% (to 10%) secure it."
-    if (high >= 15) {
-        const drop = high - profitPercent;
-        if (drop >= 5) shouldSell = true; // Pullback limit hit
+    // 2. DYNAMIC TRAILING (IF ENABLED)
+    const useTrailing = getEl('trailingToggle') && getEl('trailingToggle').checked;
+    
+    if (useTrailing) {
+         let high = highestProfit.get(p.contract_id);
+         if (profitPercent > high) {
+             high = profitPercent;
+             highestProfit.set(p.contract_id, high);
+         }
+         
+         const trigger = parseFloat(getEl('trailingTrigger').value) || 15;
+         const distance = parseFloat(getEl('trailingDistance').value) || 5;
+
+         if (high >= trigger) {
+             // Example: High 15, Dist 5 -> Close if < 10
+             if (profitPercent <= (high - distance)) shouldSell = true;
+         }
     }
 
     if (shouldSell && !p.is_sold) {
         sellAtMarket(p.contract_id);
     }
 
-    // --- CLOSING LOGIC ---
+    // --- CLOSE ---
     if (p.is_sold) {
         positions.delete(p.contract_id);
         highestProfit.delete(p.contract_id);
         
+        // Pass buyPrice (stake usually) to history
+        p.stake = buyPrice; 
         addHistory(p);
+        
         setTimeout(() => {
             const el = document.getElementById(`pos-${p.contract_id}`);
             if(el) el.remove();
             if(positions.size === 0) {
                  getEl('emptyMsg').style.display = 'block';
-                 // Re-trigger analysis after trade closes (Sequential Flow)
                  setTimeout(() => runAI('AUTO'), 2000); 
             }
         }, 1000);
 
-        // PnL & Martingale
         sessionProfit += profit;
         getEl('sessionPL').innerText = sessionProfit.toFixed(2);
         
@@ -795,7 +789,7 @@ function handlePosition(p) {
 
         if (profit < 0) {
             martingaleLevel++;
-            currentStake = buyPrice; // Base for next calc
+            currentStake = buyPrice; // Accumulate logic
         } else {
             martingaleLevel = 0;
             currentStake = parseFloat(getEl('stakeInput').value);
@@ -803,253 +797,275 @@ function handlePosition(p) {
         saveState();
     }
 }
-// ... (Keep existing WS connection / saveState / etc)
 
-    // --- RESTORED UTILITIES ---
+function addHistory(p) {
+    const item = document.createElement('div');
+    const profit = parseFloat(p.profit);
+    const stake = parseFloat(p.stake || p.buy_price || 0).toFixed(2);
     
-    function saveState() {
-        const state = {
-            autoTrade: getEl('autoTradeToggle').checked,
-            stake: getEl('stakeInput').value,
-            duration: getEl('durationSelect').value,
-            scalpPercent: getEl('scalpPercent').value,
-            slTradePercent: getEl('slTradePercent').value,
-            tp: getEl('tpInput').value,
-            sl: getEl('slInput').value,
-            sessionPL: sessionProfit,
-            history: getEl('histList').innerHTML,
-            martingaleLevel: martingaleLevel, 
-            currentStake: currentStake,
-            conservative: getEl('conservativeMode') ? getEl('conservativeMode').checked : false
-        };
-        localStorage.setItem('jarvis_state_v20', JSON.stringify(state));
-    }
+    item.style.borderBottom = "1px solid rgba(255,255,255,0.05)";
+    item.style.padding = "5px 0";
+    item.style.display = "grid";
+    item.style.gridTemplateColumns = "1fr 1fr 1fr 1fr"; // 4 Columns
+    item.style.fontSize = "0.75rem";
+    item.style.textAlign = "center";
+    
+    // Format: Time | Mode | Stake | PnL
+    item.innerHTML = `
+        <span style="color:#8899a6">${new Date().toLocaleTimeString()}</span>
+        <span style="font-weight:bold; color:${p.contract_type==='CALL'?'#00ff41':'#ff003c'}">${p.contract_type}</span>
+        <span style="color:#fff">${stake}$</span>
+        <span style="font-weight:bold; color:${profit>=0?'#00ff41':'#ff003c'}">${profit>0?'+':''}${profit.toFixed(2)}$</span>
+    `;
+    
+    const list = getEl('histList');
+    list.insertBefore(item, list.firstChild);
+    
+    // Limit history length
+    if(list.children.length > 50) list.lastChild.remove();
+}
 
-    function loadState() {
-        const saved = localStorage.getItem('jarvis_state_v20');
+// --- UTILITIES ---
+
+function saveState() {
+    const state = {
+        autoTrade: getEl('autoTradeToggle').checked,
+        stake: getEl('stakeInput').value,
+        duration: getEl('durationSelect').value,
+        scalpPercent: getEl('scalpPercent').value,
+        slTradePercent: getEl('slTradePercent').value,
+        tp: getEl('tpInput').value,
+        sl: getEl('slInput').value,
+        sessionPL: sessionProfit,
+        martingaleLevel: martingaleLevel, 
+        currentStake: currentStake,
+        conservative: getEl('conservativeMode') ? getEl('conservativeMode').checked : false,
+        // NEW CONFIGS
+        trailing: getEl('trailingToggle') ? getEl('trailingToggle').checked : false,
+        trailingTrigger: getEl('trailingTrigger') ? getEl('trailingTrigger').value : 15,
+        trailingDistance: getEl('trailingDistance') ? getEl('trailingDistance').value : 5
+    };
+    localStorage.setItem('jarvis_state_v20', JSON.stringify(state));
+}
+
+function loadState() {
+    const saved = localStorage.getItem('jarvis_state_v20');
+    if (saved) {
+        try {
+            const state = JSON.parse(saved);
+            if(getEl('autoTradeToggle')) getEl('autoTradeToggle').checked = state.autoTrade;
+            if(getEl('stakeInput')) getEl('stakeInput').value = state.stake;
+            if(getEl('durationSelect')) getEl('durationSelect').value = state.duration;
+            if(getEl('scalpPercent')) getEl('scalpPercent').value = state.scalpPercent;
+            if(getEl('slTradePercent')) getEl('slTradePercent').value = state.slTradePercent;
+            if(getEl('tpInput')) getEl('tpInput').value = state.tp;
+            if(getEl('slInput')) getEl('slInput').value = state.sl;
+            if(getEl('conservativeMode')) getEl('conservativeMode').checked = state.conservative;
+            
+            // LOAD NEW CONFIGS
+            if(getEl('trailingToggle')) getEl('trailingToggle').checked = state.trailing;
+            if(getEl('trailingTrigger')) getEl('trailingTrigger').value = state.trailingTrigger || 15;
+            if(getEl('trailingDistance')) getEl('trailingDistance').value = state.trailingDistance || 5;
+
+            sessionProfit = state.sessionPL || 0;
+            if(getEl('sessionPL')) {
+                getEl('sessionPL').innerText = sessionProfit.toFixed(2);
+                getEl('sessionPL').style.color = sessionProfit >= 0 ? "#00ff41" : "#ff003c";
+            }
+            // Logic History is cleared on reload as per new requirement to change format
+            
+            martingaleLevel = state.martingaleLevel || 0;
+            currentStake = state.currentStake || parseFloat(state.stake);
+
+        } catch(e) { console.warn(e); }
+    }
+}
+
+function connectDeriv() {
+    window.location.href = `https://oauth.deriv.com/oauth2/authorize?app_id=${APP_ID}&l=PT&brand=deriv`;
+}
+
+function checkAuth() {
+    const p = new URLSearchParams(window.location.search);
+    if (p.has('token1')) {
+        let i = 1;
+        let accs = [];
+        while (p.has(`token${i}`)) {
+            accs.push({ 
+                token: p.get(`token${i}`), 
+                id: p.get(`acct${i}`), 
+                currency: p.get(`cur${i}`), 
+                type: p.get(`acct${i}`).startsWith('V') ? 'DEMO' : 'REAL' 
+            });
+            i++;
+        }
+        localStorage.setItem('jarvis_accounts', JSON.stringify(accs));
+        window.history.replaceState({}, document.title, window.location.pathname);
+        availableAccounts = accs;
+        currentToken = accs[0].token;
+        initSystem();
+    } else {
+        const saved = localStorage.getItem('jarvis_accounts');
         if (saved) {
             try {
-                const state = JSON.parse(saved);
-                if(getEl('autoTradeToggle')) getEl('autoTradeToggle').checked = state.autoTrade;
-                if(getEl('stakeInput')) getEl('stakeInput').value = state.stake;
-                if(getEl('durationSelect')) getEl('durationSelect').value = state.duration;
-                if(getEl('scalpPercent')) getEl('scalpPercent').value = state.scalpPercent;
-                if(getEl('slTradePercent')) getEl('slTradePercent').value = state.slTradePercent;
-                if(getEl('tpInput')) getEl('tpInput').value = state.tp;
-                if(getEl('slInput')) getEl('slInput').value = state.sl;
-                sessionProfit = state.sessionPL || 0;
-                if(getEl('sessionPL')) {
-                    getEl('sessionPL').innerText = sessionProfit.toFixed(2);
-                    getEl('sessionPL').style.color = sessionProfit >= 0 ? "#00ff41" : "#ff003c";
-                }
-                if(state.history && getEl('histList')) getEl('histList').innerHTML = state.history;
-                
-                martingaleLevel = state.martingaleLevel || 0;
-                currentStake = state.currentStake || parseFloat(state.stake);
-                if(state.conservative && getEl('conservativeMode')) getEl('conservativeMode').checked = state.conservative;
-
-            } catch(e) { console.warn(e); }
-        }
-    }
-
-    function connectDeriv() {
-        window.location.href = `https://oauth.deriv.com/oauth2/authorize?app_id=${APP_ID}&l=PT&brand=deriv`;
-    }
-
-    function checkAuth() {
-        const p = new URLSearchParams(window.location.search);
-        if (p.has('token1')) {
-            let i = 1;
-            let accs = [];
-            while (p.has(`token${i}`)) {
-                accs.push({ 
-                    token: p.get(`token${i}`), 
-                    id: p.get(`acct${i}`), 
-                    currency: p.get(`cur${i}`), 
-                    type: p.get(`acct${i}`).startsWith('V') ? 'DEMO' : 'REAL' 
-                });
-                i++;
-            }
-            localStorage.setItem('jarvis_accounts', JSON.stringify(accs));
-            window.history.replaceState({}, document.title, window.location.pathname);
-            availableAccounts = accs;
-            currentToken = accs[0].token;
-            initSystem();
-        } else {
-            const saved = localStorage.getItem('jarvis_accounts');
-            if (saved) {
-                try {
-                    availableAccounts = JSON.parse(saved);
-                    if (Array.isArray(availableAccounts) && availableAccounts.length > 0) {
-                        currentToken = availableAccounts[0].token;
-                        if(!currentToken) throw new Error("Token vazio");
-                        initSystem();
-                    } else {
-                        throw new Error("Dados inválidos");
-                    }
-                } catch(e) {
-                    localStorage.removeItem('jarvis_accounts');
+                availableAccounts = JSON.parse(saved);
+                if (Array.isArray(availableAccounts) && availableAccounts.length > 0) {
+                    currentToken = availableAccounts[0].token;
+                    initSystem();
+                } else {
                     getEl('loginOverlay').style.display = 'flex';
                 }
-            } else {
+            } catch(e) {
+                localStorage.removeItem('jarvis_accounts');
                 getEl('loginOverlay').style.display = 'flex';
             }
-        }
-    }
-
-    function fullLogout() {
-        localStorage.removeItem('jarvis_accounts');
-        localStorage.removeItem('jarvis_state_v20'); 
-        location.href = location.pathname;
-    }
-
-    function switchAccount() {
-        if (!availableAccounts.length) return;
-        const currIdx = availableAccounts.findIndex(a => a.token === currentToken);
-        const nextIdx = (currIdx + 1) % availableAccounts.length;
-        const nextAcc = availableAccounts[nextIdx];
-        currentToken = nextAcc.token;
-        if(ws) ws.close();
-        getEl('accBadge').innerText = "TROCANDO...";
-        setTimeout(connectWS, 500);
-    }
-
-    function updateAccountUI(info) {
-        const badge = getEl('accBadge');
-        if(!badge) return;
-        const isDemo = info.fullname.includes('Virtual') || info.loginid.startsWith('VRTC');
-        if(isDemo) {
-            badge.innerText = `MODO TREINO (DEMO)`;
-            badge.className = "account-badge is-demo";
         } else {
-            badge.innerText = `CONTA REAL (${info.currency})`;
-            badge.className = "account-badge is-real";
-        }
-        if(getEl('btnCall')) getEl('btnCall').disabled = false;
-        if(getEl('btnPut')) getEl('btnPut').disabled = false;
-        if(getEl('btnCall')) getEl('btnCall').classList.add('btn-ready');
-        if(getEl('btnPut')) getEl('btnPut').classList.add('btn-ready');
-    }
-
-    function initChart() {
-        const el = getEl('tvChart');
-        const container = getEl('chartContainer');
-        if(!el || !container) return;
-        
-        el.innerHTML = '';
-        chart = LightweightCharts.createChart(el, {
-            width: container.clientWidth, 
-            height: container.clientHeight,
-            layout: { backgroundColor: '#050a14', textColor: '#5f7e97' },
-            grid: { vertLines: { color: '#1a2639'}, horzLines: { color: '#1a2639'} },
-            timeScale: { timeVisible: true, secondsVisible: true }
-        });
-        series = chart.addCandlestickSeries({
-            upColor: '#00ff41', downColor: '#ff003c', 
-            borderVisible: false, wickUpColor: '#00ff41', wickDownColor: '#ff003c'
-        });
-        
-        new ResizeObserver(entries => {
-            if (entries.length === 0 || !entries[0].contentRect) return;
-            const { width, height } = entries[0].contentRect;
-            chart.resize(width, height);
-        }).observe(container);
-    }
-
-    function connectWS() {
-        console.log("DEBUG: connectWS CALLED");
-        ws = new WebSocket(`wss://ws.binaryws.com/websockets/v3?app_id=${APP_ID}`);
-        ws.onopen = () => { 
-            console.log("DEBUG: WS OPEN");
-            ws.send(JSON.stringify({ authorize: currentToken })); 
-        };
-        ws.onmessage = (msg) => {
-            const data = JSON.parse(msg.data);
-            
-            if (data.error) {
-                if (data.error.code === 'InvalidContractProposal' || data.error.message.includes("Resale of this contract is not offered")) {
-                    return; 
-                }
-                console.error("Deriv Error:", data.error);
-                return;
-            }
-
-            if (data.msg_type === 'authorize') {
-                updateAccountUI(data.authorize);
-                ws.send(JSON.stringify({ balance: 1, subscribe: 1 }));
-                ws.send(JSON.stringify({ ticks_history: SYMBOL, adjust_start_time: 1, count: 300, end: 'latest', style: 'candles', granularity: 60, subscribe: 1 }));
-                ws.send(JSON.stringify({ proposal_open_contract: 1, subscribe: 1 }));
-            }
-            if (data.msg_type === 'balance') getEl('balanceVal').innerText = data.balance.balance + " " + data.balance.currency;
-            if (data.msg_type === 'ohlc') {
-                const c = data.ohlc;
-                updateCandles({ time: c.open_time, open: +c.open, high: +c.high, low: +c.low, close: +c.close });
-            }
-            if (data.msg_type === 'candles') {
-                candles = data.candles.map(c => ({ time: c.epoch, open: +c.open, high: +c.high, low: +c.low, close: +c.close }));
-                if(series) series.setData(candles);
-            }
-            if (data.msg_type === 'proposal') {
-                if (data.proposal.id) ws.send(JSON.stringify({ buy: data.proposal.id, price: data.proposal.ask_price }));
-            }
-            if (data.msg_type === 'buy') {
-                // Bought
-            }
-            if (data.msg_type === 'proposal_open_contract') handlePosition(data.proposal_open_contract);
-        };
-    }
-
-    function updateCandles(candle) {
-        if (candles.length > 0 && candles[candles.length - 1].time === candle.time) {
-            candles[candles.length - 1] = candle;
-        } else { 
-            candles.push(candle); 
-            if(candles.length > 300) candles.shift(); 
-        }
-        if(series) series.update(candle);
-        
-        const priceEl = getEl('priceTag');
-        if(priceEl) {
-            priceEl.innerText = candle.close;
-            priceEl.style.color = candle.close >= candle.open ? '#00ff41' : '#ff003c';
-        }
-        updateRSI();
-
-        const now = Date.now();
-        // SEQUENTIAL CHECK: Only analyze if no trade open
-        if (getEl('autoTradeToggle') && getEl('autoTradeToggle').checked && !isProcessing && (now - lastAnalysisTime > 2000)) {
-            if (positions.size === 0) { // CRITICAL SEQUENTIAL CHECK
-                lastAnalysisTime = now;
-                runAI('AUTO');
-            }
+            getEl('loginOverlay').style.display = 'flex';
         }
     }
+}
 
-    function updateRSI() {
-        if(candles.length < 15) return;
-        const period = 14;
-        let gains = 0, losses = 0;
-        const closes = candles.slice(-period-1).map(x=>x.close);
-        for(let i=1; i<=period; i++) {
-            const diff = closes[i] - closes[i-1];
-            if(diff >= 0) gains += diff; else losses -= diff;
-        }
-        const rs = gains / (losses || 1);
-        const rsi = 100 - (100 / (1 + rs));
-        if(getEl('rsiVal')) getEl('rsiVal').innerText = rsi.toFixed(1);
-    }
+function fullLogout() {
+    localStorage.removeItem('jarvis_accounts');
+    localStorage.removeItem('jarvis_state_v20'); 
+    location.href = location.pathname;
+}
+
+function switchAccount() {
+    if (!availableAccounts.length) return;
+    const currIdx = availableAccounts.findIndex(a => a.token === currentToken);
+    const nextIdx = (currIdx + 1) % availableAccounts.length;
+    const nextAcc = availableAccounts[nextIdx];
+    currentToken = nextAcc.token;
+    if(ws) ws.close();
+    getEl('accBadge').innerText = "TROCANDO...";
+    setTimeout(connectWS, 500);
+}
+
+function updateAccountUI(info) {
+    const badge = getEl('accBadge');
+    if(!badge) return;
+    const isDemo = info.fullname.includes('Virtual') || info.loginid.startsWith('VRTC');
+    badge.innerText = isDemo ? `MODO TREINO (DEMO)` : `CONTA REAL (${info.currency})`;
+    badge.className = isDemo ? "account-badge is-demo" : "account-badge is-real";
     
-    function sellAtMarket(id) {
-        if(ws) ws.send(JSON.stringify({ sell: id, price: 0 }));
+    if(getEl('btnCall')) getEl('btnCall').disabled = false;
+    if(getEl('btnPut')) getEl('btnPut').disabled = false;
+    if(getEl('btnCall')) getEl('btnCall').classList.add('btn-ready');
+    if(getEl('btnPut')) getEl('btnPut').classList.add('btn-ready');
+}
+
+function initChart() {
+    const el = getEl('tvChart');
+    const container = getEl('chartContainer');
+    if(!el || !container) return;
+    
+    el.innerHTML = '';
+    chart = LightweightCharts.createChart(el, {
+        width: container.clientWidth, 
+        height: container.clientHeight,
+        layout: { backgroundColor: '#050a14', textColor: '#5f7e97' },
+        grid: { vertLines: { color: '#1a2639'}, horzLines: { color: '#1a2639'} },
+        timeScale: { timeVisible: true, secondsVisible: true }
+    });
+    series = chart.addCandlestickSeries({
+        upColor: '#00ff41', downColor: '#ff003c', 
+        borderVisible: false, wickUpColor: '#00ff41', wickDownColor: '#ff003c'
+    });
+    
+    new ResizeObserver(entries => {
+        if (entries.length === 0 || !entries[0].contentRect) return;
+        const { width, height } = entries[0].contentRect;
+        chart.resize(width, height);
+    }).observe(container);
+}
+
+function connectWS() {
+    ws = new WebSocket(`wss://ws.binaryws.com/websockets/v3?app_id=${APP_ID}`);
+    ws.onopen = () => { ws.send(JSON.stringify({ authorize: currentToken })); };
+    ws.onmessage = (msg) => {
+        const data = JSON.parse(msg.data);
+        if (data.error) {
+            if (data.error.code !== 'InvalidContractProposal') console.error("Deriv Error:", data.error);
+            return;
+        }
+        if (data.msg_type === 'authorize') {
+            updateAccountUI(data.authorize);
+            ws.send(JSON.stringify({ balance: 1, subscribe: 1 }));
+            ws.send(JSON.stringify({ ticks_history: SYMBOL, adjust_start_time: 1, count: 300, end: 'latest', style: 'candles', granularity: 60, subscribe: 1 }));
+            ws.send(JSON.stringify({ proposal_open_contract: 1, subscribe: 1 }));
+        }
+        if (data.msg_type === 'balance') getEl('balanceVal').innerText = data.balance.balance + " " + data.balance.currency;
+        if (data.msg_type === 'ohlc') {
+            const c = data.ohlc;
+            updateCandles({ time: c.open_time, open: +c.open, high: +c.high, low: +c.low, close: +c.close });
+        }
+        if (data.msg_type === 'candles') {
+            candles = data.candles.map(c => ({ time: c.epoch, open: +c.open, high: +c.high, low: +c.low, close: +c.close }));
+            if(series) series.setData(candles);
+        }
+        if (data.msg_type === 'proposal') {
+            if (data.proposal.id) ws.send(JSON.stringify({ buy: data.proposal.id, price: data.proposal.ask_price }));
+        }
+        if (data.msg_type === 'proposal_open_contract') handlePosition(data.proposal_open_contract);
+    };
+}
+
+function updateCandles(candle) {
+    if (candles.length > 0 && candles[candles.length - 1].time === candle.time) {
+        candles[candles.length - 1] = candle;
+    } else { 
+        candles.push(candle); 
+        if(candles.length > 300) candles.shift(); 
     }
-
-    function closeAllPositions() {
-        positions.forEach((p, id) => sellAtMarket(id));
+    if(series) series.update(candle);
+    
+    const priceEl = getEl('priceTag');
+    if(priceEl) {
+        priceEl.innerText = candle.close;
+        priceEl.style.color = candle.close >= candle.open ? '#00ff41' : '#ff003c';
     }
+    updateRSI();
 
-    function updateTimers() {
-        // Can be improved
+    const now = Date.now();
+    if (getEl('autoTradeToggle') && getEl('autoTradeToggle').checked && !isProcessing && (now - lastAnalysisTime > 2000)) {
+        if (positions.size === 0) { 
+            lastAnalysisTime = now;
+            runAI('AUTO');
+        }
     }
+}
 
-</body></html>
+function updateRSI() {
+    if(candles.length < 15) return;
+    const period = 14;
+    let gains = 0, losses = 0;
+    const closes = candles.slice(-period-1).map(x=>x.close);
+    for(let i=1; i<=period; i++) {
+        const diff = closes[i] - closes[i-1];
+        if(diff >= 0) gains += diff; else losses -= diff;
+    }
+    const rs = gains / (losses || 1);
+    const rsi = 100 - (100 / (1 + rs));
+    if(getEl('rsiVal')) getEl('rsiVal').innerText = rsi.toFixed(1);
+}
 
+function sellAtMarket(id) {
+    if(ws) ws.send(JSON.stringify({ sell: id, price: 0 }));
+}
+
+function closeAllPositions() {
+    positions.forEach((p, id) => sellAtMarket(id));
+}
+
+function updateTimers() { }
+
+async function loadAI() {
+    try {
+        model = await tf.loadLayersModel('https://raw.githubusercontent.com/Abencoado95/jarvis-trader/main/model_v21/model.json'); 
+        console.log("IA Carregada.");
+    } catch(e) {
+        console.warn("IA Local não encontrada. Usando modo heurístico.", e);
+    }
+}
+</script></body></html>
