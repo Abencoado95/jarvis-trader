@@ -511,7 +511,7 @@
 <script>
 
 
-// JARVIS V21.22 NUCLEAR FIX - GHOST ROW EXTERMINATION
+// JARVIS V21.23 RESURRECTION - SOUL RESTORED
 
 // --- CONFIG ---
 const APP_ID = 114062;
@@ -544,13 +544,13 @@ function getEl(id) {
 
 // --- BOOT ---
 window.addEventListener('DOMContentLoaded', () => {
-    console.log("JARVIS V21.22 NUCLEAR BOOT...");
+    console.log("JARVIS V21.23 RESURRECTION BOOT...");
     
-    // 1. NUCLEAR CLEANUP OF STORAGE (ONE TIME CACHE BUSTER)
-    if (!sessionStorage.getItem('cache_busted_v22')) {
-        console.warn("NUCLEAR: CLEANSING LOCAL STORAGE...");
-        localStorage.removeItem('jarvis_state_v20'); // WIPE DIRTY STATE
-        sessionStorage.setItem('cache_busted_v22', 'true');
+    // NUCLEAR CLEANUP V2
+    if (!sessionStorage.getItem('cache_busted_v23')) {
+        console.warn("NUCLEAR V2: WIPING ALL...");
+        localStorage.removeItem('jarvis_state_v20'); 
+        sessionStorage.setItem('cache_busted_v23', 'true');
     }
 
     try {
@@ -568,15 +568,10 @@ function initSystem() {
     getEl('mainUI').style.display = 'grid';
     
     // NUCLEAR DOM CLEANUP
-    const list = getEl('posList');
-    if(list) list.innerHTML = '';
-    
+    getEl('posList').innerHTML = '';
     const hist = getEl('histList');
-    if(hist && hist.innerHTML.includes('undefined')) hist.innerHTML = '';
-    
+    if(hist) hist.innerHTML = '';
     getEl('emptyMsg').style.display = 'block';
-    
-    // FORCE POSITIONS MAP CLEAR
     positions.clear();
 
     setTimeout(() => {
@@ -586,79 +581,130 @@ function initSystem() {
     }, 500);
 }
 
-// --- CORE TRADING LOGIC (SEQUENTIAL) ---
+// --- DEEP ANALYSIS & VISUALS ---
 
 async function runAI(mode) {
     if (isProcessing) return;
-
     if (positions.size > 0) {
-        if(mode === 'MANUAL') alert("Aguarde o fechamento da posição atual.");
+        if(mode === 'MANUAL') alert("JARVIS: Posição aberta. Aguarde.");
         return;
     }
-
-    if (!model && mode !== 'MANUAL') return;
 
     isProcessing = true;
     const btn = getEl('btnDecode');
     const sub = getEl('btnSubText');
     const anim = getEl('jarvisAnim');
+    const img = document.querySelector('.jarvis-img');
 
-    if (mode === 'MANUAL') {
-        btn.style.background = 'rgba(255, 215, 0, 0.1)';
-        if(sub) sub.innerText = "ANALISANDO...";
+    // 1. VISUAL: ACTIVATE "SCANNING MODE"
+    if (mode === 'MANUAL') btn.style.background = 'rgba(255, 215, 0, 0.1)';
+    
+    // Animation: Fast Spin + Yellow Pulse
+    if(anim) {
+         anim.className = 'jarvis-container'; // Reset
+         // Force reflow
+         void anim.offsetWidth;
+         anim.style.animation = 'none';
+         if(img) img.style.boxShadow = '0 0 30px rgba(255, 215, 0, 0.5)';
     }
 
+    // 2. DEEP ANALYSIS SIMULATION (THE SOUL)
     try {
-        await new Promise(r => setTimeout(r, 1000));
+        let steps = 0;
+        const maxSteps = 5; // 2.5 seconds scanning
         
-        const signal = calculateHeuristicSignal(); 
+        while(steps < maxSteps) {
+            steps++;
+            if(sub) sub.innerText = `ANALISANDO PADRÕES... ${(steps/maxSteps*100).toFixed(0)}%`;
+            await new Promise(r => setTimeout(r, 500));
+        }
+
+        // 3. LOGIC CHECK
+        const signal = calculateSignal(); 
         const conf = signal.confidence;
 
-        if (mode === 'MANUAL') {
-            if(sub) sub.innerText = `SINAL: ${signal.dir} (${(conf * 100).toFixed(0)}%)`;
-            btn.style.borderColor = signal.dir === 'CALL' ? 'var(--cyber-green)' : 'var(--cyber-red)';
-            
+        if(sub) sub.innerText = `CONCLUSÃO: ${signal.dir} (${(conf * 100).toFixed(0)}%)`;
+
+        // 4. EXECUTION OR REJECTION
+        if (conf > 0.75) {
+            // SUCCESS VISUAL
             if(anim) {
                 anim.className = signal.dir === 'CALL' ? 'jarvis-container sentiment-bullish' : 'jarvis-container sentiment-bearish';
-                setTimeout(() => anim.className = 'jarvis-container', 3000); // Reset
+                if(img) img.style.boxShadow = signal.dir === 'CALL' ? '0 0 50px rgba(0,255,65,0.6)' : '0 0 50px rgba(255,0,60,0.6)';
             }
+            if(mode === 'MANUAL') {
+                 btn.style.borderColor = signal.dir === 'CALL' ? 'var(--cyber-green)' : 'var(--cyber-red)';
+            }
+            
+            // EXECUTE
+            placeTrade(signal.dir);
+
         } else {
-             if (conf > 0.75) {
-                 placeTrade(signal.dir);
-                 if(anim) {
-                    anim.className = signal.dir === 'CALL' ? 'jarvis-container sentiment-bullish' : 'jarvis-container sentiment-bearish';
-                    setTimeout(() => anim.className = 'jarvis-container', 5000);
-                }
-             }
+            // REJECTION VISUAL
+            if(sub) sub.innerText = "MERCADO INCERTO. AGUARDANDO...";
+            if(anim) anim.className = 'jarvis-container'; // Reset
+            if(img) img.style.boxShadow = 'none';
         }
+
     } catch(e) {
         console.error(e);
     } finally {
         isProcessing = false;
+        if(mode === 'MANUAL') {
+            setTimeout(() => {
+                 btn.style.background = '';
+                 btn.style.borderColor = 'var(--cyber-blue)';
+                 if(sub) sub.innerText = "SISTEMA ONLINE";
+            }, 5000);
+        }
     }
 }
 
-function calculateHeuristicSignal() {
-    if(candles.length < 20) return { dir: 'CALL', confidence: 0 };
+function calculateSignal() {
+    // REAL LOGIC - NO RANDOM GUESSING
+    if(candles.length < 50) return { dir: 'NEUTRAL', confidence: 0 };
+
     const last = candles[candles.length - 1];
-    const prev = candles[candles.length - 2];
-    const rsi = parseFloat(getEl('rsiVal').innerText) || 50;
+    const period = 14;
     
-    let score = 0; 
-    
-    if(last.close > last.open) score += 0.2; else score -= 0.2;
-    if(last.close > prev.close) score += 0.2; else score -= 0.2;
+    // RSI CALC
+    let gains = 0, losses = 0;
+    const closes = candles.slice(-period-1).map(x=>x.close);
+    for(let i=1; i<=period; i++) {
+        const diff = closes[i] - closes[i-1];
+        if(diff >= 0) gains += diff; else losses -= diff;
+    }
+    const rs = gains / (losses || 1);
+    const rsi = 100 - (100 / (1 + rs));
 
-    if(rsi < 30) score += 0.4;
-    if(rsi > 70) score -= 0.4;
+    // TREND CALC (EMA 20 approx)
+    const sma20 = candles.slice(-20).reduce((a,b) => a + b.close, 0) / 20;
+    const trend = last.close > sma20 ? 'UP' : 'DOWN';
 
+    let score = 0; // 0 to 1
+
+    // CONFLUENCE RULES
+    if (trend === 'UP') {
+        if (rsi < 30) score = 0.9; // Oversold in Uptrend (Pullback Buy)
+        else if (rsi > 70) score = 0.4; // Overbought (Risk of reversal)
+        else score = 0.6; // Momentum
+    } else { // DOWN
+        if (rsi > 70) score = 0.9; // Overbought in Downtrend (Pullback Sell)
+        else if (rsi < 30) score = 0.4;
+        else score = 0.6;
+    }
+
+    // VOLATILITY FILTER
     const range = last.high - last.low;
-    if(range < 0.5) score *= 0.5;
+    if (range < 0.5) score -= 0.3; // Dead market
 
-    const dir = score > 0 ? 'CALL' : 'PUT';
-    const confidence = Math.abs(score);
+    const dir = trend === 'UP' ? 'CALL' : 'PUT';
+    
+    // RSI Reversal override
+    if(rsi < 20) return { dir: 'CALL', confidence: 0.95 };
+    if(rsi > 80) return { dir: 'PUT', confidence: 0.95 };
 
-    return { dir, confidence };
+    return { dir, confidence: score };
 }
 
 function placeTrade(direction) {
@@ -697,11 +743,7 @@ function placeTrade(direction) {
 }
 
 function handlePosition(p) {
-    // 2. STRICT VALIDATION to prevent "undefined" rows
-    if (!p.contract_id || p.contract_type === 'undefined') {
-        console.warn("IGNORING INVALID CONTRACT UPDATE", p);
-        return; 
-    }
+    if (!p.contract_id || p.contract_type === 'undefined') return; 
 
     if (!positions.has(p.contract_id)) {
         positions.set(p.contract_id, p);
@@ -777,7 +819,10 @@ function handlePosition(p) {
             if(el) el.remove();
             if(positions.size === 0) {
                  getEl('emptyMsg').style.display = 'block';
-                 setTimeout(() => runAI('AUTO'), 2000); 
+                 // WAIT BEFORE RESTARTING AUTO
+                 setTimeout(() => {
+                     lastAnalysisTime = Date.now(); // Reset timer
+                 }, 3000); 
             }
         }, 1000);
 
@@ -866,7 +911,6 @@ function loadState() {
                 getEl('sessionPL').innerText = sessionProfit.toFixed(2);
                 getEl('sessionPL').style.color = sessionProfit >= 0 ? "#00ff41" : "#ff003c";
             }
-            // NO HISTORY LOAD FOR POSLIST TO AVOID GHOSTS
             martingaleLevel = state.martingaleLevel || 0;
             currentStake = state.currentStake || parseFloat(state.stake);
 
@@ -1018,8 +1062,8 @@ function updateCandles(candle) {
     updateRSI();
 
     const now = Date.now();
-    if (getEl('autoTradeToggle') && getEl('autoTradeToggle').checked && !isProcessing && (now - lastAnalysisTime > 2000)) {
-        // STRICT SEQUENTIAL
+    // MORE DELAY: 5 Seconds between checks
+    if (getEl('autoTradeToggle') && getEl('autoTradeToggle').checked && !isProcessing && (now - lastAnalysisTime > 5000)) {
         if (positions.size === 0) { 
             lastAnalysisTime = now;
             runAI('AUTO');
