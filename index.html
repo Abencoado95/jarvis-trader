@@ -510,8 +510,7 @@
 
 <script>
 
-
-// JARVIS V21.24 SNIPER - DEEP ANALYSIS & SPLIT STRATEGY
+// JARVIS V21.25 FINAL - LOGIC FROM BACKUP + 500 CANDLES + SPLIT MARTINGALE
 
 // --- CONFIG ---
 const APP_ID = 114062;
@@ -533,7 +532,7 @@ let martingaleLevel = 0;
 let currentStake = 1.0;
 let highestProfit = new Map(); 
 
-// --- HELPER SEGURANÇA ---
+// --- HELPER ---
 function getEl(id) {
     const el = document.getElementById(id);
     if (!el) return document.createElement('div');
@@ -542,13 +541,12 @@ function getEl(id) {
 
 // --- BOOT ---
 window.addEventListener('DOMContentLoaded', () => {
-    console.log("JARVIS V21.24 SNIPER BOOT...");
+    console.log("JARVIS V21.25 FINAL BOOT...");
     
-    // NUCLEAR CLEANUP V3
-    if (!sessionStorage.getItem('cache_busted_v24')) {
-        console.warn("NUCLEAR V3: WIPING ALL...");
+    if (!sessionStorage.getItem('cache_busted_v25')) {
+        console.warn("CACHE WIPE V25...");
         localStorage.removeItem('jarvis_state_v20'); 
-        sessionStorage.setItem('cache_busted_v24', 'true');
+        sessionStorage.setItem('cache_busted_v25', 'true');
     }
 
     try {
@@ -578,7 +576,29 @@ function initSystem() {
     }, 500);
 }
 
-// --- DEEP ANALYSIS & VISUALS ---
+// --- INDICATORS (FROM BACKUP) ---
+
+function calculateBollinger(period = 20, stdDev = 2.5) {
+    if (candles.length < period) return null;
+    const slice = candles.slice(-period).map(c => c.close);
+    const mean = slice.reduce((a,b) => a+b) / period;
+    const variance = slice.reduce((a,b) => a + Math.pow(b - mean, 2), 0) / period;
+    const std = Math.sqrt(variance);
+    return { upper: mean + (std * stdDev), lower: mean - (std * stdDev), basis: mean };
+}
+
+function calculateTrend(period = 50) {
+    if (candles.length < period) return "NEUTRAL";
+    const slice = candles.slice(-period);
+    const first = slice[0].close;
+    const last = slice[slice.length-1].close;
+    const change = ((last - first) / first) * 100;
+    if (change > 0.1) return "STRONG_UP";
+    if (change < -0.1) return "STRONG_DOWN";
+    return "NEUTRAL";
+}
+
+// --- ANALYSIS (EXACT BACKUP LOGIC) ---
 
 async function runAI(mode) {
     if (isProcessing) return;
@@ -593,47 +613,91 @@ async function runAI(mode) {
     const anim = getEl('jarvisAnim');
     const img = document.querySelector('.jarvis-img');
 
-    // 1. VISUAL: ACTIVATE "SCANNING MODE" (SOUL RESTORED)
+    // VISUAL ACTIVATION
     if (mode === 'MANUAL') btn.style.background = 'rgba(255, 215, 0, 0.1)';
     
     if(anim) {
-         anim.className = 'jarvis-container'; 
-         void anim.offsetWidth; // Force Reflow
-         anim.style.animation = 'none';
+         anim.className = 'jarvis-container';
+         void anim.offsetWidth;
          if(img) img.style.boxShadow = '0 0 30px rgba(255, 215, 0, 0.5)';
     }
 
-    // 2. SEARCHING IN THE SHADOWS (DEEP ANALYSIS)
-    // "Ficar na espreita" -> Strict 2-3s delay simulating calculation
+    // SCANNING DELAY (SOUL)
     try {
         let steps = 0;
-        const maxSteps = 4; // ~2s
+        const maxSteps = 3;
         
         while(steps < maxSteps) {
             steps++;
             const percent = (steps/maxSteps*100).toFixed(0);
-            if(sub) sub.innerText = `ESCANEANDO 500 CANDLES... ${percent}%`;
-            await new Promise(r => setTimeout(r, 500));
+            if(sub) sub.innerText = `ESCANEANDO MERCADO... ${percent}%`;
+            await new Promise(r => setTimeout(r, 600));
         }
 
-        // 3. LOGIC CHECK (SNIPER)
-        const signal = calculateSniperSignal(); 
-        const conf = signal.confidence;
+        // LOGIC CHECK (EXACT FROM BACKUP)
+        let signal = "NEUTRO";
+        
+        if (candles.length < 30) {
+            if(sub) sub.innerText = "DADOS INSUFICIENTES...";
+            isProcessing = false;
+            return;
+        }
 
-        if(sub) sub.innerText = `CONCLUSÃO: ${signal.dir} (${(conf * 100).toFixed(0)}%)`;
+        const bb = calculateBollinger(20, 2.5);
+        const trend = calculateTrend(50);
+        const price = candles[candles.length - 1].close;
+        const rsi = parseFloat(getEl('rsiVal').innerText) || 50;
 
-        // 4. EXECUTION
-        if (conf > 0.80) { // High Confidence for Sniper
+        // STRATEGY 1: REVERSAL (From Backup Lines 930-937)
+        if (bb) {
+            if (price <= bb.lower && rsi < 30) { 
+                signal = "CALL"; 
+                if(sub) sub.innerText = `REVERSAL: FUNDO BOLLINGER (RSI ${rsi.toFixed(0)})`;
+            }
+            else if (price >= bb.upper && rsi > 70) { 
+                signal = "PUT"; 
+                if(sub) sub.innerText = `REVERSAL: TOPO BOLLINGER (RSI ${rsi.toFixed(0)})`;
+            }
+            
+            // STRATEGY 2: MOMENTUM (From Backup Lines 941-952)
+            else if (trend === "STRONG_UP" && rsi < 70) {
+                if (price > bb.basis) {
+                    signal = "CALL";
+                    if(sub) sub.innerText = `MOMENTUM: TENDÊNCIA ALTA (RSI ${rsi.toFixed(0)})`;
+                }
+            }
+            else if (trend === "STRONG_DOWN" && rsi > 30) {
+                if (price < bb.basis) {
+                    signal = "PUT";
+                    if(sub) sub.innerText = `MOMENTUM: TENDÊNCIA BAIXA (RSI ${rsi.toFixed(0)})`;
+                }
+            }
+
+            // STRATEGY 3: NEUTRAL SCALP (From Backup Lines 956-965)
+            else if (trend === "NEUTRAL") {
+                if (price > bb.basis && rsi > 50 && rsi < 70) {
+                     signal = "CALL";
+                     if(sub) sub.innerText = `SCALP: MEIO DE BANDA (ALTA)`;
+                }
+                else if (price < bb.basis && rsi < 50 && rsi > 30) {
+                     signal = "PUT";
+                     if(sub) sub.innerText = `SCALP: MEIO DE BANDA (BAIXA)`;
+                }
+            }
+        }
+
+        // EXECUTION
+        if (signal !== "NEUTRO") {
             // SUCCESS VISUAL
             if(anim) {
-                anim.className = signal.dir === 'CALL' ? 'jarvis-container sentiment-bullish' : 'jarvis-container sentiment-bearish';
-                if(img) img.style.boxShadow = signal.dir === 'CALL' ? '0 0 50px rgba(0,255,65,0.6)' : '0 0 50px rgba(255,0,60,0.6)';
+                anim.className = signal === 'CALL' ? 'jarvis-container sentiment-bullish' : 'jarvis-container sentiment-bearish';
+                if(img) img.style.boxShadow = signal === 'CALL' ? '0 0 50px rgba(0,255,65,0.6)' : '0 0 50px rgba(255,0,60,0.6)';
             }
-            if(mode === 'MANUAL') btn.style.borderColor = signal.dir === 'CALL' ? 'var(--cyber-green)' : 'var(--cyber-red)';
+            if(mode === 'MANUAL') btn.style.borderColor = signal === 'CALL' ? 'var(--cyber-green)' : 'var(--cyber-red)';
             
-            placeTrade(signal.dir);
+            placeTrade(signal);
         } else {
-            if(sub) sub.innerText = "SEM PONTO DE ENTRADA CLARO.";
+            if(sub) sub.innerText = "AGUARDANDO SETUP...";
             if(anim) anim.className = 'jarvis-container';
             if(img) img.style.boxShadow = 'none';
         }
@@ -652,93 +716,19 @@ async function runAI(mode) {
     }
 }
 
-function calculateSniperSignal() {
-    // REQUIRES 500 CANDLES (Or min 50-100 to start)
-    if(candles.length < 50) return { dir: 'NEUTRAL', confidence: 0 };
-
-    const last = candles[candles.length - 1];
-    
-    // 1. SUPPORT & RESISTANCE (500 Candles Lookback)
-    // Looking for extremes
-    const lookback = Math.min(candles.length, 500);
-    const slice = candles.slice(-lookback);
-    const highs = slice.map(c => c.high);
-    const lows = slice.map(c => c.low);
-    const resistance = Math.max(...highs);
-    const support = Math.min(...lows);
-    
-    // 2. RSI (14)
-    const period = 14;
-    let gains = 0, losses = 0;
-    const closes = candles.slice(-period-1).map(x=>x.close);
-    for(let i=1; i<=period; i++) {
-        const diff = closes[i] - closes[i-1];
-        if(diff >= 0) gains += diff; else losses -= diff;
-    }
-    const rs = gains / (losses || 1);
-    const rsi = 100 - (100 / (1 + rs));
-
-    // 3. BOLLINGER BANDS (20, 2.0)
-    const bbSlice = candles.slice(-20).map(c => c.close);
-    const mean = bbSlice.reduce((a,b) => a+b) / 20;
-    const std = Math.sqrt(bbSlice.reduce((a,b) => a + Math.pow(b-mean, 2), 0) / 20);
-    const upper = mean + (2 * std);
-    const lower = mean - (2 * std);
-
-    // LOGIC: SNIPER ENTRY
-    // We want confluence: Price touching band + RSI extreme + Near S/R
-    
-    let score = 0;
-    let dir = 'NEUTRAL';
-
-    // CALL CHECK
-    if (last.close <= lower) {
-        // Price below lower band
-        if (rsi < 30) {
-            score = 0.85; // Strong Signal
-            dir = 'CALL';
-            
-            // Boost if near 500-candle support (within 5% range)
-            const range = resistance - support;
-            if (last.close <= support + (range * 0.05)) {
-                score = 0.95; // SNIPER ENTRY
-            }
-        }
-    }
-
-    // PUT CHECK
-    else if (last.close >= upper) {
-        // Price above upper band
-        if (rsi > 70) {
-            score = 0.85;
-            dir = 'PUT';
-            
-            // Boost if near 500-candle resistance
-            const range = resistance - support;
-            if (last.close >= resistance - (range * 0.05)) {
-                score = 0.95; // SNIPER ENTRY
-            }
-        }
-    }
-
-    return { dir, confidence: score };
-}
-
 function placeTrade(direction) {
     if (!ws || ws.readyState !== 1) return;
     if(positions.size >= MAX_TRADES) return;
 
     let stake = currentStake;
     
-    // SPLIT STRATEGY: CONSERVATIVE VS AGGRESSIVE
+    // SPLIT STRATEGY: CONSERVATIVE (1.3x) VS AGGRESSIVE (2.0x)
     const isConservative = getEl('conservativeMode') && getEl('conservativeMode').checked;
 
     if (martingaleLevel > 0) {
         if (isConservative) {
-             // 1.3x - RECOVER + 10% (Calculated: Lost * 1.3 covers loss + small profit)
              stake = (currentStake * 1.3).toFixed(2);
         } else {
-             // 2.0x (or 2.1x per user hint) - AGGRESSIVE
              stake = (currentStake * 2.0).toFixed(2);
         }
     } else {
@@ -801,8 +791,7 @@ function handlePosition(p) {
 
     let shouldSell = false;
 
-    // --- EXIT LOGIC ---
-    // User Freedom + Dynamic Trailing
+    // EXIT LOGIC (USER TP/SL + TRAILING)
     
     const userTP = parseFloat(getEl('scalpPercent').value) || 999;
     if (profitPercent >= userTP) shouldSell = true;
@@ -830,7 +819,6 @@ function handlePosition(p) {
         sellAtMarket(p.contract_id);
     }
 
-    // --- CLOSE & ACC RESULT ---
     if (p.is_sold) {
         positions.delete(p.contract_id);
         highestProfit.delete(p.contract_id);
@@ -843,15 +831,15 @@ function handlePosition(p) {
             if(el) el.remove();
             if(positions.size === 0) {
                  getEl('emptyMsg').style.display = 'block';
-                 // WAIT BEFORE RESTARTING AUTO
                  setTimeout(() => {
                      lastAnalysisTime = Date.now(); 
-                 }, 4000); 
+                 }, 3000); 
             }
         }, 1000);
 
         sessionProfit += profit;
         getEl('sessionPL').innerText = sessionProfit.toFixed(2);
+        getEl('sessionPL').style.color = sessionProfit >= 0 ? '#00ff41' : '#ff003c';
         
         const resEl = getEl('resultBig');
         resEl.innerText = profit >= 0 ? "WIN" : "LOSS";
@@ -859,11 +847,9 @@ function handlePosition(p) {
         setTimeout(() => resEl.classList.remove('show-res'), 2000);
 
         if (profit < 0) {
-            // LOSS -> ACTIVATE RECOVERY
             martingaleLevel++;
             currentStake = buyPrice; 
         } else {
-            // WIN -> RESET
             martingaleLevel = 0;
             currentStake = parseFloat(getEl('stakeInput').value);
         }
@@ -1052,7 +1038,7 @@ function connectWS() {
         if (data.msg_type === 'authorize') {
             updateAccountUI(data.authorize);
             ws.send(JSON.stringify({ balance: 1, subscribe: 1 }));
-            // REQUESTING 500 CANDLES (DEEP HISTORY)
+            // 500 CANDLES REQUEST
             ws.send(JSON.stringify({ ticks_history: SYMBOL, adjust_start_time: 1, count: 500, end: 'latest', style: 'candles', granularity: 60, subscribe: 1 }));
             ws.send(JSON.stringify({ proposal_open_contract: 1, subscribe: 1 }));
         }
@@ -1077,7 +1063,6 @@ function updateCandles(candle) {
         candles[candles.length - 1] = candle;
     } else { 
         candles.push(candle); 
-        // INCREASED BUFFER TO 600 TO HOLD 500+
         if(candles.length > 600) candles.shift(); 
     }
     if(series) series.update(candle);
@@ -1090,8 +1075,8 @@ function updateCandles(candle) {
     updateRSI();
 
     const now = Date.now();
-    // 5-Sec Analysis Check
-    if (getEl('autoTradeToggle') && getEl('autoTradeToggle').checked && !isProcessing && (now - lastAnalysisTime > 5000)) {
+    // AUTO CHECK (2s interval)
+    if (getEl('autoTradeToggle') && getEl('autoTradeToggle').checked && !isProcessing && (now - lastAnalysisTime > 2000)) {
         if (positions.size === 0) { 
             lastAnalysisTime = now;
             runAI('AUTO');
