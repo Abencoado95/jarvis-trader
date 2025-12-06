@@ -652,6 +652,11 @@
     function initSystem() {
         console.log("DEBUG: initSystem CALLED");
         getEl('loginOverlay').style.display = 'none';
+        
+        // CLEANUP GHOSTS
+        if(getEl('posList')) getEl('posList').innerHTML = ''; 
+        if(getEl('emptyMsg')) getEl('emptyMsg').style.display = 'block';
+
         getEl('mainUI').style.display = 'grid'; 
         setTimeout(() => {
             initChart();
@@ -851,7 +856,8 @@
                     if(sub) sub.innerText = `SINAL: ${signal} (${(conf*100).toFixed(0)}%)`;
                     btn.style.borderColor = signal === 'CALL' ? 'var(--cyber-green)' : 'var(--cyber-red)';
                 } else {
-                     if (conf > 0.85) placeTrade(signal);
+                     // THRESHOLD ADJUSTED FOR ACTIVE SCALPING
+                     if (conf > 0.75) placeTrade(signal);
                 }
                 isProcessing = false;
             }, 1000);
