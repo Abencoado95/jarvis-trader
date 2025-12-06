@@ -359,8 +359,7 @@
         <div class="sidebar-left">
             <div class="brand-logo">JARVIS <span style="color:#fff">V20</span></div>
             <div class="brand-subtitle">CÓDIGO QUE ESCOLHE INTELIGÊNCIA QUE PROTEGE</div>
-                </div>
-            </div>
+
             <div class="config-group">
                 <span class="label-sm">STAKE ($)</span>
                 <input type="number" id="stakeInput" value="1.00" step="0.50" min="0.35" onchange="saveState()">
@@ -525,14 +524,19 @@
     const MARTINGALE_FACTOR = 2.1;
 
     // BOOT
+    // BOOT
     window.addEventListener('DOMContentLoaded', () => {
         console.log("DOM Loaded. Iniciando Jarvis V21.3 Command Center...");
         try {
+            if(typeof checkAuth !== 'function') throw new Error("Função checkAuth não definida!");
+            if(typeof loadState !== 'function') throw new Error("Função loadState não definida!");
+            
             checkAuth();
             loadState(); 
             setInterval(updateTimers, 1000); 
         } catch(e) {
             console.error("Boot Error:", e);
+            alert("ERRO DE INICIALIZAÇÃO CRÍTICO: " + e.message);
             getEl('loginOverlay').style.display = 'flex';
         }
     });
@@ -1037,6 +1041,8 @@
         }));
     }
 
+
+
     function handlePosition(p) {
         if (!p.buy_price || !p.contract_type) return;
 
@@ -1090,146 +1096,22 @@
                         // "Retornou 1 centavo" - CLOSE!
                         console.log(`💰 MICRO-TRAILING: Lucro ${profit.toFixed(2)} (Pico: ${p.maxProfitUSD.toFixed(2)} | Retração: ${retractionUSD.toFixed(2)})`);
                         sellPosition(p.contract_id);
-                    } else {
-                         // console.log(`🚀 SUBINDO: ${profit.toFixed(2)} (Pico: ${p.maxProfitUSD.toFixed(2)})`);
                     }
                 }
             }
         }
         renderPositions();
-            if (signal === "CALL") jarvisContainer.classList.add('sentiment-bullish');
-            else if (signal === "PUT") jarvisContainer.classList.add('sentiment-bearish');
-            else jarvisContainer.classList.add('sentiment-neutral');
-
-            setTimeout(() => {
-                if (signal !== "NEUTRO") {
-                    showResult(signal);
-                    if(getEl('autoTradeToggle').checked) {
-                        if (positions.size >= MAX_TRADES) {
-                            sub.innerHTML = `<span style='color:orange'>LIMITE DE ORDENS (${MAX_TRADES}/${MAX_TRADES})</span>`;
-                            setTimeout(resetBtn, 2000);
-                        } else {
-                            if (source === 'AUTO') lastTradeCandleTime = candles[candles.length-1].time; // Mark candle as traded
-                            placeTrade(signal, currentStrategy);
-                            resetBtn();
-                        }
-                    } else {
-                         resetBtn();
-                    }
-                } else {
-                    resetBtn();
-                }
-                isProcessing = false;
-            }, 1000); 
-
-        } catch(e) { 
-            console.log("Analysis Info:", e.message);
-            if (source === 'MANUAL') alert(e.message);
-            isProcessing = false; 
-            resetBtn();
-        }
-
-        function resetBtn() {
-            btn.style.borderColor = ""; 
-            btn.style.boxShadow = "";
-            if (martingaleLevel === 0) {
-                sub.innerText = "SISTEMA ONLINE"; 
-                sub.style.color = "var(--cyber-green)";
-            }
-        }
     }
 
-    function showResult(text) {
-        const el = getEl('resultBig');
-        el.innerText = text;
-        el.style.color = text === "CALL" ? "#00ff41" : (text === "PUT" ? "#ff003c" : "#fff");
-        el.classList.add('show-res');
-        setTimeout(() => el.classList.remove('show-res'), 3000);
+    function sellPosition(id) { ws.send(JSON.stringify({ sell: id, price: 0 })); }
+    function closeAllPositions() { positions.forEach((_, id) => sellPosition(id)); }
+
+    function updateTimers() {
+        if(positions.size > 0) renderPositions();
     }
 
-    function placeTrade(direction, strategy = "AI") {
-        const stake = currentStake; 
-        const duration = getEl('durationSelect').value;
-        const acc = availableAccounts.find(a=>a.token===currentToken);
-        
-        if(!acc) return;
-        
-        lastStrategy = strategy; 
-
-        const btn = direction === 'CALL' ? getEl('btnCall') : getEl('btnPut');
-        btn.style.filter = "brightness(1.5)";
-        setTimeout(() => btn.style.filter = "none", 500);
-
-        ws.send(JSON.stringify({ 
-            proposal: 1, 
-            amount: stake, 
-            basis: 'stake', 
-            contract_type: direction, 
-            currency: acc.currency, 
-            duration: duration, 
-            duration_unit: 'm', 
-            symbol: SYMBOL 
-        }));
-    }
-
-    function handlePosition(p) {
-        if (!p.buy_price || !p.contract_type) return;
-
-        if (p.is_sold) {
-            if (positions.has(p.contract_id)) { 
-                const strategy = strategyMap.get(p.contract_id) || "AI";
-                positions.delete(p.contract_id); 
-                strategyMap.delete(p.contract_id);
-                addHistory(p, strategy); 
-                ws.send(JSON.stringify({ balance: 1 })); 
-            }
-        } else {
-            // V21.12: Initialize Max Profit Logic
-            if (!positions.has(p.contract_id)) {
-                p.entryTime = new Date().toLocaleTimeString();
-                p.maxProfitUSD = -9999; // Track Max Profit in USD
-            } else {
-                const existing = positions.get(p.contract_id);
-                p.entryTime = existing.entryTime;
-                p.maxProfitUSD = existing.maxProfitUSD || -9999;
-            }
-            
-            const profit = Number(p.profit || 0);
-            const stake = Number(p.buy_price || 0);
-            const profitPercent = (profit / stake) * 100;
-
-            // Track High Water Mark (USD)
-            if (profit > p.maxProfitUSD) p.maxProfitUSD = profit;
-
-            positions.set(p.contract_id, p);
-            
-            const scalpPercent = parseFloat(getEl('scalpPercent').value);
-            const slTradePercent = parseFloat(getEl('slTradePercent').value);
-            
-            if (p.is_valid_to_sell) {
-                // V21.17: MICRO-TRAILING MAXIMIZER
-                
-                // 1. STRICT STOP LOSS (PRIORITY 1)
-                if (profitPercent <= -slTradePercent) {
-                    console.warn(`⛔ STOP LOSS: ${profitPercent.toFixed(2)}% <= -${slTradePercent}%`);
-                    sellPosition(p.contract_id);
-                    return; 
-                }
-
-                // 2. MICRO-TRAILING TP ($0.01 Retraction)
-                if (profitPercent >= scalpPercent) {
-                    // Target Met - Monitor Retraction
-                    const retractionUSD = p.maxProfitUSD - profit;
-                    
-                    if (retractionUSD >= 0.01) {
-                        // "Retornou 1 centavo" - CLOSE!
-                        console.log(`💰 MICRO-TRAILING: Lucro ${profit.toFixed(2)} (Pico: ${p.maxProfitUSD.toFixed(2)} | Retração: ${retractionUSD.toFixed(2)})`);
-                        sellPosition(p.contract_id);
-                    } else {
-                         // console.log(`🚀 SUBINDO: ${profit.toFixed(2)} (Pico: ${p.maxProfitUSD.toFixed(2)})`);
-                    }
-                }
-            }
+    function renderPositions() {
+        const list = getEl('posList');
         list.innerHTML = "";
         let total = 0;
         
@@ -1341,7 +1223,7 @@
         }
 
         // --- UPDATE HISTORY TABLE ---
-        const list = getEl('historyList'); 
+        const list = getEl('histList'); 
         const row = document.createElement('tr');
         const isWin = profit >= 0;
         
