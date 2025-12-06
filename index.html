@@ -511,14 +511,14 @@
 <script>
 
 
-// JARVIS V21.22 FLEXIBLE UPDATE - TRAILING CONFIG & STAKE HISTORY
+// JARVIS V21.22 NUCLEAR FIX - GHOST ROW EXTERMINATION
 
 // --- CONFIG ---
 const APP_ID = 114062;
 const SYMBOL = "1HZ100V"; 
-const MARTINGALE_FACTOR = 2.0; // Normal
-const CONSERVATIVE_FACTOR = 1.3; // Conservative Mode
-const MAX_TRADES = 1; // HARD LIMIT
+const MARTINGALE_FACTOR = 2.0; 
+const CONSERVATIVE_FACTOR = 1.3; 
+const MAX_TRADES = 1;
 
 // --- STATE ---
 let ws;
@@ -533,20 +533,26 @@ let sessionProfit = 0.0;
 let lastAnalysisTime = 0;
 let martingaleLevel = 0;
 let currentStake = 1.0;
-let highestProfit = new Map(); // Dynamic Trailing Memory
+let highestProfit = new Map(); 
 
 // --- HELPER SEGURANÇA ---
 function getEl(id) {
     const el = document.getElementById(id);
-    if (!el) {
-        return document.createElement('div');
-    }
+    if (!el) return document.createElement('div');
     return el;
 }
 
 // --- BOOT ---
 window.addEventListener('DOMContentLoaded', () => {
-    console.log("JARVIS V21.22 FLEXIBLE BOOT...");
+    console.log("JARVIS V21.22 NUCLEAR BOOT...");
+    
+    // 1. NUCLEAR CLEANUP OF STORAGE (ONE TIME CACHE BUSTER)
+    if (!sessionStorage.getItem('cache_busted_v22')) {
+        console.warn("NUCLEAR: CLEANSING LOCAL STORAGE...");
+        localStorage.removeItem('jarvis_state_v20'); // WIPE DIRTY STATE
+        sessionStorage.setItem('cache_busted_v22', 'true');
+    }
+
     try {
         checkAuth();
         loadState();
@@ -561,14 +567,17 @@ function initSystem() {
     getEl('loginOverlay').style.display = 'none';
     getEl('mainUI').style.display = 'grid';
     
-    // NUCLEAR CLEANUP OF GHOST ROWS
+    // NUCLEAR DOM CLEANUP
     const list = getEl('posList');
     if(list) list.innerHTML = '';
+    
+    const hist = getEl('histList');
+    if(hist && hist.innerHTML.includes('undefined')) hist.innerHTML = '';
+    
     getEl('emptyMsg').style.display = 'block';
     
-    // CLEAN HISTORY CHAOS
-    const hist = getEl('histList');
-    if(hist) hist.innerHTML = ''; // Start clean for new format
+    // FORCE POSITIONS MAP CLEAR
+    positions.clear();
 
     setTimeout(() => {
         initChart();
@@ -582,7 +591,6 @@ function initSystem() {
 async function runAI(mode) {
     if (isProcessing) return;
 
-    // SEQUENTIAL CHECK
     if (positions.size > 0) {
         if(mode === 'MANUAL') alert("Aguarde o fechamento da posição atual.");
         return;
@@ -612,7 +620,7 @@ async function runAI(mode) {
             
             if(anim) {
                 anim.className = signal.dir === 'CALL' ? 'jarvis-container sentiment-bullish' : 'jarvis-container sentiment-bearish';
-                setTimeout(() => anim.className = 'jarvis-container', 3000);
+                setTimeout(() => anim.className = 'jarvis-container', 3000); // Reset
             }
         } else {
              if (conf > 0.75) {
@@ -631,24 +639,19 @@ async function runAI(mode) {
 }
 
 function calculateHeuristicSignal() {
-    // Basic reliable heuristic
     if(candles.length < 20) return { dir: 'CALL', confidence: 0 };
-
     const last = candles[candles.length - 1];
     const prev = candles[candles.length - 2];
     const rsi = parseFloat(getEl('rsiVal').innerText) || 50;
     
-    let score = 0; // -1 to 1
+    let score = 0; 
     
-    // Trend
     if(last.close > last.open) score += 0.2; else score -= 0.2;
     if(last.close > prev.close) score += 0.2; else score -= 0.2;
 
-    // RSI
-    if(rsi < 30) score += 0.4; 
-    if(rsi > 70) score -= 0.4; 
+    if(rsi < 30) score += 0.4;
+    if(rsi > 70) score -= 0.4;
 
-    // Volatility
     const range = last.high - last.low;
     if(range < 0.5) score *= 0.5;
 
@@ -667,10 +670,8 @@ function placeTrade(direction) {
 
     if (martingaleLevel > 0) {
         if (isConservative) {
-             // RECOVER 1.3x
              stake = (currentStake * CONSERVATIVE_FACTOR).toFixed(2);
         } else {
-             // AGGRESSIVE 2.0x
              stake = (currentStake * MARTINGALE_FACTOR).toFixed(2);
         }
     } else {
@@ -696,9 +697,15 @@ function placeTrade(direction) {
 }
 
 function handlePosition(p) {
+    // 2. STRICT VALIDATION to prevent "undefined" rows
+    if (!p.contract_id || p.contract_type === 'undefined') {
+        console.warn("IGNORING INVALID CONTRACT UPDATE", p);
+        return; 
+    }
+
     if (!positions.has(p.contract_id)) {
         positions.set(p.contract_id, p);
-        highestProfit.set(p.contract_id, -9999);
+        highestProfit.set(p.contract_id, -9999); 
         
         const row = document.createElement('tr');
         row.id = `pos-${p.contract_id}`;
@@ -717,6 +724,7 @@ function handlePosition(p) {
 
     const currEl = document.getElementById(`curr-${p.contract_id}`);
     const plEl = document.getElementById(`pl-${p.contract_id}`);
+    
     if (currEl) currEl.innerText = p.current_spot;
     
     const profit = parseFloat(p.profit);
@@ -728,17 +736,14 @@ function handlePosition(p) {
         plEl.style.color = profit >= 0 ? '#00ff41' : '#ff003c';
     }
 
-    // --- FLEXIBLE TRAILING LOGIC ---
     let shouldSell = false;
 
-    // 1. HARD LIMITS (USER FREEDOM)
-    const userTP = parseFloat(getEl('scalpPercent').value) || 999; 
+    const userTP = parseFloat(getEl('scalpPercent').value) || 999;
     if (profitPercent >= userTP) shouldSell = true;
 
     const userSL = parseFloat(getEl('slTradePercent').value) || 999;
     if (profitPercent <= -userSL) shouldSell = true;
 
-    // 2. DYNAMIC TRAILING (IF ENABLED)
     const useTrailing = getEl('trailingToggle') && getEl('trailingToggle').checked;
     
     if (useTrailing) {
@@ -752,7 +757,6 @@ function handlePosition(p) {
          const distance = parseFloat(getEl('trailingDistance').value) || 5;
 
          if (high >= trigger) {
-             // Example: High 15, Dist 5 -> Close if < 10
              if (profitPercent <= (high - distance)) shouldSell = true;
          }
     }
@@ -761,12 +765,10 @@ function handlePosition(p) {
         sellAtMarket(p.contract_id);
     }
 
-    // --- CLOSE ---
     if (p.is_sold) {
         positions.delete(p.contract_id);
         highestProfit.delete(p.contract_id);
         
-        // Pass buyPrice (stake usually) to history
         p.stake = buyPrice; 
         addHistory(p);
         
@@ -789,7 +791,7 @@ function handlePosition(p) {
 
         if (profit < 0) {
             martingaleLevel++;
-            currentStake = buyPrice; // Accumulate logic
+            currentStake = buyPrice; 
         } else {
             martingaleLevel = 0;
             currentStake = parseFloat(getEl('stakeInput').value);
@@ -806,11 +808,10 @@ function addHistory(p) {
     item.style.borderBottom = "1px solid rgba(255,255,255,0.05)";
     item.style.padding = "5px 0";
     item.style.display = "grid";
-    item.style.gridTemplateColumns = "1fr 1fr 1fr 1fr"; // 4 Columns
+    item.style.gridTemplateColumns = "1fr 1fr 1fr 1fr"; 
     item.style.fontSize = "0.75rem";
     item.style.textAlign = "center";
     
-    // Format: Time | Mode | Stake | PnL
     item.innerHTML = `
         <span style="color:#8899a6">${new Date().toLocaleTimeString()}</span>
         <span style="font-weight:bold; color:${p.contract_type==='CALL'?'#00ff41':'#ff003c'}">${p.contract_type}</span>
@@ -820,12 +821,8 @@ function addHistory(p) {
     
     const list = getEl('histList');
     list.insertBefore(item, list.firstChild);
-    
-    // Limit history length
     if(list.children.length > 50) list.lastChild.remove();
 }
-
-// --- UTILITIES ---
 
 function saveState() {
     const state = {
@@ -840,7 +837,6 @@ function saveState() {
         martingaleLevel: martingaleLevel, 
         currentStake: currentStake,
         conservative: getEl('conservativeMode') ? getEl('conservativeMode').checked : false,
-        // NEW CONFIGS
         trailing: getEl('trailingToggle') ? getEl('trailingToggle').checked : false,
         trailingTrigger: getEl('trailingTrigger') ? getEl('trailingTrigger').value : 15,
         trailingDistance: getEl('trailingDistance') ? getEl('trailingDistance').value : 5
@@ -861,8 +857,6 @@ function loadState() {
             if(getEl('tpInput')) getEl('tpInput').value = state.tp;
             if(getEl('slInput')) getEl('slInput').value = state.sl;
             if(getEl('conservativeMode')) getEl('conservativeMode').checked = state.conservative;
-            
-            // LOAD NEW CONFIGS
             if(getEl('trailingToggle')) getEl('trailingToggle').checked = state.trailing;
             if(getEl('trailingTrigger')) getEl('trailingTrigger').value = state.trailingTrigger || 15;
             if(getEl('trailingDistance')) getEl('trailingDistance').value = state.trailingDistance || 5;
@@ -872,8 +866,7 @@ function loadState() {
                 getEl('sessionPL').innerText = sessionProfit.toFixed(2);
                 getEl('sessionPL').style.color = sessionProfit >= 0 ? "#00ff41" : "#ff003c";
             }
-            // Logic History is cleared on reload as per new requirement to change format
-            
+            // NO HISTORY LOAD FOR POSLIST TO AVOID GHOSTS
             martingaleLevel = state.martingaleLevel || 0;
             currentStake = state.currentStake || parseFloat(state.stake);
 
@@ -948,7 +941,6 @@ function updateAccountUI(info) {
     const isDemo = info.fullname.includes('Virtual') || info.loginid.startsWith('VRTC');
     badge.innerText = isDemo ? `MODO TREINO (DEMO)` : `CONTA REAL (${info.currency})`;
     badge.className = isDemo ? "account-badge is-demo" : "account-badge is-real";
-    
     if(getEl('btnCall')) getEl('btnCall').disabled = false;
     if(getEl('btnPut')) getEl('btnPut').disabled = false;
     if(getEl('btnCall')) getEl('btnCall').classList.add('btn-ready');
@@ -959,7 +951,6 @@ function initChart() {
     const el = getEl('tvChart');
     const container = getEl('chartContainer');
     if(!el || !container) return;
-    
     el.innerHTML = '';
     chart = LightweightCharts.createChart(el, {
         width: container.clientWidth, 
@@ -972,7 +963,6 @@ function initChart() {
         upColor: '#00ff41', downColor: '#ff003c', 
         borderVisible: false, wickUpColor: '#00ff41', wickDownColor: '#ff003c'
     });
-    
     new ResizeObserver(entries => {
         if (entries.length === 0 || !entries[0].contentRect) return;
         const { width, height } = entries[0].contentRect;
@@ -1029,6 +1019,7 @@ function updateCandles(candle) {
 
     const now = Date.now();
     if (getEl('autoTradeToggle') && getEl('autoTradeToggle').checked && !isProcessing && (now - lastAnalysisTime > 2000)) {
+        // STRICT SEQUENTIAL
         if (positions.size === 0) { 
             lastAnalysisTime = now;
             runAI('AUTO');
@@ -1051,6 +1042,7 @@ function updateRSI() {
 }
 
 function sellAtMarket(id) {
+    if (!id || id === 'undefined') return;
     if(ws) ws.send(JSON.stringify({ sell: id, price: 0 }));
 }
 
