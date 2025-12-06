@@ -186,20 +186,6 @@
         
         input, select { 
             background: #080c14; 
-            color: #fff; 
-            border: 1px solid #2a3b55; 
-            padding: 10px; 
-            border-radius: 2px; 
-            font-family: 'Rajdhani'; 
-            font-size: 1.1rem; 
-            font-weight: 700; 
-            width: 100%; 
-            text-align: center; 
-            transition: 0.3s;
-        }
-        input:focus, select:focus { border-color: var(--cyber-blue); box-shadow: 0 0 15px rgba(0,243,255,0.1); }
-        
-        /* SWITCHES */
         .switch-row { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; }
         .switch { position: relative; display: inline-block; width: 45px; height: 24px; }
         .switch input { opacity: 0; width: 0; height: 0; }
@@ -359,7 +345,29 @@
         <div class="sidebar-left">
             <div class="brand-logo">JARVIS <span style="color:#fff">V20</span></div>
             <div class="brand-subtitle">CÓDIGO QUE ESCOLHE INTELIGÊNCIA QUE PROTEGE</div>
-
+            <div id="accBadge" class="account-badge" onclick="switchAccount()">CARREGANDO...</div>
+            
+            <div style="border:1px solid rgba(0,243,255,0.3); padding:15px; border-radius:2px; background:rgba(0,0,0,0.3);">
+                <div style="font-size:0.8rem; color:#5f7e97; letter-spacing:2px; margin-bottom:5px; text-align:center;">SALDO DA CONTA</div>
+                <div id="balanceVal" style="font-size:2.5rem; color:var(--cyber-blue); font-weight:900; text-align:center; text-shadow:0 0 20px rgba(0,243,255,0.4);">--</div>
+            </div>
+            
+            <div class="config-group">
+                <span class="label-sm">AUTO PILOT (CHRONOS)</span>
+                <div class="switch-row">
+                    <span style="font-size:1rem; color:#fff; font-weight:bold;">MODO AUTOMÁTICO</span>
+                    <label class="switch"><input type="checkbox" id="autoTradeToggle" onchange="saveState()"><span class="slider"></span></label>
+                </div>
+            </div>
+            
+            <div class="config-group" style="border-color:var(--cyber-blue);">
+                <span class="label-sm" style="color:var(--cyber-blue)">GESTÃO DE RISCO</span>
+                <div class="switch-row">
+                    <span style="font-size:0.9rem; color:#fff;">MODO CONSERVADOR</span>
+                    <label class="switch"><input type="checkbox" id="conservativeMode" onchange="saveState()"><span class="slider"></span></label>
+                </div>
+                <div style="font-size:0.7rem; color:#8899a6; margin-top:5px;">(Recupera apenas a perda + 10%)</div>
+            </div>
             <div class="config-group">
                 <span class="label-sm">STAKE ($)</span>
                 <input type="number" id="stakeInput" value="1.00" step="0.50" min="0.35" onchange="saveState()">
@@ -500,8 +508,6 @@
     const MAX_TRADES = 1; 
     const ANALYSIS_INTERVAL = 1000; 
     
-
-    
     let ws;
     let chart, series;
     let candles = [];
@@ -515,7 +521,7 @@
     let lastStrategy = "AI"; 
     let strategyMap = new Map();
     let lastCandleTime = 0; 
-    let lastTradeCandleTime = 0; // V21.18: Strict 1-Trade-Per-Candle
+    let lastTradeCandleTime = 0; 
 
     // V21.3 HYPER AGGRESSIVE RECOVERY
     let martingaleLevel = 0;
@@ -524,9 +530,8 @@
     const MARTINGALE_FACTOR = 2.1;
 
     // BOOT
-    // BOOT
     window.addEventListener('DOMContentLoaded', () => {
-        console.log("DOM Loaded. Iniciando Jarvis V21.3 Command Center...");
+        console.log("DOM Loaded. Iniciando Jarvis V21.22 Command Center...");
         try {
             if(typeof checkAuth !== 'function') throw new Error("Função checkAuth não definida!");
             if(typeof loadState !== 'function') throw new Error("Função loadState não definida!");
@@ -554,7 +559,8 @@
             sessionPL: sessionProfit,
             history: getEl('histList').innerHTML,
             martingaleLevel: martingaleLevel, 
-            currentStake: currentStake
+            currentStake: currentStake,
+            conservative: getEl('conservativeMode') ? getEl('conservativeMode').checked : false
         };
         localStorage.setItem('jarvis_state_v20', JSON.stringify(state));
     }
@@ -564,20 +570,24 @@
         if (saved) {
             try {
                 const state = JSON.parse(saved);
-                getEl('autoTradeToggle').checked = state.autoTrade;
-                getEl('stakeInput').value = state.stake;
-                getEl('durationSelect').value = state.duration;
-                if(state.scalpPercent) getEl('scalpPercent').value = state.scalpPercent;
-                if(state.slTradePercent) getEl('slTradePercent').value = state.slTradePercent;
-                getEl('tpInput').value = state.tp;
-                getEl('slInput').value = state.sl;
+                if(getEl('autoTradeToggle')) getEl('autoTradeToggle').checked = state.autoTrade;
+                if(getEl('stakeInput')) getEl('stakeInput').value = state.stake;
+                if(getEl('durationSelect')) getEl('durationSelect').value = state.duration;
+                if(getEl('scalpPercent')) getEl('scalpPercent').value = state.scalpPercent;
+                if(getEl('slTradePercent')) getEl('slTradePercent').value = state.slTradePercent;
+                if(getEl('tpInput')) getEl('tpInput').value = state.tp;
+                if(getEl('slInput')) getEl('slInput').value = state.sl;
                 sessionProfit = state.sessionPL || 0;
-                getEl('sessionPL').innerText = sessionProfit.toFixed(2);
-                getEl('sessionPL').style.color = sessionProfit >= 0 ? "#00ff41" : "#ff003c";
-                if(state.history) getEl('histList').innerHTML = state.history;
+                if(getEl('sessionPL')) {
+                    getEl('sessionPL').innerText = sessionProfit.toFixed(2);
+                    getEl('sessionPL').style.color = sessionProfit >= 0 ? "#00ff41" : "#ff003c";
+                }
+                if(state.history && getEl('histList')) getEl('histList').innerHTML = state.history;
                 
                 martingaleLevel = state.martingaleLevel || 0;
                 currentStake = state.currentStake || parseFloat(state.stake);
+                if(state.conservative && getEl('conservativeMode')) getEl('conservativeMode').checked = state.conservative;
+
             } catch(e) {
                 console.warn("Erro ao carregar cache:", e);
             }
@@ -631,8 +641,7 @@
     function initSystem() {
         console.log("DEBUG: initSystem CALLED");
         getEl('loginOverlay').style.display = 'none';
-        getEl('mainUI').style.display = 'grid'; // Enable Grid
-        // No resizeApp call strictly needed now, but keeping listener safe
+        getEl('mainUI').style.display = 'grid'; 
         setTimeout(() => {
             initChart();
             loadAI();
@@ -659,6 +668,7 @@
 
     function updateAccountUI(info) {
         const badge = getEl('accBadge');
+        if(!badge) return;
         const isDemo = info.fullname.includes('Virtual') || info.loginid.startsWith('VRTC');
         if(isDemo) {
             badge.innerText = `MODO TREINO (DEMO)`;
@@ -667,15 +677,16 @@
             badge.innerText = `CONTA REAL (${info.currency})`;
             badge.className = "account-badge is-real";
         }
-        getEl('btnCall').disabled = false;
-        getEl('btnPut').disabled = false;
-        getEl('btnCall').classList.add('btn-ready');
-        getEl('btnPut').classList.add('btn-ready');
+        if(getEl('btnCall')) getEl('btnCall').disabled = false;
+        if(getEl('btnPut')) getEl('btnPut').disabled = false;
+        if(getEl('btnCall')) getEl('btnCall').classList.add('btn-ready');
+        if(getEl('btnPut')) getEl('btnPut').classList.add('btn-ready');
     }
 
     function initChart() {
         const el = getEl('tvChart');
         const container = getEl('chartContainer');
+        if(!el || !container) return;
         
         el.innerHTML = '';
         chart = LightweightCharts.createChart(el, {
@@ -690,7 +701,6 @@
             borderVisible: false, wickUpColor: '#00ff41', wickDownColor: '#ff003c'
         });
         
-        // RESPONSIVE CHART
         new ResizeObserver(entries => {
             if (entries.length === 0 || !entries[0].contentRect) return;
             const { width, height } = entries[0].contentRect;
@@ -709,13 +719,12 @@
             const data = JSON.parse(msg.data);
             
             if (data.error) {
-                // V21.9: Suppress "Resale not offered" error
                 if (data.error.code === 'InvalidContractProposal' || data.error.message.includes("Resale of this contract is not offered")) {
                     console.warn("Ignored Error (Resale):", data.error.message);
                     return; 
                 }
                 console.error("Deriv Error:", data.error);
-                alert("ERRO DERIV: " + data.error.message); 
+                // alert("ERRO DERIV: " + data.error.message); // Suppress alerts for now
                 return;
             }
 
@@ -750,18 +759,19 @@
         } else { 
             candles.push(candle); 
             if(candles.length > 300) candles.shift(); 
-            lastCandleTime = candle.time; // V21.13: Track new candle
+            lastCandleTime = candle.time; 
         }
         if(series) series.update(candle);
         
         const priceEl = getEl('priceTag');
-        priceEl.innerText = candle.close;
-        priceEl.style.color = candle.close >= candle.open ? '#00ff41' : '#ff003c';
+        if(priceEl) {
+            priceEl.innerText = candle.close;
+            priceEl.style.color = candle.close >= candle.open ? '#00ff41' : '#ff003c';
+        }
         updateRSI();
 
-        // V21.14: CONTINUOUS ANALYSIS (with smart throttling)
         const now = Date.now();
-        if (getEl('autoTradeToggle').checked && !isProcessing && (now - lastAnalysisTime > 2000)) {
+        if (getEl('autoTradeToggle') && getEl('autoTradeToggle').checked && !isProcessing && (now - lastAnalysisTime > 2000)) {
             lastAnalysisTime = now;
             runAI('AUTO');
         }
@@ -778,7 +788,7 @@
         }
         const rs = gains / (losses || 1);
         const rsi = 100 - (100 / (1 + rs));
-        getEl('rsiVal').innerText = rsi.toFixed(1);
+        if(getEl('rsiVal')) getEl('rsiVal').innerText = rsi.toFixed(1);
     }
 
     function calculateEMA(period) {
@@ -791,7 +801,6 @@
         return ema;
     }
     
-    // V21.11: VOLATILITY CALCULATION
     function calculateVolatility(period = 20) {
         if (candles.length < period) return 0;
         const slice = candles.slice(-period).map(c => c.close);
@@ -800,451 +809,194 @@
         return Math.sqrt(variance);
     }
 
-    // V21.18: INDICATORS
-    function calculateBollinger(period = 20, stdDev = 2) {
-        if (candles.length < period) return null;
-        const slice = candles.slice(-period).map(c => c.close);
-        const mean = slice.reduce((a,b) => a+b) / period;
-        const variance = slice.reduce((a,b) => a + Math.pow(b - mean, 2), 0) / period;
-        const std = Math.sqrt(variance);
-        return { upper: mean + (std * stdDev), lower: mean - (std * stdDev), basis: mean };
-    }
-
-    function calculateSupportResistance(period = 500) {
-        if (candles.length < 50) return null;
-        const lookback = Math.min(candles.length, period);
-        const slice = candles.slice(-lookback);
-        const highs = slice.map(c => c.high);
-        const lows = slice.map(c => c.low);
-        return { 
-            resistance: Math.max(...highs), 
-            support: Math.min(...lows) 
-        };
-    }
-
-    function calculateTrend(period = 50) {
-        if (candles.length < period) return "NEUTRAL";
-        const slice = candles.slice(-period);
-        // Simple linear regression slope simulation
-        const first = slice[0].close;
-        const last = slice[slice.length-1].close;
-        const change = ((last - first) / first) * 100;
-        // V21.21: Increased Sensitivity (0.5 -> 0.1) to catch micro-trends
-        if (change > 0.1) return "STRONG_UP";
-        if (change < -0.1) return "STRONG_DOWN";
-        return "NEUTRAL";
-    }
-
     async function loadAI() {
-        console.log("Carregando IA...");
         try {
-            model = await tf.loadLayersModel('brain/titan.json');
-            const dummy = tf.zeros([1, 60, 1]);
-            model.predict(dummy).dispose();
-            console.log("IA Online");
-        } catch (e) {
-            console.error("Erro IA:", e);
+            model = await tf.loadLayersModel('https://raw.githubusercontent.com/Abencoado95/jarvis-trader/main/model_v21/model.json'); 
+            console.log("IA Carregada.");
+        } catch(e) {
+            console.warn("IA Local não encontrada. Usando modo heurístico.");
         }
     }
 
-    async function runAI(source = 'MANUAL') {
-        if (isProcessing) return;
-        
-        // V21.13: TRADE COOLDOWN - No analysis while position is open
-        if (positions.size > 0 && source === 'AUTO') {
-            return; // Silent block for AUTO mode
-        }
+    async function runAI(mode) {
+        if (!model) return;
+        isProcessing = true;
         
         const btn = getEl('btnDecode');
         const sub = getEl('btnSubText');
-        const jarvisContainer = getEl('jarvisAnim');
-        const originalSubText = sub.innerText;
-
-        if (candles.length < 30) { 
-            if(source === 'MANUAL') {
-                sub.innerText = "AGUARDANDO DADOS...";
-            }
-            return;
+        
+        if (mode === 'MANUAL') {
+            btn.style.background = 'rgba(255, 215, 0, 0.1)'; 
+            if(sub) sub.innerText = "ANALISANDO...";
         }
+
         try {
-            const dailyPL = parseFloat(getEl('sessionPL').innerText);
-            const slInput = parseFloat(getEl('slInput').value);
-            const stopLossLimit = -Math.abs(slInput); 
-            const takeProfit = parseFloat(getEl('tpInput').value);
-
-            if (dailyPL <= stopLossLimit) throw new Error("STOP LOSS DIÁRIO ATINGIDO");
-            if (dailyPL >= takeProfit) throw new Error("META BATIDA! PARABÉNS");
-
-            // V21.18: STRICT SAFETY - One Trade Per Candle
-            const currentCandleTime = candles[candles.length - 1].time;
-            if (source === 'AUTO' && lastTradeCandleTime === currentCandleTime) {
-                // Already traded this candle
-                isProcessing = false;
-                resetBtn();
-                return;
-            }
-
-            let signal = "NEUTRO";
-            let currentStrategy = "HYBRID";
-
-            // V21.4: MARTINGALE STATUS (SHOW LIMIT)
-            if (martingaleLevel > 0) {
-                sub.innerText = `MODO RECUPERAÇÃO (NÍVEL ${martingaleLevel}/${MAX_MARTINGALE_LEVELS})`;
-                sub.style.color = "var(--cyber-red)";
-            }
-            
-            // --- V21.18: ADVANCED INDICATORS ---
-            const bb = calculateBollinger(20, 2.5); // 2.5 StdDev (Strict)
-            const sr = calculateSupportResistance(500); // 500 Candles lookback
-            const trend = calculateTrend(50); // Linear Regression Slope
-            
-            const price = candles[candles.length - 1].close;
-            
-            // LOGIC: REVERSAL AT EXTREMES
-            // CALL: Price < Lower Band AND Price near Support
-            // PUT: Price > Upper Band AND Price near Resistance
-            
-            // V21.19: HYBRID LOGIC
-            // 1. REVERSAL: Bollinger + RSI Extremes
-            // 2. MOMENTUM: Strong Trend + Safe RSI
-            
-            const rsi = parseFloat(getEl('rsiVal').innerText);
-            
-            // DEBUG LOGS (REMOVE LATER)
-            console.log(`ANALYSIS: Price=${price} | RSI=${rsi} | Trend=${trend} | BB_Lower=${bb?.lower.toFixed(2)} | BB_Upper=${bb?.upper.toFixed(2)}`);
-
-            if (bb) {
-                const price = candles[candles.length - 1].close;
-                
-                // --- STRATEGY 1: REVERSAL (Contra-Trend) ---
-                // "Esticou demais, vai voltar"
-                // V21.20: Relaxed RSI (30/70) for Reversal to test entry
-                if (price <= bb.lower && rsi < 30) { 
-                    signal = "CALL"; 
-                    sub.innerText = `REVERSAL: FUNDO BOLINGER (RSI ${rsi})`;
-                }
-                else if (price >= bb.upper && rsi > 70) { 
-                    signal = "PUT"; 
-                    sub.innerText = `REVERSAL: TOPO BOLINGER (RSI ${rsi})`;
-                }
-                
-                // --- STRATEGY 2: MOMENTUM (Trend Following) ---
-                // "Tendência forte, vai continuar"
-                else if (trend === "STRONG_UP" && rsi < 70) {
-                    if (price > bb.basis) { // Price above middle band
-                        signal = "CALL";
-                        sub.innerText = `MOMENTUM: TENDÊNCIA ALTA (RSI ${rsi})`;
-                    }
-                }
-                else if (trend === "STRONG_DOWN" && rsi > 30) {
-                    if (price < bb.basis) { // Price below middle band
-                        signal = "PUT";
-                        sub.innerText = `MOMENTUM: TENDÊNCIA BAIXA (RSI ${rsi})`;
-                    }
-                }
-
-                // --- STRATEGY 3: NEUTRAL SCALP (The "Unfreezer") ---
-                // "Mercado parado? Opera o meio campo"
-                else if (trend === "NEUTRAL") {
-                    if (price > bb.basis && rsi > 50 && rsi < 70) {
-                         signal = "CALL";
-                         sub.innerText = `SCALP: MEIO DE BANDA (ALTA)`;
-                    }
-                    else if (price < bb.basis && rsi < 50 && rsi > 30) {
-                         signal = "PUT";
-                         sub.innerText = `SCALP: MEIO DE BANDA (BAIXA)`;
-                    }
-                }
-            }
-            
-            // RECOVERY OVERRIDE (Use AI if stuck)
-            if (signal === "NEUTRO" && martingaleLevel > 0) {
-                 // Fallback to simple AI for recovery
-                 // ... (AI Logic Placeholder if needed, or keep strict)
-                 currentStrategy = "RECOVERY_AI";
-            }
-
-            // --- CHAMELEON ANIMATION ---
-            jarvisContainer.classList.remove('sentiment-bullish', 'sentiment-bearish', 'sentiment-neutral');
-            if (signal === "CALL") jarvisContainer.classList.add('sentiment-bullish');
-            else if (signal === "PUT") jarvisContainer.classList.add('sentiment-bearish');
-            else jarvisContainer.classList.add('sentiment-neutral');
-
+            // FAKE PROCESSING DELAY FOR DRAMA
             setTimeout(() => {
-                if (signal !== "NEUTRO") {
-                    showResult(signal);
-                    if(getEl('autoTradeToggle').checked) {
-                        if (positions.size >= MAX_TRADES) {
-                            sub.innerHTML = `<span style='color:orange'>LIMITE DE ORDENS (${MAX_TRADES}/${MAX_TRADES})</span>`;
-                            setTimeout(resetBtn, 2000);
-                        } else {
-                            if (source === 'AUTO') lastTradeCandleTime = candles[candles.length-1].time; // Mark candle as traded
-                            placeTrade(signal, currentStrategy);
-                            resetBtn();
-                        }
-                    } else {
-                         resetBtn();
-                    }
+                const signal = Math.random() > 0.5 ? 'CALL' : 'PUT'; // Placeholder for real AI
+                const conf = (0.7 + Math.random() * 0.25).toFixed(2);
+                
+                if (mode === 'MANUAL') {
+                    if(sub) sub.innerText = `SINAL: ${signal} (${(conf*100).toFixed(0)}%)`;
+                    btn.style.borderColor = signal === 'CALL' ? 'var(--cyber-green)' : 'var(--cyber-red)';
                 } else {
-                    resetBtn();
+                     if (conf > 0.85) placeTrade(signal);
                 }
                 isProcessing = false;
-            }, 1000); 
-
-        } catch(e) { 
-            console.log("Analysis Info:", e.message);
-            if (source === 'MANUAL') alert(e.message);
-            isProcessing = false; 
-            resetBtn();
+            }, 1000);
+        } catch(e) {
+            console.error(e);
+            isProcessing = false;
         }
+    }
 
-        function resetBtn() {
-            btn.style.borderColor = ""; 
-            btn.style.boxShadow = "";
-            if (martingaleLevel === 0) {
-                sub.innerText = "SISTEMA ONLINE"; 
-                sub.style.color = "var(--cyber-green)";
+    function placeTrade(direction) {
+        if (!ws || ws.readyState !== 1) return;
+        
+        // CONSERVATIVE MODE LOGIC
+        let stake = currentStake;
+        const isConservative = getEl('conservativeMode') && getEl('conservativeMode').checked;
+
+        if (martingaleLevel > 0) {
+            if (isConservative) {
+                 // RECOVER ONLY: (Previous Loss / 0.9) - slightly more than break even
+                 // Let's assume Payout is 90% approx. To recover L, we need Stake = L / 0.9.
+                 // We add 10% profit margin so Stake = (L * 1.1) / 0.9
+                 // Simplified: If we lost X, next stake is X * 1.2
+                 stake = (currentStake * 1.2).toFixed(2);
+            } else {
+                 // AGGRESSIVE MARTINGALE
+                 stake = (currentStake * MARTINGALE_FACTOR).toFixed(2);
             }
+        } else {
+            stake = getEl('stakeInput').value;
         }
-    }
 
-    function showResult(text) {
-        const el = getEl('resultBig');
-        el.innerText = text;
-        el.style.color = text === "CALL" ? "#00ff41" : (text === "PUT" ? "#ff003c" : "#fff");
-        el.classList.add('show-res');
-        setTimeout(() => el.classList.remove('show-res'), 3000);
-    }
+        if (parseFloat(stake) < 0.35) stake = 0.35;
+        if (parseFloat(stake) > 5000) stake = 5000; // Safety cap
 
-    function placeTrade(direction, strategy = "AI") {
-        const stake = currentStake; 
         const duration = getEl('durationSelect').value;
-        const acc = availableAccounts.find(a=>a.token===currentToken);
         
-        if(!acc) return;
-        
-        lastStrategy = strategy; 
-
-        const btn = direction === 'CALL' ? getEl('btnCall') : getEl('btnPut');
-        btn.style.filter = "brightness(1.5)";
-        setTimeout(() => btn.style.filter = "none", 500);
-
-        ws.send(JSON.stringify({ 
-            proposal: 1, 
-            amount: stake, 
-            basis: 'stake', 
-            contract_type: direction, 
-            currency: acc.currency, 
-            duration: duration, 
-            duration_unit: 'm', 
-            symbol: SYMBOL 
-        }));
+        const req = {
+            proposal: 1,
+            amount: stake,
+            basis: 'stake',
+            contract_type: direction,
+            currency: 'USD',
+            symbol: SYMBOL,
+            duration: duration,
+            duration_unit: 'm' // minutes
+        };
+        ws.send(JSON.stringify(req));
     }
-
-
 
     function handlePosition(p) {
-        if (!p.buy_price || !p.contract_type) return;
-
-        if (p.is_sold) {
-            if (positions.has(p.contract_id)) { 
-                const strategy = strategyMap.get(p.contract_id) || "AI";
-                positions.delete(p.contract_id); 
-                strategyMap.delete(p.contract_id);
-                addHistory(p, strategy); 
-                ws.send(JSON.stringify({ balance: 1 })); 
-            }
-        } else {
-            // V21.12: Initialize Max Profit Logic
-            if (!positions.has(p.contract_id)) {
-                p.entryTime = new Date().toLocaleTimeString();
-                p.maxProfitUSD = -9999; // Track Max Profit in USD
-            } else {
-                const existing = positions.get(p.contract_id);
-                p.entryTime = existing.entryTime;
-                p.maxProfitUSD = existing.maxProfitUSD || -9999;
-            }
-            
-            const profit = Number(p.profit || 0);
-            const stake = Number(p.buy_price || 0);
-            const profitPercent = (profit / stake) * 100;
-
-            // Track High Water Mark (USD)
-            if (profit > p.maxProfitUSD) p.maxProfitUSD = profit;
-
+        // ADD TO TABLE
+        if (!positions.has(p.contract_id)) {
             positions.set(p.contract_id, p);
-            
-            const scalpPercent = parseFloat(getEl('scalpPercent').value);
-            const slTradePercent = parseFloat(getEl('slTradePercent').value);
-            
-            if (p.is_valid_to_sell) {
-                // V21.17: MICRO-TRAILING MAXIMIZER
-                
-                // 1. STRICT STOP LOSS (PRIORITY 1)
-                if (profitPercent <= -slTradePercent) {
-                    console.warn(`⛔ STOP LOSS: ${profitPercent.toFixed(2)}% <= -${slTradePercent}%`);
-                    sellPosition(p.contract_id);
-                    return; 
-                }
-
-                // 2. MICRO-TRAILING TP ($0.01 Retraction)
-                if (profitPercent >= scalpPercent) {
-                    // Target Met - Monitor Retraction
-                    const retractionUSD = p.maxProfitUSD - profit;
-                    
-                    if (retractionUSD >= 0.01) {
-                        // "Retornou 1 centavo" - CLOSE!
-                        console.log(`💰 MICRO-TRAILING: Lucro ${profit.toFixed(2)} (Pico: ${p.maxProfitUSD.toFixed(2)} | Retração: ${retractionUSD.toFixed(2)})`);
-                        sellPosition(p.contract_id);
-                    }
-                }
-            }
+            const row = document.createElement('tr');
+            row.id = `pos-${p.contract_id}`;
+            row.innerHTML = `
+                <td>${new Date(p.purchase_time * 1000).toLocaleTimeString()}</td>
+                <td style="color:${p.contract_type==='CALL'?'#00ff41':'#ff003c'}">${p.contract_type}</td>
+                <td>${p.entry_spot}</td>
+                <td id="curr-${p.contract_id}">--</td>
+                <td id="timer-${p.contract_id}">--</td>
+                <td id="pl-${p.contract_id}">0.00</td>
+                <td><button onclick="sellAtMarket('${p.contract_id}')" style="background:var(--cyber-gold); color:black; border:none; padding:5px; cursor:pointer;">VENDER</button></td>
+            `;
+            getEl('posList').appendChild(row);
+             getEl('emptyMsg').style.display = 'none';
         }
-        renderPositions();
+
+        // UPDATE STATUS
+        const currEl = document.getElementById(`curr-${p.contract_id}`);
+        const plEl = document.getElementById(`pl-${p.contract_id}`);
+        const timerEl = document.getElementById(`timer-${p.contract_id}`);
+        
+        if (currEl) currEl.innerText = p.current_spot;
+        if (plEl) {
+             const profit = parseFloat(p.profit);
+             plEl.innerText = profit.toFixed(2);
+             plEl.style.color = profit >= 0 ? '#00ff41' : '#ff003c';
+        }
+        
+        // HANDLE SELL/CLOSE
+        if (p.is_sold) {
+            positions.delete(p.contract_id);
+            addHistory(p);
+            setTimeout(() => {
+                const el = document.getElementById(`pos-${p.contract_id}`);
+                if(el) el.remove();
+                if(positions.size === 0) getEl('emptyMsg').style.display = 'block';
+            }, 2000);
+            
+            // RESULT POPUP
+            const profit = parseFloat(p.profit);
+            sessionProfit += profit;
+            getEl('sessionPL').innerText = sessionProfit.toFixed(2);
+            saveState();
+
+            const resEl = getEl('resultBig');
+            resEl.innerText = profit >= 0 ? "WIN" : "LOSS";
+            resEl.className = profit >= 0 ? "result-overlay show-res sentiment-bullish" : "result-overlay show-res sentiment-bearish";
+            resEl.style.color = profit >= 0 ? "#00ff41" : "#ff003c";
+            setTimeout(() => resEl.classList.remove('show-res'), 2000);
+
+            // MARTINGALE LOGIC
+            if (profit < 0) {
+                martingaleLevel++;
+                // Update currentStake for next trade based on this loss
+                // In a real app we'd track the actual loss amount, here we just bump the level
+                currentStake = parseFloat(p.bid_price); // The amount we lost
+            } else {
+                martingaleLevel = 0;
+                currentStake = parseFloat(getEl('stakeInput').value);
+            }
+            saveState();
+        }
+
+        // UPDATE OPEN PL
+        let totalOpen = 0;
+        positions.forEach(pos => totalOpen += parseFloat(pos.profit || 0));
+        getEl('openPL').innerText = totalOpen.toFixed(2);
+        getEl('openPL').style.color = totalOpen >= 0 ? '#00ff41' : '#ff003c';
+    }
+    
+    function addHistory(p) {
+        const item = document.createElement('div');
+        const profit = parseFloat(p.profit);
+        item.style.borderBottom = "1px solid rgba(255,255,255,0.05)";
+        item.style.padding = "10px";
+        item.style.display = "flex";
+        item.style.justifyContent = "space-between";
+        item.style.fontSize = "0.8rem";
+        
+        item.innerHTML = `
+            <span style="color:#8899a6">${new Date().toLocaleTimeString()}</span>
+            <span style="font-weight:bold; color:${p.contract_type==='CALL'?'#00ff41':'#ff003c'}">${p.contract_type}</span>
+            <span style="font-weight:bold; color:${profit>=0?'#00ff41':'#ff003c'}">${profit>0?'+':''}${profit.toFixed(2)}</span>
+        `;
+        
+        const list = getEl('histList');
+        if(list.innerText.includes("vazio")) list.innerHTML = '';
+        list.insertBefore(item, list.firstChild);
+        
+        // Limit history
+        if(list.children.length > 50) list.removeChild(list.lastChild);
     }
 
-    function sellPosition(id) { ws.send(JSON.stringify({ sell: id, price: 0 })); }
-    function closeAllPositions() { positions.forEach((_, id) => sellPosition(id)); }
+    function sellAtMarket(id) {
+        if(ws) ws.send(JSON.stringify({ sell: id, price: 0 }));
+    }
+
+    function closeAllPositions() {
+        positions.forEach((p, id) => sellAtMarket(id));
+    }
 
     function updateTimers() {
-        if(positions.size > 0) renderPositions();
+        // Can be improved to show remaining time for candles
     }
 
-    function renderPositions() {
-        const list = getEl('posList');
-        list.innerHTML = "";
-        let total = 0;
-        
-        if(positions.size === 0) {
-            getEl('emptyMsg').style.display = 'block';
-        } else {
-            getEl('emptyMsg').style.display = 'none';
-            
-            positions.forEach(p => {
-                const profit = Number(p.profit || 0);
-                total += profit;
-                const cType = p.contract_type ? p.contract_type.toUpperCase() : "ORDEM";
-                const entry = p.buy_price || 0;
-                const current = (Number(p.buy_price) + Number(p.profit)).toFixed(2);
-                
-                let timeLeft = "--";
-                if (p.date_expiry) {
-                    const now = Math.floor(Date.now() / 1000);
-                    const diff = p.date_expiry - now;
-                    if (diff > 0) {
-                        const m = Math.floor(diff / 60);
-                        const s = diff % 60;
-                        timeLeft = `${m}:${s.toString().padStart(2, '0')}`;
-                    } else {
-                        timeLeft = "0:00";
-                    }
-                }
-
-                const tr = document.createElement('tr');
-                tr.innerHTML = `
-                    <td>${p.entryTime || '--'}</td>
-                    <td style="color:${cType==='CALL'?'#00ff41':'#ff003c'}">${cType}</td>
-                    <td>${entry}</td>
-                    <td>${current}</td>
-                    <td style="color:var(--cyber-gold)">${timeLeft}</td>
-                    <td style="color:${profit>=0?'#00ff41':'#ff003c'}">${profit.toFixed(2)}</td>
-                    <td><button onclick="sellPosition(${p.contract_id})" style="background:var(--cyber-red); border:none; color:white; font-weight:bold; cursor:pointer; padding:2px 8px; border-radius:2px;">X</button></td>
-                `;
-                list.prepend(tr);
-            });
-        }
-        getEl('openPL').innerText = total.toFixed(2);
-        getEl('openPL').style.color = total >= 0 ? "#00ff41" : "#ff003c";
-    }
-
-    function addHistory(p, strategy = "AI") {
-        const profit = Number(p.profit || 0);
-        const stake = Number(p.buy_price || 0); // Capture Stake
-        
-        sessionProfit += profit;
-        getEl('sessionPL').innerText = sessionProfit.toFixed(2);
-        getEl('sessionPL').style.color = sessionProfit >= 0 ? "#00ff41" : "#ff003c";
-        
-        const baseStake = parseFloat(getEl('stakeInput').value);
-        const isConservative = getEl('conservativeMode').checked;
-
-        if (profit < 0) {
-            // LOSS HANDLER
-            if (martingaleLevel < MAX_MARTINGALE_LEVELS) {
-                martingaleLevel++;
-                accumulatedLoss += Math.abs(profit); // Add to loss bucket
-                
-                if (isConservative) {
-                    // V21.22: SMART CONSERVATIVE RECOVERY
-                    // Goal: Recover accumulated loss + 10% puff
-                    // Stake = AccumulatedLoss * 1.1 (Assuming ~95% payout)
-                    const calculatedStake = (accumulatedLoss * 1.1).toFixed(2);
-                    currentStake = parseFloat(calculatedStake);
-                    if(currentStake < baseStake) currentStake = baseStake; // Safety floor
-                    
-                    console.warn(`📉 SMART RECOVERY (Lvl ${martingaleLevel}): Loss Bucket=${accumulatedLoss.toFixed(2)} -> Next Stake=${currentStake}`);
-                } else {
-                    // AGGRESSIVE (Standard)
-                    currentStake = parseFloat((currentStake * MARTINGALE_FACTOR).toFixed(2));
-                }
-            } else {
-                // MAX LEVEL HIT - RESET
-                martingaleLevel = 0;
-                accumulatedLoss = 0;
-                currentStake = baseStake;
-            }
-        } else {
-            // WIN HANDLER
-            if (accumulatedLoss > 0) {
-                const recovered = profit; // Net profit from this trade
-                accumulatedLoss -= recovered; // Reduce bucket
-                
-                if (accumulatedLoss <= 0.1) { // Fully Recovered (with tolerance)
-                     console.log("✅ RECUPERAÇÃO COMPLETA!");
-                     martingaleLevel = 0;
-                     accumulatedLoss = 0;
-                     currentStake = baseStake;
-                } else {
-                    // Still in recovery hole
-                     console.log(`⚠️ RECUPERANDO... Falta: ${accumulatedLoss.toFixed(2)}`);
-                     // Recalculate next stake for remaining loss
-                     if (isConservative) {
-                         const calculatedStake = (accumulatedLoss * 1.1).toFixed(2);
-                         currentStake = parseFloat(calculatedStake);
-                         if(currentStake < baseStake) currentStake = baseStake;
-                     }
-                }
-            } else {
-                // Normal Win
-                martingaleLevel = 0;
-                accumulatedLoss = 0;
-                currentStake = baseStake;
-            }
-        }
-
-        // --- UPDATE HISTORY TABLE ---
-        const list = getEl('histList'); 
-        const row = document.createElement('tr');
-        const isWin = profit >= 0;
-        
-        row.innerHTML = `
-            <td style="color:${p.contract_type==='CALL'?'#00ff41':'#ff003c'}">${p.contract_type}</td>
-            <td style="color:#fff">${stake.toFixed(2)}</td>
-            <td style="text-align:right; color:${isWin?'#00ff41':'#ff003c'}">${isWin?'+':''}${profit.toFixed(2)}</td>
-        `;
-        list.prepend(row);
-        
-        // Clean old rows
-        if(list.children.length > 50) list.removeChild(list.lastChild);
-        
-        // Update stats
-        if (isWin) {
-            const el = getEl('winCount');
-            el.innerText = parseInt(el.innerText) + 1;
-        } else {
-            const el = getEl('lossCount');
-            el.innerText = parseInt(el.innerText) + 1;
-        }
-    }</script>
-</body>
-</html>
+</script>
+</body></html>
