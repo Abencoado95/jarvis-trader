@@ -647,14 +647,13 @@ function calculateMeanReversion() {
     const zScore = (currentPrice - mean) / stdDev;
     
     // DYNAMIC MULTIPLIER: 
-    // Normal: 2.0 (Conservative) / 1.5 (Aggressive)
-    // Recovery (Sniper): 2.2 (Force better entry to avoid falling knife)
+    // Normal: 2.0 (Conservative) / 1.3 (Aggressive - MORE ACTIVE)
+    // Recovery (Sniper): 2.2 (Force better entry)
     const isConservative = getEl('conservativeMode') && getEl('conservativeMode').checked;
-    let multiplier = isConservative ? 2.0 : 1.5; 
+    let multiplier = isConservative ? 2.0 : 1.3; 
     
     if (martingaleLevel > 0) {
-        multiplier = 2.2; // SNIPER MODE FOR RECOVERY
-        // This answers "aproveitar a oportunidade": Wait for the dip to get deeper!
+        multiplier = 2.2; 
     }
     
     return {
@@ -663,7 +662,8 @@ function calculateMeanReversion() {
         upperBand: mean + (multiplier * stdDev),
         lowerBand: mean - (multiplier * stdDev),
         currentPrice: currentPrice,
-        zScore: zScore
+        zScore: zScore,
+        multiplier: multiplier
     };
 }
 
@@ -726,6 +726,13 @@ async function runAI(mode) {
         }
 
         console.log(`📊 STATS: Price=${mr.currentPrice.toFixed(2)} | Mean=${mr.mean.toFixed(2)} | Z-Score=${mr.zScore.toFixed(2)}`);
+        
+        // DEBUG DISP: Show user what is happening
+        if(sub) {
+             const modeStr = (martingaleLevel > 0) ? "RECUPERAÇÃO" : "BUSCANDO";
+             // Use innerHTML to style the numbers
+             sub.innerHTML = `<span style="color:#8899a6; font-size:0.8rem;">${modeStr}</span> <span style="font-weight:900; color:${Math.abs(mr.zScore) >= mr.multiplier ? '#00ff41' : '#ff003c'}">Z:${Math.abs(mr.zScore).toFixed(2)}</span> <span style="font-size:0.7rem; color:#00f3ff">META:${mr.multiplier.toFixed(1)}</span>`;
+        }
 
         // MEAN REVERSION LOGIC
         // Price TOO HIGH (above +2σ) → Expect DROP → PUT
