@@ -224,7 +224,7 @@
         .jarvis-container { 
             position: absolute; 
             top: 50%; 
-            left: 20px; /* Inside the chart */
+            left: 20px; 
             transform: translateY(-50%); 
             width: 500px; 
             height: 500px; 
@@ -247,7 +247,12 @@
             background: #000; 
             border: 2px solid rgba(0,243,255,0.4); 
             box-shadow: inset 0 0 80px rgba(0,0,0,1);
-            opacity: 0.5; /* INCREASED VISIBILITY */
+            opacity: 1; /* FULL VISIBILITY */
+            
+            /* MIST EFFECT - HIDE HARD EDGES */
+            -webkit-mask-image: radial-gradient(circle at center, black 60%, transparent 100%);
+            mask-image: radial-gradient(circle at center, black 60%, transparent 100%);
+            
             mix-blend-mode: screen; 
             transition: all 0.5s ease;
         }
@@ -269,6 +274,10 @@
             background: transparent;
             width: 100%; height: 100%; 
             animation: shockwave 2s infinite ease-out;
+            
+            /* MIST EFFECT ON WAVES TOO */
+            -webkit-mask-image: radial-gradient(circle at center, black 60%, transparent 100%);
+            mask-image: radial-gradient(circle at center, black 60%, transparent 100%);
         }
         .energy-wave::before { animation-delay: 0s; }
         .energy-wave::after { animation-delay: 1s; }
@@ -636,11 +645,15 @@ function calculateMeanReversion() {
     // Calculate Z-Score (how many std devs away from mean)
     const zScore = (currentPrice - mean) / stdDev;
     
+    // DYNAMIC MULTIPLIER: 2.0 (Conservative) vs 1.5 (Aggressive)
+    const isConservative = getEl('conservativeMode') && getEl('conservativeMode').checked;
+    const multiplier = isConservative ? 2.0 : 1.5; 
+    
     return {
         mean: mean,
         stdDev: stdDev,
-        upperBand: mean + (2 * stdDev),
-        lowerBand: mean - (2 * stdDev),
+        upperBand: mean + (multiplier * stdDev),
+        lowerBand: mean - (multiplier * stdDev),
         currentPrice: currentPrice,
         zScore: zScore
     };
