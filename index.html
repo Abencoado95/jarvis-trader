@@ -241,17 +241,18 @@
             width: 500px; 
             height: 500px; 
             object-fit: cover; 
+            /* Remove hard border to allow "mist" fade */
+            border: none; 
             border-radius: 50%; 
             position: relative; 
             z-index: 2; 
-            background: #000; 
-            border: 2px solid rgba(0,243,255,0.4); 
-            box-shadow: inset 0 0 80px rgba(0,0,0,1);
-            opacity: 1; /* FULL VISIBILITY */
+            background: transparent; /* No hard black background */
+            box-shadow: none; 
+            opacity: 1; 
             
-            /* MIST EFFECT - HIDE HARD EDGES */
-            -webkit-mask-image: radial-gradient(circle at center, black 60%, transparent 100%);
-            mask-image: radial-gradient(circle at center, black 60%, transparent 100%);
+            /* REAL MIST FADE */
+            -webkit-mask-image: radial-gradient(closest-side, rgba(0,0,0,1) 50%, rgba(0,0,0,0) 100%);
+            mask-image: radial-gradient(closest-side, rgba(0,0,0,1) 50%, rgba(0,0,0,0) 100%);
             
             mix-blend-mode: screen; 
             transition: all 0.5s ease;
