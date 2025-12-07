@@ -646,9 +646,9 @@ function calculateMeanReversion() {
     // Calculate Z-Score (how many std devs away from mean)
     const zScore = (currentPrice - mean) / stdDev;
     
-    // DYNAMIC MULTIPLIER: 2.0 (Conservative) vs 1.8 (Aggressive - User Request)
+    // DYNAMIC MULTIPLIER: 2.0 (Conservative) vs 1.5 (Aggressive - Fast Entry)
     const isConservative = getEl('conservativeMode') && getEl('conservativeMode').checked;
-    const multiplier = isConservative ? 2.0 : 1.8; 
+    const multiplier = isConservative ? 2.0 : 1.5; 
     
     return {
         mean: mean,
