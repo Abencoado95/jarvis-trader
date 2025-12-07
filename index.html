@@ -646,9 +646,16 @@ function calculateMeanReversion() {
     // Calculate Z-Score (how many std devs away from mean)
     const zScore = (currentPrice - mean) / stdDev;
     
-    // DYNAMIC MULTIPLIER: 2.0 (Conservative) vs 1.5 (Aggressive - Fast Entry)
+    // DYNAMIC MULTIPLIER: 
+    // Normal: 2.0 (Conservative) / 1.5 (Aggressive)
+    // Recovery (Sniper): 2.2 (Force better entry to avoid falling knife)
     const isConservative = getEl('conservativeMode') && getEl('conservativeMode').checked;
-    const multiplier = isConservative ? 2.0 : 1.5; 
+    let multiplier = isConservative ? 2.0 : 1.5; 
+    
+    if (martingaleLevel > 0) {
+        multiplier = 2.2; // SNIPER MODE FOR RECOVERY
+        // This answers "aproveitar a oportunidade": Wait for the dip to get deeper!
+    }
     
     return {
         mean: mean,
