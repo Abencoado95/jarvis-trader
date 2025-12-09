@@ -667,6 +667,38 @@ function calculateMeanReversion() {
     };
 }
 
+function checkVisualPattern(type) {
+    // "PADRÕES VISUAIS" (User Request)
+    // Avoid "Falling Knife" (Buying CALL when huge red candles)
+    // Avoid "Rocket" (Selling PUT when huge green candles)
+    if (candles.length < 3) return true; // Not enough data, trust Z-Score
+    
+    // Get last completed candle (index 1 from end, as 0 is current forming)
+    const last = candles[candles.length - 2];
+    const prev = candles[candles.length - 3];
+    
+    const isRed = (c) => c.close < c.open;
+    const isGreen = (c) => c.close > c.open;
+    
+    if (type === 'CALL') {
+        // Anti-Crash: If last 2 candles are RED, DANGEROUS!
+        if (isRed(last) && isRed(prev)) {
+            console.warn("⚠️ VISUAL FILTER: 2 Red Candles -> Wait for Reversal!");
+            return false;
+        }
+    }
+    
+    if (type === 'PUT') {
+        // Anti-Pump: If last 2 candles are GREEN, DANGEROUS!
+        if (isGreen(last) && isGreen(prev)) {
+             console.warn("⚠️ VISUAL FILTER: 2 Green Candles -> Wait for Reversal!");
+             return false;
+        }
+    }
+    
+    return true; 
+}
+
 function getCandleAge() {
     if (candles.length === 0) return 999;
     const lastCandle = candles[candles.length - 1];
@@ -737,20 +769,24 @@ async function runAI(mode) {
         // MEAN REVERSION LOGIC
         // Price TOO HIGH (above +2σ) → Expect DROP → PUT
         if (mr.currentPrice >= mr.upperBand) {
-            if (rsi > 35) { // Light RSI filter
-                signal = "PUT";
-                if(sub) sub.innerText = `🔴 PUT: PREÇO ALTO (Z=${mr.zScore.toFixed(2)})`;
-                console.log(`✅ SIGNAL: PUT | Price ${mr.currentPrice.toFixed(2)} >= Upper ${mr.upperBand.toFixed(2)}`);
-            }
+             if (rsi > 35) { // Light RSI filter
+                 if (checkVisualPattern('PUT')) {
+                     signal = "PUT";
+                     if(sub) sub.innerText = `🔴 PUT: PREÇO ALTO (Z=${mr.zScore.toFixed(2)})`;
+                     console.log(`✅ SIGNAL: PUT | Price ${mr.currentPrice.toFixed(2)} >= Upper ${mr.upperBand.toFixed(2)}`);
+                 }
+             }
         }
         
         // Price TOO LOW (below -2σ) → Expect RISE → CALL
         else if (mr.currentPrice <= mr.lowerBand) {
-            if (rsi < 65) { // Light RSI filter
-                signal = "CALL";
-                if(sub) sub.innerText = `🟢 CALL: PREÇO BAIXO (Z=${mr.zScore.toFixed(2)})`;
-                console.log(`✅ SIGNAL: CALL | Price ${mr.currentPrice.toFixed(2)} <= Lower ${mr.lowerBand.toFixed(2)}`);
-            }
+             if (rsi < 65) { // Light RSI filter
+                 if (checkVisualPattern('CALL')) {
+                     signal = "CALL";
+                     if(sub) sub.innerText = `🟢 CALL: PREÇO BAIXO (Z=${mr.zScore.toFixed(2)})`;
+                     console.log(`✅ SIGNAL: CALL | Price ${mr.currentPrice.toFixed(2)} <= Lower ${mr.lowerBand.toFixed(2)}`);
+                 }
+             }
         }
 
         // AI VETO (If loaded)
@@ -841,22 +877,24 @@ function placeTrade(direction) {
         if (isConservative) {
              stake = (currentStake * 1.3).toFixed(2);
         } else {
-             // SMART RECOVERY LOGIC (User Request)
-             // Formula: NextStake = (AccumulatedLoss * 1.1) / (TargetProfit% / 100)
-             // This ensures we recover the loss + 10% extra profit, accounting for the payout/TP%
+             // HYBRID RECOVERY: Smart Math + Brute Force Floor
+             // User Request: "Cade o multiplicador?" -> We give him a MULTIPLIER.
+             // Floor: 2.1x (Guarantees visual growth even on small losses)
+             
              const tpPercent = parseFloat(getEl('scalpPercent').value) || 50; 
-             const targetProfitLoop = accumulatedLoss * 1.1; // Recover + 10% buffer
+             const targetedRecovery = accumulatedLoss * 1.1; 
+             let smartStake = targetedRecovery / (tpPercent / 100);
              
-             // If TP is 50%, we need to bet enough so that 50% of the bet equals the target profit
-             // Bet * 0.50 = targetProfitLoop  =>  Bet = targetProfitLoop / 0.50
-             let smartStake = targetProfitLoop / (tpPercent / 100);
+             // BRUTE FORCE FLOOR: Minimum 2.1x the previous stake
+             const floorStake = currentStake * 2.1;
              
-             // Safety: If smart stake is somehow lower than base, use base.
-             const baseStake = parseFloat(getEl('stakeInput').value);
-             if (smartStake < baseStake) smartStake = baseStake;
+             if (smartStake < floorStake) {
+                 smartStake = floorStake;
+                 console.log(`💪 FORCE MULTIPLIER: Smart ($${smartStake.toFixed(2)}) was too low. Using Floor ($${floorStake.toFixed(2)})`);
+             }
              
              stake = smartStake.toFixed(2);
-             console.log(`🧠 SMART RECOVERY: Loss $${accumulatedLoss.toFixed(2)} | Aiming for $${targetProfitLoop.toFixed(2)} (TP ${tpPercent}%) -> Stake $${stake}`);
+             console.log(`🧠 HYBRID RECOVERY: Loss $${accumulatedLoss.toFixed(2)} | Stake $${stake} (x${(stake/currentStake).toFixed(1)})`);
         }
     } else {
         stake = getEl('stakeInput').value;
@@ -1003,15 +1041,7 @@ function handlePosition(p) {
             accumulatedLoss += Math.abs(profit);
             currentStake = buyPrice; 
             
-            // CIRCUIT BREAKER: Reset after 3 consecutive losses
-            if (martingaleLevel >= 3) {
-                console.warn(`🔴 CIRCUIT BREAKER ATIVADO! 3 Perdas Consecutivas ($${accumulatedLoss.toFixed(2)}). Resetando para Modo Agressivo.`);
-                martingaleLevel = 0;
-                accumulatedLoss = 0;
-                currentStake = parseFloat(getEl('stakeInput').value);
-            } else {
-                console.warn(`💥 LOSS: Accumulated ${accumulatedLoss.toFixed(2)} | Level ${martingaleLevel}`);
-            }
+            console.warn(`💥 LOSS: Accumulated ${accumulatedLoss.toFixed(2)} | Level ${martingaleLevel}`);
         } else {
             if (martingaleLevel > 0) {
                 console.log(`🎉 RECOVERY SUCCESS! Cleared ${accumulatedLoss.toFixed(2)}`);
