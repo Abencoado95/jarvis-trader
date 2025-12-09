@@ -1002,7 +1002,16 @@ function handlePosition(p) {
             martingaleLevel++;
             accumulatedLoss += Math.abs(profit);
             currentStake = buyPrice; 
-            console.warn(`💥 LOSS: Accumulated ${accumulatedLoss.toFixed(2)} | Level ${martingaleLevel}`);
+            
+            // CIRCUIT BREAKER: Reset after 3 consecutive losses
+            if (martingaleLevel >= 3) {
+                console.warn(`🔴 CIRCUIT BREAKER ATIVADO! 3 Perdas Consecutivas ($${accumulatedLoss.toFixed(2)}). Resetando para Modo Agressivo.`);
+                martingaleLevel = 0;
+                accumulatedLoss = 0;
+                currentStake = parseFloat(getEl('stakeInput').value);
+            } else {
+                console.warn(`💥 LOSS: Accumulated ${accumulatedLoss.toFixed(2)} | Level ${martingaleLevel}`);
+            }
         } else {
             if (martingaleLevel > 0) {
                 console.log(`🎉 RECOVERY SUCCESS! Cleared ${accumulatedLoss.toFixed(2)}`);
