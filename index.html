@@ -1052,6 +1052,7 @@ function handlePosition(p) {
         }
         
         tradeStakes.delete(p.contract_id);
+        positions.delete(p.contract_id); // CRITICAL FIX: Free up slot!
         saveState();
     }
 }
