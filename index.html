@@ -671,27 +671,26 @@ function checkVisualPattern(type) {
     // "PADRÕES VISUAIS" (User Request)
     // Avoid "Falling Knife" (Buying CALL when huge red candles)
     // Avoid "Rocket" (Selling PUT when huge green candles)
-    if (candles.length < 3) return true; // Not enough data, trust Z-Score
-    
-    // Get last completed candle (index 1 from end, as 0 is current forming)
+    if (candles.length < 3) return true; 
+
     const last = candles[candles.length - 2];
-    const prev = candles[candles.length - 3];
-    
+    const current = candles[candles.length - 1]; // Current forming candle
+
     const isRed = (c) => c.close < c.open;
     const isGreen = (c) => c.close > c.open;
     
     if (type === 'CALL') {
-        // Anti-Crash: If last 2 candles are RED, DANGEROUS!
-        if (isRed(last) && isRed(prev)) {
-            console.warn("⚠️ VISUAL FILTER: 2 Red Candles -> Wait for Reversal!");
+        // Anti-Crash: If current is RED and dropping fast, ignore "Cheap" signal
+        if (isRed(current) && isRed(last)) {
+            console.warn("⚠️ VISUAL FILTER: Falling Knife Detected (Current+Last Red) -> Wait!");
             return false;
         }
     }
     
     if (type === 'PUT') {
-        // Anti-Pump: If last 2 candles are GREEN, DANGEROUS!
-        if (isGreen(last) && isGreen(prev)) {
-             console.warn("⚠️ VISUAL FILTER: 2 Green Candles -> Wait for Reversal!");
+        // Anti-Pump: If current is GREEN and pumping, ignore "Expensive" signal
+        if (isGreen(current) && isGreen(last)) {
+             console.warn("⚠️ VISUAL FILTER: Rocket Detected (Current+Last Green) -> Wait!");
              return false;
         }
     }
