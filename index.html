@@ -877,24 +877,24 @@ function placeTrade(direction) {
         if (isConservative) {
              stake = (currentStake * 1.3).toFixed(2);
         } else {
-             // HYBRID RECOVERY: Smart Math + Brute Force Floor
-             // User Request: "Cade o multiplicador?" -> We give him a MULTIPLIER.
-             // Floor: 2.1x (Guarantees visual growth even on small losses)
+             // INTELLIGENT RECOVERY (User Request: "Engenharia Avançada")
+             // Context: With SL 30% and TP 70%, we don't need to double the stake!
+             // Loss is small ($3 on $10), so we calculate EXACTLY what's needed.
              
              const tpPercent = parseFloat(getEl('scalpPercent').value) || 50; 
-             const targetedRecovery = accumulatedLoss * 1.1; 
+             const targetedRecovery = accumulatedLoss * 1.1; // Recover + 10% Profit
              let smartStake = targetedRecovery / (tpPercent / 100);
              
-             // BRUTE FORCE FLOOR: Minimum 2.1x the previous stake
-             const floorStake = currentStake * 2.1;
+             // SAFETY FLOOR: Never bid less than the fundamental Base Stake
+             const baseStake = parseFloat(getEl('stakeInput').value);
              
-             if (smartStake < floorStake) {
-                 smartStake = floorStake;
-                 console.log(`💪 FORCE MULTIPLIER: Smart ($${smartStake.toFixed(2)}) was too low. Using Floor ($${floorStake.toFixed(2)})`);
+             if (smartStake < baseStake) {
+                 console.log(`🧠 SMART ADJUST: Math says $${smartStake.toFixed(2)} is enough, but keeping Base $${baseStake} for momentum.`);
+                 smartStake = baseStake;
              }
              
              stake = smartStake.toFixed(2);
-             console.log(`🧠 HYBRID RECOVERY: Loss $${accumulatedLoss.toFixed(2)} | Stake $${stake} (x${(stake/currentStake).toFixed(1)})`);
+             console.log(`🧠 INTELLIGENT RECOVERY: Loss $${accumulatedLoss.toFixed(2)} (Small SL) | Aiming for $${targetedRecovery.toFixed(2)} | TP ${tpPercent}% -> Optimal Stake $${stake}`);
         }
     } else {
         stake = getEl('stakeInput').value;
