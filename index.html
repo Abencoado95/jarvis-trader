@@ -530,6 +530,10 @@
             <div style="background:rgba(255,255,255,0.02); padding:20px; border-radius:4px; text-align:center; border:1px solid rgba(255,255,255,0.05); flex-shrink:0;">
                 <div style="font-size:0.8rem; color:#8899a6; letter-spacing:3px; font-weight:bold;">RESULTADO DO DIA</div>
                 <div id="sessionPL" style="font-size:3rem; font-weight:900; margin-top:5px; color:white; text-shadow:0 0 30px rgba(255,255,255,0.2);">0.00</div>
+                <!-- RESET SESSION BUTTON -->
+                <div style="margin-top:5px; cursor:pointer; opacity:0.5; transition:0.3s;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.5" onclick="resetSession()" title="Zerar Histórico da Sessão">
+                    🗑️ <span style="font-size:0.7rem; color:#5f7e97;">ZERAR SESSÃO</span>
+                </div>
             </div>
             
             <div class="config-group" style="margin-top:10px; border-color:rgba(255,0,60,0.3); flex-shrink:0;">
@@ -698,6 +702,38 @@ function checkVisualPattern(type) {
     return true; 
 }
 
+function checkWickRejection(type) {
+    if (candles.length < 1) return true;
+    const c = candles[candles.length - 1]; // Current Live Candle
+    
+    const bodySize = Math.abs(c.close - c.open);
+    const upperWick = c.high - Math.max(c.open, c.close);
+    const lowerWick = Math.min(c.open, c.close) - c.low;
+    
+    // HEAVY ENGINEERING: Candle Anatomy Analysis
+    // Issue: "Pega candle retraindo" -> We must detect Rejection Wicks.
+    
+    if (type === 'CALL') {
+        // Danger: Huge Upper Wick (Selling Pressure) -> Market tried to go up and failed.
+        // Don't buy into resistance.
+        if (upperWick > (bodySize * 1.5) && upperWick > 0.05) {
+             console.warn(`⚠️ WICK REJECTION: Call Rejected by Huge Upper Wick (${upperWick.toFixed(2)})`);
+             return false;
+        }
+    }
+    
+    if (type === 'PUT') {
+        // Danger: Huge Lower Wick (Buying Pressure) -> Market tried to go down and failed.
+        // Don't sell into support.
+        if (lowerWick > (bodySize * 1.5) && lowerWick > 0.05) {
+             console.warn(`⚠️ WICK REJECTION: Put Rejected by Huge Lower Wick (${lowerWick.toFixed(2)})`);
+             return false;
+        }
+    }
+    
+    return true;
+}
+
 function getCandleAge() {
     if (candles.length === 0) return 999;
     const lastCandle = candles[candles.length - 1];
@@ -770,9 +806,11 @@ async function runAI(mode) {
         if (mr.currentPrice >= mr.upperBand) {
              if (rsi > 35) { // Light RSI filter
                  if (checkVisualPattern('PUT')) {
-                     signal = "PUT";
-                     if(sub) sub.innerText = `🔴 PUT: PREÇO ALTO (Z=${mr.zScore.toFixed(2)})`;
-                     console.log(`✅ SIGNAL: PUT | Price ${mr.currentPrice.toFixed(2)} >= Upper ${mr.upperBand.toFixed(2)}`);
+                     if (checkWickRejection('PUT')) {
+                         signal = "PUT";
+                         if(sub) sub.innerText = `🔴 PUT: Z-SCORE ALTO (Z=${mr.zScore.toFixed(2)})`;
+                         console.log(`✅ SIGNAL: PUT | Price ${mr.currentPrice.toFixed(2)} >= Upper ${mr.upperBand.toFixed(2)}`);
+                     }
                  }
              }
         }
@@ -781,9 +819,11 @@ async function runAI(mode) {
         else if (mr.currentPrice <= mr.lowerBand) {
              if (rsi < 65) { // Light RSI filter
                  if (checkVisualPattern('CALL')) {
-                     signal = "CALL";
-                     if(sub) sub.innerText = `🟢 CALL: PREÇO BAIXO (Z=${mr.zScore.toFixed(2)})`;
-                     console.log(`✅ SIGNAL: CALL | Price ${mr.currentPrice.toFixed(2)} <= Lower ${mr.lowerBand.toFixed(2)}`);
+                     if (checkWickRejection('CALL')) {
+                         signal = "CALL";
+                         if(sub) sub.innerText = `🟢 CALL: Z-SCORE BAIXO (Z=${mr.zScore.toFixed(2)})`;
+                         console.log(`✅ SIGNAL: CALL | Price ${mr.currentPrice.toFixed(2)} <= Lower ${mr.lowerBand.toFixed(2)}`);
+                     }
                  }
              }
         }
@@ -1099,6 +1139,27 @@ function saveState() {
         trailingDistance: getEl('trailingDistance') ? getEl('trailingDistance').value : 5
     };
     localStorage.setItem('jarvis_state_v20', JSON.stringify(state));
+}
+
+function resetSession() {
+    if(!confirm("Tem certeza que deseja zerar o histórico desta sessão?")) return;
+    
+    // Reset Logic
+    sessionProfit = 0.0;
+    accumulatedLoss = 0.0;
+    martingaleLevel = 0;
+    currentStake = parseFloat(getEl('stakeInput').value);
+    
+    // UI Updates
+    getEl('sessionPL').innerText = "0.00";
+    getEl('sessionPL').style.color = "white"; // Reset color
+    getEl('histList').innerHTML = '<div style="text-align:center; color:#445566; font-size:0.8rem; margin-top:40px;">Histórico zerado.</div>';
+    
+    // Clear persistent storage if needed, but we keep the config.
+    // We only reset the "Session" trackers.
+    saveState();
+    
+    console.log("🗑️ SESSION RESET: PnL, History, and Martingale Level cleared.");
 }
 
 function loadState() {
