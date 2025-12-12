@@ -808,8 +808,7 @@ async function runAI(mode) {
                  if (checkVisualPattern('PUT')) {
                      if (checkWickRejection('PUT')) {
                          signal = "PUT";
-                         if(sub) sub.innerText = `🔴 PUT: Z-SCORE ALTO (Z=${mr.zScore.toFixed(2)})`;
-                         console.log(`✅ SIGNAL: PUT | Price ${mr.currentPrice.toFixed(2)} >= Upper ${mr.upperBand.toFixed(2)}`);
+                         // UI update moved to end
                      }
                  }
              }
@@ -821,8 +820,7 @@ async function runAI(mode) {
                  if (checkVisualPattern('CALL')) {
                      if (checkWickRejection('CALL')) {
                          signal = "CALL";
-                         if(sub) sub.innerText = `🟢 CALL: Z-SCORE BAIXO (Z=${mr.zScore.toFixed(2)})`;
-                         console.log(`✅ SIGNAL: CALL | Price ${mr.currentPrice.toFixed(2)} <= Lower ${mr.lowerBand.toFixed(2)}`);
+                         // UI update moved to end
                      }
                  }
              }
