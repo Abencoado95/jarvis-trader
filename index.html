@@ -585,6 +585,8 @@ let currentStake = 1.0;
 let highestProfit = new Map();
 let accumulatedLoss = 0.0;
 let tradeStakes = new Map();
+let lossCoolDownTimestamp = 0; // "GELADEIRA" (Cool Down)
+const COOL_DOWN_MS = 60000; // 1 Minute Freeze after Loss
 
 // --- HELPER ---
 function getEl(id) {
@@ -645,9 +647,20 @@ function calculateMeanReversion() {
     const variance = slice.reduce((a,b) => a + Math.pow(b - mean, 2), 0) / period;
     const stdDev = Math.sqrt(variance);
     
+    // EMA TREND FILTER (Trend Definition)
+    // We use EMA 100 to define the major trend.
+    const emaPeriod = 100;
+    let ema = null;
+    if (candles.length >= emaPeriod) {
+        const prices = candles.map(c => c.close);
+        const k = 2 / (emaPeriod + 1);
+        ema = prices[0]; // Start with first price (approx)
+        for (let i = 1; i < prices.length; i++) {
+            ema = (prices[i] * k) + (ema * (1 - k));
+        }
+    }
+
     const currentPrice = candles[candles.length - 1].close;
-    
-    // Calculate Z-Score (how many std devs away from mean)
     const zScore = (currentPrice - mean) / stdDev;
     
     // DYNAMIC MULTIPLIER (BALANCED): 
@@ -667,8 +680,29 @@ function calculateMeanReversion() {
         lowerBand: mean - (multiplier * stdDev),
         currentPrice: currentPrice,
         zScore: zScore,
-        multiplier: multiplier
+        multiplier: multiplier,
+        ema: ema // Trend Filter
     };
+}
+
+function updateCoolDownTimer() {
+    const btn = getEl('btnDecode');
+    const sub = getEl('btnSubText');
+    if (!btn || !sub) return;
+
+    if (Date.now() < lossCoolDownTimestamp) {
+        const remaining = Math.ceil((lossCoolDownTimestamp - Date.now()) / 1000);
+        btn.style.borderColor = 'var(--cyber-blue)'; 
+        btn.disabled = true;
+        sub.innerText = `❄️ RESFRIAMENTO: ${remaining}s`;
+        sub.style.color = '#00f3ff';
+    } else {
+        if(btn.disabled && sub.innerText.includes("RESFRIAMENTO")) {
+             btn.disabled = false;
+             sub.innerText = "SISTEMA ONLINE";
+             sub.style.color = "var(--cyber-green)";
+        }
+    }
 }
 
 function checkVisualPattern(type) {
@@ -700,6 +734,31 @@ function checkVisualPattern(type) {
     }
     
     return true; 
+}
+
+function countConsecutive(type) {
+    let count = 0;
+    for (let i = candles.length - 2; i >= 0; i--) { // Start from last completed
+        const c = candles[i];
+        const isGreen = c.close > c.open;
+        const isRed = c.close < c.open;
+        
+        if (type === 'GREEN' && isGreen) count++;
+        else if (type === 'RED' && isRed) count++;
+        else break;
+    }
+    return count;
+}
+
+function checkVolatility() {
+    // AVOID FLAT MARKETS
+    // Simple check: Body size average vs price
+    const last10 = candles.slice(-10);
+    const avgBody = last10.reduce((a,c) => a + Math.abs(c.close - c.open), 0) / 10;
+    if (avgBody < 0.05) { // Very flat for this asset?
+         return false;
+    }
+    return true;
 }
 
 function checkWickRejection(type) {
@@ -775,8 +834,6 @@ async function runAI(mode) {
         if(sub) sub.innerText = `ANALISANDO DESVIO...`;
         await new Promise(r => setTimeout(r, 300));
 
-        let signal = "NEUTRO";
-        
         if (candles.length < 30) {
             if(sub) sub.innerText = "DADOS INSUFICIENTES...";
             isProcessing = false;
@@ -792,7 +849,7 @@ async function runAI(mode) {
             return;
         }
 
-        console.log(`📊 STATS: Price=${mr.currentPrice.toFixed(2)} | Mean=${mr.mean.toFixed(2)} | Z-Score=${mr.zScore.toFixed(2)}`);
+        console.log(`📊 STATS: Price=${mr.currentPrice.toFixed(2)} | Mean=${mr.mean.toFixed(2)} | Z-Score=${mr.zScore.toFixed(2)} | EMA=${mr.ema ? mr.ema.toFixed(2) : 'N/A'}`);
         
         // DEBUG DISP: Show user what is happening
         if(sub) {
@@ -801,15 +858,32 @@ async function runAI(mode) {
              sub.innerHTML = `<span style="color:#8899a6; font-size:0.8rem;">${modeStr}</span> <span style="font-weight:900; color:${Math.abs(mr.zScore) >= mr.multiplier ? '#00ff41' : '#ff003c'}">Z:${Math.abs(mr.zScore).toFixed(2)}</span> <span style="font-size:0.7rem; color:#00f3ff">META:${mr.multiplier.toFixed(1)}</span>`;
         }
 
+        let signal = "NEUTRO";
+
         // MEAN REVERSION LOGIC
         // Price TOO HIGH (above +2σ) → Expect DROP → PUT
         if (mr.currentPrice >= mr.upperBand) {
              if (rsi > 35) { // Light RSI filter
-                 if (checkVisualPattern('PUT')) {
-                     if (checkWickRejection('PUT')) {
-                         signal = "PUT";
-                         // UI update moved to end
+                 // TREND FILTER: Don't PUT if in Strong Uptrend (Price > EMA)
+                 // Exception: Recovery Mode (Sniper needs to act)
+                 const unsafeAgainstTrend = (mr.ema && mr.currentPrice > mr.ema);
+                 
+                 // ANTI-TRAIN FILTER (Momentum Defense)
+                 // If 4+ Green Candles in a row, DO NOT FADE IT.
+                 const trainGreen = countConsecutive('GREEN');
+                 
+                 if ((!unsafeAgainstTrend || martingaleLevel > 0) && trainGreen < 4) {
+                     if (checkVisualPattern('PUT')) {
+                         if (checkWickRejection('PUT')) {
+                             if (checkVolatility()) { // Volatility Gate
+                                 signal = "PUT";
+                                 // fast exec
+                             }
+                         }
                      }
+                 } else {
+                     if (trainGreen >= 4) console.warn("🚂 ANTI-TRAIN: Skipping PUT (4+ Green Candles)");
+                     else console.log("⚠️ TREND FILTER: Skip PUT (Price > EMA)");
                  }
              }
         }
@@ -817,11 +891,25 @@ async function runAI(mode) {
         // Price TOO LOW (below -2σ) → Expect RISE → CALL
         else if (mr.currentPrice <= mr.lowerBand) {
              if (rsi < 65) { // Light RSI filter
-                 if (checkVisualPattern('CALL')) {
-                     if (checkWickRejection('CALL')) {
-                         signal = "CALL";
-                         // UI update moved to end
+                 // TREND FILTER: Don't CALL if in Strong Downtrend (Price < EMA)
+                 const unsafeAgainstTrend = (mr.ema && mr.currentPrice < mr.ema);
+                 
+                 // ANTI-TRAIN FILTER (Momentum Defense)
+                 // If 4+ Red Candles in a row, DO NOT FADE IT.
+                 const trainRed = countConsecutive('RED');
+
+                 if ((!unsafeAgainstTrend || martingaleLevel > 0) && trainRed < 4) {
+                     if (checkVisualPattern('CALL')) {
+                         if (checkWickRejection('CALL')) {
+                             if (checkVolatility()) { // Volatility Gate
+                                 signal = "CALL";
+                                 // fast exec
+                             }
+                         }
                      }
+                 } else {
+                     if (trainRed >= 4) console.warn("🚂 ANTI-TRAIN: Skipping CALL (4+ Red Candles)");
+                     else console.log("⚠️ TREND FILTER: Skip CALL (Price < EMA)");
                  }
              }
         }
@@ -1078,6 +1166,11 @@ function handlePosition(p) {
             accumulatedLoss += Math.abs(profit);
             currentStake = buyPrice; 
             
+            // COOL DOWN ACTIVATION (Anti-Tilt)
+            lossCoolDownTimestamp = Date.now() + COOL_DOWN_MS;
+            console.warn(`❄️ COOL DOWN: Pausing for 60s. Accumulated Loss: ${accumulatedLoss.toFixed(2)}`);
+            updateCoolDownTimer();
+
             console.warn(`💥 LOSS: Accumulated ${accumulatedLoss.toFixed(2)} | Level ${martingaleLevel}`);
         } else {
             if (martingaleLevel > 0) {
