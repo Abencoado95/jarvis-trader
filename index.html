@@ -1119,6 +1119,45 @@ function handlePosition(p) {
     }
     
     if (!shouldSell) {
+        
+        // --- NANO-SCALPING & RATCET (A "CATRACA" USD) ---
+        // User Request: "Melhor 0.40 ou 0.10 do que quebrar".
+        // Capture ANY significant profit.
+        
+        const secureProfit = 0.40; // Target 40 cents
+        const ratchetStep = 0.10;  // 10 cents steps
+        
+        // 1. HARD TAKE PROFIT (Micro-Target)
+        if (profit >= secureProfit) {
+            console.log(`💰 MICRO-HARVEST: ${profit.toFixed(2)} >= ${secureProfit}`);
+            shouldSell = true;
+        }
+
+        // 2. THE RATCHET (Catraca)
+        // If we have SOME profit (> 0.15), don't let it turn into a loss.
+        if (profit >= 0.15) {
+            // Calculate a dynamic stop price (Virtual Stop)
+            // If profit is 0.20, stop is 0.10
+            // If profit is 0.30, stop is 0.20
+            // Formula: Math.floor(profit / 0.10) * 0.10 - 0.10
+            // Example: 0.25 -> 0.20 - 0.10 = 0.10 (Secure 0.10)
+            
+            // Simpler: If we are above 0.15, break-even is the floor.
+            // If we are above 0.30, 0.15 is the floor.
+            
+            // Quick implementation:
+            // Track highest USD profit for this position
+            if (!p.maxProfitUSD || profit > p.maxProfitUSD) {
+                p.maxProfitUSD = profit;
+            }
+            
+            const drawdown = p.maxProfitUSD - profit;
+            if (p.maxProfitUSD >= 0.20 && drawdown >= 0.10) {
+                 console.log(`📉 RATCHET STOP: Peak $${p.maxProfitUSD.toFixed(2)} - Drop $0.10`);
+                 shouldSell = true; 
+            }
+        }
+    
         const userTP = parseFloat(getEl('scalpPercent').value) || 999;
         if (profitPercent >= userTP) {
             console.log(`✅ TP HIT: ${profitPercent.toFixed(2)}% >= ${userTP}%`);
