@@ -878,12 +878,23 @@ async function runAI(mode) {
                              if (checkVolatility()) { // Volatility Gate
                                  signal = "PUT";
                                  // fast exec
+                             } else {
+                                if(sub) sub.innerText = "⚠️ MERCADO SEM VOLATILIDADE";
                              }
+                         } else {
+                            if(sub) sub.innerText = "🛑 REJEIÇÃO (PAVIO)";
                          }
+                     } else {
+                        if(sub) sub.innerText = "🛑 PADRÃO VISUAL PERIGOSO";
                      }
                  } else {
-                     if (trainGreen >= 4) console.warn("🚂 ANTI-TRAIN: Skipping PUT (4+ Green Candles)");
-                     else console.log("⚠️ TREND FILTER: Skip PUT (Price > EMA)");
+                     if (trainGreen >= 4) {
+                         console.warn("🚂 ANTI-TRAIN: Skipping PUT (4+ Green Candles)");
+                         if(sub) sub.innerText = "🚂 ANTI-TREM: 4+ VELAS VERDES";
+                     } else {
+                         console.log("⚠️ TREND FILTER: Skip PUT (Price > EMA)");
+                         if(sub) sub.innerText = "⛔ TENDÊNCIA DE ALTA (EMA)";
+                     }
                  }
              }
         }
@@ -904,12 +915,23 @@ async function runAI(mode) {
                              if (checkVolatility()) { // Volatility Gate
                                  signal = "CALL";
                                  // fast exec
+                             } else {
+                                if(sub) sub.innerText = "⚠️ MERCADO SEM VOLATILIDADE";
                              }
+                         } else {
+                            if(sub) sub.innerText = "🛑 REJEIÇÃO (PAVIO)";
                          }
+                     } else {
+                        if(sub) sub.innerText = "🛑 PADRÃO VISUAL PERIGOSO";
                      }
                  } else {
-                     if (trainRed >= 4) console.warn("🚂 ANTI-TRAIN: Skipping CALL (4+ Red Candles)");
-                     else console.log("⚠️ TREND FILTER: Skip CALL (Price < EMA)");
+                     if (trainRed >= 4) {
+                         console.warn("🚂 ANTI-TRAIN: Skipping CALL (4+ Red Candles)");
+                         if(sub) sub.innerText = "🚂 ANTI-TREM: 4+ VELAS VERMELHAS";
+                     } else {
+                         console.log("⚠️ TREND FILTER: Skip CALL (Price < EMA)");
+                         if(sub) sub.innerText = "⛔ TENDÊNCIA DE BAIXA (EMA)";
+                     }
                  }
              }
         }
