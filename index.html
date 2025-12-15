@@ -1151,9 +1151,13 @@ function handlePosition(p) {
     const isConservative = getEl('conservativeMode') && getEl('conservativeMode').checked;
     
     if (isConservative && martingaleLevel > 0) {
-        const targetProfit = accumulatedLoss * 1.1;
+        // RECOVERY MODE TARGET
+        // User Complaint: "Cadê o lucro?" (1.1x is too small).
+        // New Formula: Cover LOSS + Guaranteed $0.50 Profit minimum.
+        const targetProfit = accumulatedLoss + 0.50; 
+        
         if (profit >= targetProfit) {
-            console.log(`🎯 CONSERVATIVE TP: ${profit.toFixed(2)} >= ${targetProfit.toFixed(2)}`);
+            console.log(`🎯 RECOVERY TP: ${profit.toFixed(2)} >= ${targetProfit.toFixed(2)}`);
             shouldSell = true;
         }
     }
@@ -1161,40 +1165,32 @@ function handlePosition(p) {
     if (!shouldSell) {
         
         // --- NANO-SCALPING & RATCET (A "CATRACA" USD) ---
-        // User Request: "Melhor 0.40 ou 0.10 do que quebrar".
-        // Capture ANY significant profit.
+        // CRITICAL FIX: Only use Scalping if NOT in deep recovery (or if profit covers debt)
+        // If we adhere to "Lucrar a qualquer custo", maybe current behaviour is intended?
+        // NO, user said "NA RECUPERAÇÃO ELE NÃO FAZ LUCROS".
+        // So we must NOT scalp early in recovery.
         
-        const secureProfit = 0.40; // Target 40 cents
-        const ratchetStep = 0.10;  // 10 cents steps
-        
-        // 1. HARD TAKE PROFIT (Micro-Target)
-        if (profit >= secureProfit) {
-            console.log(`💰 MICRO-HARVEST: ${profit.toFixed(2)} >= ${secureProfit}`);
-            shouldSell = true;
-        }
-
-        // 2. THE RATCHET (Catraca)
-        // If we have SOME profit (> 0.15), don't let it turn into a loss.
-        if (profit >= 0.15) {
-            // Calculate a dynamic stop price (Virtual Stop)
-            // If profit is 0.20, stop is 0.10
-            // If profit is 0.30, stop is 0.20
-            // Formula: Math.floor(profit / 0.10) * 0.10 - 0.10
-            // Example: 0.25 -> 0.20 - 0.10 = 0.10 (Secure 0.10)
+        if (martingaleLevel === 0 || profit > (accumulatedLoss + 0.50)) {
             
-            // Simpler: If we are above 0.15, break-even is the floor.
-            // If we are above 0.30, 0.15 is the floor.
+            const secureProfit = 0.40; // Target 40 cents
             
-            // Quick implementation:
-            // Track highest USD profit for this position
-            if (!p.maxProfitUSD || profit > p.maxProfitUSD) {
-                p.maxProfitUSD = profit;
+            // 1. HARD TAKE PROFIT (Micro-Target)
+            if (profit >= secureProfit) {
+                console.log(`💰 MICRO-HARVEST: ${profit.toFixed(2)} >= ${secureProfit}`);
+                shouldSell = true;
             }
-            
-            const drawdown = p.maxProfitUSD - profit;
-            if (p.maxProfitUSD >= 0.20 && drawdown >= 0.10) {
-                 console.log(`📉 RATCHET STOP: Peak $${p.maxProfitUSD.toFixed(2)} - Drop $0.10`);
-                 shouldSell = true; 
+    
+            // 2. THE RATCHET (Catraca)
+            if (profit >= 0.15) {
+                if (!p.maxProfitUSD || profit > p.maxProfitUSD) {
+                    p.maxProfitUSD = profit;
+                }
+                
+                const drawdown = p.maxProfitUSD - profit;
+                if (p.maxProfitUSD >= 0.20 && drawdown >= 0.10) {
+                     console.log(`📉 RATCHET STOP: Peak $${p.maxProfitUSD.toFixed(2)} - Drop $0.10`);
+                     shouldSell = true; 
+                }
             }
         }
     
