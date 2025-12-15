@@ -755,7 +755,9 @@ function checkVolatility() {
     // Simple check: Body size average vs price
     const last10 = candles.slice(-10);
     const avgBody = last10.reduce((a,c) => a + Math.abs(c.close - c.open), 0) / 10;
-    if (avgBody < 0.05) { // Very flat for this asset?
+    
+    // RELAXED Threshold for "Micro-Scalping" (was 0.05)
+    if (avgBody < 0.015) { // Very flat for this asset?
          return false;
     }
     return true;
@@ -855,84 +857,78 @@ async function runAI(mode) {
         if(sub) {
              const modeStr = (martingaleLevel > 0) ? "RECUPERAÇÃO" : "BUSCANDO";
              // Use innerHTML to style the numbers
-             sub.innerHTML = `<span style="color:#8899a6; font-size:0.8rem;">${modeStr}</span> <span style="font-weight:900; color:${Math.abs(mr.zScore) >= mr.multiplier ? '#00ff41' : '#ff003c'}">Z:${Math.abs(mr.zScore).toFixed(2)}</span> <span style="font-size:0.7rem; color:#00f3ff">META:${mr.multiplier.toFixed(1)}</span>`;
+             // Only green/red if it meets the DYNAMIC threshold (not just multiplier)
+             sub.innerHTML = `<span style="color:#8899a6; font-size:0.8rem;">${modeStr}</span> <span style="font-weight:900; color:${Math.abs(mr.zScore) >= 1.2 ? '#00ff41' : '#ff003c'}">Z:${Math.abs(mr.zScore).toFixed(2)}</span>`;
         }
 
         let signal = "NEUTRO";
 
-        // MEAN REVERSION LOGIC
-        // Price TOO HIGH (above +2σ) → Expect DROP → PUT
-        if (mr.currentPrice >= mr.upperBand) {
-             if (rsi > 35) { // Light RSI filter
-                 // TREND FILTER: Don't PUT if in Strong Uptrend (Price > EMA)
-                 // Exception: Recovery Mode (Sniper needs to act)
-                 const unsafeAgainstTrend = (mr.ema && mr.currentPrice > mr.ema);
-                 
-                 // ANTI-TRAIN FILTER (Momentum Defense)
-                 // If 4+ Green Candles in a row, DO NOT FADE IT.
+        // HYBRID STRATEGY: Trend Following + Mean Reversion
+        // 1. Identify Trend
+        const isUptrend = (mr.ema && mr.currentPrice > mr.ema);
+        const isDowntrend = (mr.ema && mr.currentPrice < mr.ema);
+        
+        // 2. Set Dynamic Thresholds
+        // If trading WITH trend (e.g. CALL in Uptrend), use lower threshold (Buy Dip)
+        // If trading AGAINST trend (e.g. PUT in Uptrend), use higher threshold (Reversal)
+        const THRESHOLD_TREND = 1.2; // Aggressive for Trend Following
+        const THRESHOLD_COUNTER = 2.0; // Strict for Reversals
+        const THRESHOLD_NEUTRAL = 1.5; // Normal
+
+        // --- PUT LOGIC (Expect Drop) ---
+        // Good if: Price High AND (Downtrend OR (Uptrend AND Extreme Overbought))
+        
+        let requiredZ = THRESHOLD_NEUTRAL;
+        if (isDowntrend) requiredZ = THRESHOLD_TREND; // Rally in Downtrend -> Sell Aggressively
+        if (isUptrend) requiredZ = THRESHOLD_COUNTER; // Top of Uptrend -> Sell Cautiously
+        
+        if (mr.zScore >= requiredZ) { // Positive Z-Score indicates High Price
+             if (rsi > 35) { 
                  const trainGreen = countConsecutive('GREEN');
                  
-                 if ((!unsafeAgainstTrend || martingaleLevel > 0) && trainGreen < 4) {
+                 // Anti-Train: Relaxed for Trend Following? No, if we are selling, green train is bad.
+                 // If counter-trend (Uptrend), strict anti-train.
+                 // If trend-following (Downtrend), maybe less strict? 
+                 // Keep 4 for safety.
+                 
+                 if (trainGreen < 4) {
                      if (checkVisualPattern('PUT')) {
                          if (checkWickRejection('PUT')) {
-                             if (checkVolatility()) { // Volatility Gate
+                             if (checkVolatility()) {
                                  signal = "PUT";
-                                 // fast exec
-                             } else {
-                                if(sub) sub.innerText = "⚠️ MERCADO SEM VOLATILIDADE";
-                             }
-                         } else {
-                            if(sub) sub.innerText = "🛑 REJEIÇÃO (PAVIO)";
-                         }
-                     } else {
-                        if(sub) sub.innerText = "🛑 PADRÃO VISUAL PERIGOSO";
-                     }
-                 } else {
-                     if (trainGreen >= 4) {
-                         console.warn("🚂 ANTI-TRAIN: Skipping PUT (4+ Green Candles)");
-                         if(sub) sub.innerText = "🚂 ANTI-TREM: 4+ VELAS VERDES";
-                     } else {
-                         console.log("⚠️ TREND FILTER: Skip PUT (Price > EMA)");
-                         if(sub) sub.innerText = "⛔ TENDÊNCIA DE ALTA (EMA)";
-                     }
+                             } else if(sub) sub.innerText = "⚠️ MERCADO PARADO";
+                         } else if(sub) sub.innerText = "🛑 REJEIÇÃO (PAVIO)";
+                     } else if(sub) sub.innerText = "🛑 PADRÃO VISUAL";
+                 } else if(sub) sub.innerText = "🚂 ANTI-TREM: FORÇA COMPRADORA";
+                 
+                 // Log why blocked if valid Z but blocked
+                 if (signal !== 'PUT' && sub && sub.innerText === "") {
+                     // If we are here, it means we passed filters but maybe Z wasn't enough?
+                     // Ah, the outer if checks Z.
                  }
              }
         }
         
-        // Price TOO LOW (below -2σ) → Expect RISE → CALL
-        else if (mr.currentPrice <= mr.lowerBand) {
-             if (rsi < 65) { // Light RSI filter
-                 // TREND FILTER: Don't CALL if in Strong Downtrend (Price < EMA)
-                 const unsafeAgainstTrend = (mr.ema && mr.currentPrice < mr.ema);
-                 
-                 // ANTI-TRAIN FILTER (Momentum Defense)
-                 // If 4+ Red Candles in a row, DO NOT FADE IT.
-                 const trainRed = countConsecutive('RED');
+        // --- CALL LOGIC (Expect Rise) ---
+        // Good if: Price Low AND (Uptrend OR (Downtrend AND Extreme Oversold))
+        
+        requiredZ = THRESHOLD_NEUTRAL;
+        if (isUptrend) requiredZ = THRESHOLD_TREND; // Dip in Uptrend -> Buy Aggressively
+        if (isDowntrend) requiredZ = THRESHOLD_COUNTER; // Bottom of Downtrend -> Buy Cautiously
 
-                 if ((!unsafeAgainstTrend || martingaleLevel > 0) && trainRed < 4) {
+        if (mr.zScore <= -requiredZ) { // Negative Z-Score indicates Low Price
+             if (rsi < 65) { 
+                 const trainRed = countConsecutive('RED');
+                 
+                 if (trainRed < 4) {
                      if (checkVisualPattern('CALL')) {
                          if (checkWickRejection('CALL')) {
-                             if (checkVolatility()) { // Volatility Gate
+                             if (checkVolatility()) {
                                  signal = "CALL";
-                                 // fast exec
-                             } else {
-                                if(sub) sub.innerText = "⚠️ MERCADO SEM VOLATILIDADE";
-                             }
-                         } else {
-                            if(sub) sub.innerText = "🛑 REJEIÇÃO (PAVIO)";
-                         }
-                     } else {
-                        if(sub) sub.innerText = "🛑 PADRÃO VISUAL PERIGOSO";
-                     }
-                 } else {
-                     if (trainRed >= 4) {
-                         console.warn("🚂 ANTI-TRAIN: Skipping CALL (4+ Red Candles)");
-                         if(sub) sub.innerText = "🚂 ANTI-TREM: 4+ VELAS VERMELHAS";
-                     } else {
-                         console.log("⚠️ TREND FILTER: Skip CALL (Price < EMA)");
-                         if(sub) sub.innerText = "⛔ TENDÊNCIA DE BAIXA (EMA)";
-                     }
-                 }
+                             } else if(sub) sub.innerText = "⚠️ MERCADO PARADO";
+                         } else if(sub) sub.innerText = "🛑 REJEIÇÃO (PAVIO)";
+                     } else if(sub) sub.innerText = "🛑 PADRÃO VISUAL";
+                 } else if(sub) sub.innerText = "🚂 ANTI-TREM: FORÇA VENDEDORA";
              }
         }
 
