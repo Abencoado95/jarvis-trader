@@ -1320,27 +1320,7 @@ function addHistory(p) {
     const list = getEl('histList');
     list.insertBefore(item, list.firstChild);
     if(list.children.length > 50) list.lastChild.remove();
-}
-
-function saveState() {
-    const state = {
-        autoTrade: getEl('autoTradeToggle').checked,
-        stake: getEl('stakeInput').value,
-        duration: getEl('durationSelect').value,
-        scalpPercent: getEl('scalpPercent').value,
-        slTradePercent: getEl('slTradePercent').value,
-        tp: getEl('tpInput').value,
-        sl: getEl('slInput').value,
-        sessionPL: sessionProfit,
-        martingaleLevel: martingaleLevel, 
-        currentStake: currentStake,
-        accumulatedLoss: accumulatedLoss,
-        conservative: getEl('conservativeMode') ? getEl('conservativeMode').checked : false,
-        trailing: getEl('trailingToggle') ? getEl('trailingToggle').checked : false,
-        trailingTrigger: getEl('trailingTrigger') ? getEl('trailingTrigger').value : 15,
-        trailingDistance: getEl('trailingDistance') ? getEl('trailingDistance').value : 5
-    };
-    localStorage.setItem('jarvis_state_v20', JSON.stringify(state));
+    saveState(); // Auto-save history
 }
 
 function resetSession() {
@@ -1389,9 +1369,36 @@ function loadState() {
             martingaleLevel = state.martingaleLevel || 0;
             currentStake = state.currentStake || parseFloat(state.stake);
             accumulatedLoss = state.accumulatedLoss || 0;
+            
+            // Restore History
+            if (state.historyHTML && getEl('histList')) {
+                getEl('histList').innerHTML = state.historyHTML;
+            }
 
         } catch(e) { console.warn(e); }
     }
+}
+
+function saveState() {
+    const state = {
+        autoTrade: getEl('autoTradeToggle') ? getEl('autoTradeToggle').checked : false,
+        stake: getEl('stakeInput') ? getEl('stakeInput').value : 0.35,
+        duration: getEl('durationSelect') ? getEl('durationSelect').value : 1,
+        scalpPercent: getEl('scalpPercent') ? getEl('scalpPercent').value : 30,
+        slTradePercent: getEl('slTradePercent') ? getEl('slTradePercent').value : 30,
+        tp: getEl('tpInput') ? getEl('tpInput').value : 50,
+        sl: getEl('slInput') ? getEl('slInput').value : 50,
+        conservative: getEl('conservativeMode') ? getEl('conservativeMode').checked : false,
+        trailing: getEl('trailingToggle') ? getEl('trailingToggle').checked : false,
+        trailingTrigger: getEl('trailingTrigger') ? getEl('trailingTrigger').value : 15,
+        trailingDistance: getEl('trailingDistance') ? getEl('trailingDistance').value : 5,
+        sessionPL: sessionProfit,
+        martingaleLevel: martingaleLevel,
+        currentStake: currentStake,
+        accumulatedLoss: accumulatedLoss,
+        historyHTML: getEl('histList') ? getEl('histList').innerHTML : '' // SAVE HTML
+    };
+    localStorage.setItem('jarvis_state_v20', JSON.stringify(state));
 }
 
 function connectDeriv() {
@@ -1415,7 +1422,12 @@ function checkAuth() {
         localStorage.setItem('jarvis_accounts', JSON.stringify(accs));
         window.history.replaceState({}, document.title, window.location.pathname);
         availableAccounts = accs;
-        currentToken = accs[0].token;
+        
+        // Restore last used token or default to first
+        const lastToken = localStorage.getItem('jarvis_last_token');
+        const found = accs.find(a => a.token === lastToken);
+        currentToken = found ? found.token : accs[0].token;
+        
         initSystem();
     } else {
         const saved = localStorage.getItem('jarvis_accounts');
@@ -1423,7 +1435,11 @@ function checkAuth() {
             try {
                 availableAccounts = JSON.parse(saved);
                 if (Array.isArray(availableAccounts) && availableAccounts.length > 0) {
-                    currentToken = availableAccounts[0].token;
+                    
+                    const lastToken = localStorage.getItem('jarvis_last_token');
+                    const found = availableAccounts.find(a => a.token === lastToken);
+                    currentToken = found ? found.token : availableAccounts[0].token;
+                    
                     initSystem();
                 } else {
                     getEl('loginOverlay').style.display = 'flex';
@@ -1450,6 +1466,7 @@ function switchAccount() {
     const nextIdx = (currIdx + 1) % availableAccounts.length;
     const nextAcc = availableAccounts[nextIdx];
     currentToken = nextAcc.token;
+    localStorage.setItem('jarvis_last_token', currentToken); // Save Selection
     if(ws) ws.close();
     getEl('accBadge').innerText = "TROCANDO...";
     setTimeout(connectWS, 500);
