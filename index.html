@@ -580,6 +580,7 @@ let currentToken = "";
 let positions = new Map();
 let sessionProfit = 0.0;
 let lastAnalysisTime = 0;
+let lastTickTime = Date.now(); // HEARTBEAT
 let martingaleLevel = 0;
 let currentStake = 1.0;
 let highestProfit = new Map();
@@ -1511,6 +1512,7 @@ function connectWS() {
     ws = new WebSocket(`wss://ws.binaryws.com/websockets/v3?app_id=${APP_ID}`);
     ws.onopen = () => { ws.send(JSON.stringify({ authorize: currentToken })); };
     ws.onmessage = (msg) => {
+        lastTickTime = Date.now(); // HEARTBEAT PING
         const data = JSON.parse(msg.data);
         if (data.error) {
             if (data.error.code === 'InvalidOfferings' || data.error.message.includes('Resale')) {
@@ -1591,7 +1593,44 @@ function closeAllPositions() {
     positions.forEach((p, id) => sellAtMarket(id));
 }
 
-function updateTimers() { }
+function updateTimers() {
+    updateCoolDownTimer(); // Ensure Cooldown UI updates
+
+    // WATCHDOG (HEARTBEAT)
+    const now = Date.now();
+    const diff = now - lastTickTime;
+    const sub = getEl('btnSubText');
+    const btn = getEl('btnDecode');
+
+    if (diff > 60000) { // 60s Dead -> NUCLEAR RELOAD
+        if(sub) sub.innerText = "⚠️ TRAVADO. REINICIANDO...";
+        console.error("💀 WATCHDOG: SYSTEM FROZEN (60s). HARD RELOAD.");
+        location.reload();
+        return;
+    }
+
+    if (diff > 20000) { // 20s Dead -> FORCE RECONNECT
+        if(sub) { 
+            sub.innerText = "⚠️ RECONECTANDO..."; 
+            sub.style.color = "var(--cyber-gold)";
+        }
+        console.warn("⚠️ WATCHDOG: Signal Lost (20s). Reconnecting WS...");
+        lastTickTime = now; // Reset to avoid loop spam
+        if(ws) {
+            ws.onclose = null; // Prevent double trigger
+            ws.close();
+        }
+        connectWS();
+        return;
+    }
+    
+    if (diff > 10000) { // 10s Slow -> Warning
+        if(sub) {
+            sub.innerText = "📡 SINCRONIZANDO...";
+            sub.style.color = "var(--cyber-blue)";
+        }
+    }
+}
 
 async function loadAI() {
     try {
