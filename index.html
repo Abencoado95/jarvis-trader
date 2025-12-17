@@ -11,6 +11,12 @@
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700;800;900&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
     <script src="https://unpkg.com/lightweight-charts@3.8.0/dist/lightweight-charts.standalone.production.js"></script>
+    
+    <!-- FIREBASE SDKs (Modular) -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+
     <style>
         :root { 
             --cyber-dark: #050a14;
@@ -23,6 +29,32 @@
             --glass-border: 1px solid rgba(0, 243, 255, 0.15);
             --neon-glow: 0 0 10px rgba(0, 243, 255, 0.3);
         }
+
+        /* --- VIEW MANAGER (SaaS Structure) --- */
+        .view-section {
+            display: none; /* Hidden by default */
+            width: 100vw;
+            height: 100vh;
+            position: absolute;
+            top: 0;
+            left: 0;
+            background: var(--cyber-dark);
+            z-index: 10;
+        }
+
+        .view-active {
+            display: flex !important;
+            flex-direction: column;
+            animation: fadeIn 0.5s ease-out;
+        }
+        
+        #view-login {
+            justify-content: center; align-items: center; z-index: 9999;
+             background: radial-gradient(circle at 50% 50%, #0b1629 0%, #020408 100%);
+        }
+
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
         
         * { box-sizing: border-box; outline: none; user-select: none; }
         
@@ -388,17 +420,31 @@
         #hardResetBtn:hover { opacity: 1; }
     </style>
 
-    <div id="loginOverlay">
-        <div class="login-content">
-            <img src="JARVIS ROSTO.jpg" class="login-avatar" onerror="this.src='jarvis.gif'">
-            <div class="brand-logo" style="font-size: 3.5rem; margin-bottom: 30px;">JARVIS V21.22</div>
-            <div style="color:#8899a6; letter-spacing:2px; margin-bottom:30px;">ACTIVE SCALPING // HYBRID (SAFE BOOT)</div>
-            <button class="login-btn" onclick="window.location.href='https://oauth.deriv.com/oauth2/authorize?app_id=114062&l=PT&brand=deriv'">INICIAR SISTEMA (FORÇAR)</button>
+    <div id="view-login" class="view-section view-active">
+        <div class="login-card">
+            <img src="JARVIS ROSTO.jpg" style="width:120px; border-radius:50%; border:2px solid var(--cyber-blue); box-shadow:0 0 20px rgba(0,243,255,0.3); margin-bottom:20px;">
+            <h1 style="color:var(--cyber-blue); margin:0; font-size:2.5rem; text-shadow:0 0 10px rgba(0,243,255,0.5);">JARVIS V21</h1>
+            <p style="color:#8899a6; letter-spacing:2px; font-size:0.8rem; margin-bottom:30px;">SAAS TRADING PLATFORM</p>
+            
+            <input type="email" id="loginEmail" placeholder="EMAIL DE ACESSO" style="margin-bottom:10px;">
+            <input type="password" id="loginPass" placeholder="SENHA" style="margin-bottom:20px;">
+            
+            <button class="login-btn" onclick="authLogin()" style="font-size:1.2rem; padding:10px; width:100%;">ENTRAR NO SISTEMA</button>
+            
+            <div id="loginMsg" style="margin-top:15px; font-size:0.8rem; color:#ff003c; min-height:20px;"></div>
         </div>
     </div>
 
-    <!-- RESPONSIVE GRID -->
-    <div class="interface-grid" id="mainUI">
+    <!-- ADMIN VIEW (Hidden) -->
+    <div id="view-admin" class="view-section">
+        <h1 style="color:var(--cyber-red)">ADMIN PAINEL</h1>
+        <p>User Management (Coming Soon)</p>
+        <button onclick="setView('view-login')">LOGOUT</button>
+    </div>
+
+    <!-- PLATFORM VIEW (Trading) -->
+    <div id="view-platform" class="view-section">
+        <div class="interface-grid" id="mainUI">
         <!-- LEFT SIDEBAR -->
         <div class="sidebar-left">
             <div class="brand-logo">JARVIS <span style="color:#fff">V20</span></div>
@@ -555,11 +601,103 @@
             
             <button onclick="fullLogout()" style="background:transparent; border:1px solid #2a3b55; color:#5f7e97; padding:15px; cursor:pointer; width:100%; border-radius:2px; font-weight:bold; transition:0.2s; letter-spacing:2px; text-transform:uppercase; flex-shrink:0;">Encerrar Sessão</button>
         </div>
-    </div>
+    </div><!-- End Interface Grid -->
+    </div><!-- End View Platform -->
     
     <button id="hardResetBtn" onclick="fullLogout()">HARD RESET</button>
 
 <script>
+// --- FIREBASE CONFIG (USER MUST PASTE HERE) ---
+const firebaseConfig = {
+    apiKey: "YOUR_API_KEY_HERE",
+    authDomain: "your-project.firebaseapp.com",
+    projectId: "your-project-id",
+    storageBucket: "your-project.appspot.com",
+    messagingSenderId: "123456789",
+    appId: "1:123456:web:123456"
+};
+
+// INITIALIZE FIREBASE
+let auth, db;
+try {
+    firebase.initializeApp(firebaseConfig);
+    auth = firebase.auth();
+    db = firebase.firestore();
+    console.log("🔥 FIREBASE SDK LOADED");
+} catch(e) {
+    console.warn("⚠️ FIREBASE NOT CONFIGURED YET. USING MOCK MODE.");
+}
+
+// --- VIEW MANAGER ---
+function setView(viewId) {
+    document.querySelectorAll('.view-section').forEach(el => el.classList.remove('view-active'));
+    getEl(viewId).classList.add('view-active');
+}
+
+// --- AUTH SERVICE ---
+function authLogin() {
+    const email = getEl('loginEmail').value;
+    const pass = getEl('loginPass').value;
+    const msg = getEl('loginMsg');
+    
+    if(!email || !pass) { msg.innerText = "PREENCHA TODOS OS CAMPOS"; return; }
+    
+    msg.innerText = "VERIFICANDO...";
+    
+    if(auth) {
+        auth.signInWithEmailAndPassword(email, pass)
+            .then((userCredential) => {
+                // Check Database for Subscription Status
+                checkSubscription(userCredential.user.uid);
+            })
+            .catch((error) => {
+                msg.innerText = "ERRO: " + error.message;
+            });
+    } else {
+        // MOCK LOGIN FOR DEMO (If no Firebase)
+        if(email === "admin" && pass === "admin") {
+            setView('view-admin');
+        } else if (email === "user" && pass === "user") {
+            // MOCK SUBSCRIPTION CHECK
+            msg.innerText = "LOGIN MOCK SUCESSO!";
+            setTimeout(() => {
+                setView('view-platform');
+                initSystem(); // Boot JARVIS
+            }, 1000);
+        } else {
+            msg.innerText = "CREDENCIAIS INVÁLIDAS. (Use user/user ou configure Firebase)";
+        }
+    }
+}
+
+function checkSubscription(uid) {
+    const msg = getEl('loginMsg');
+    msg.innerText = "VERIFICANDO ASSINATURA...";
+    
+    db.collection("users").doc(uid).get().then((doc) => {
+        if (doc.exists) {
+            const data = doc.data();
+            if (data.blocked) {
+                msg.innerText = "🚫 ACESSO BLOQUEADO PELO ADMINISTRADOR.";
+                auth.signOut();
+            } else if (data.expiresAt && data.expiresAt < Date.now()) {
+                msg.innerText = "⚠️ SUA ASSINATURA EXPIROU.";
+                auth.signOut();
+            } else {
+                msg.innerText = "ACESSO AUTORIZADO! BEM-VINDO " + (data.name || "").toUpperCase();
+                setTimeout(() => {
+                    setView('view-platform');
+                    initSystem();
+                }, 1000);
+            }
+        } else {
+            msg.innerText = "USUÁRIO NÃO ENCONTRADO NO BANCO DE DADOS.";
+        }
+    }).catch((error) => {
+         msg.innerText = "ERRO AO VERIFICAR: " + error.message;
+    });
+}
+
 
 // JARVIS V21.28 MEAN REVERSION STRATEGY
 
@@ -598,7 +736,7 @@ function getEl(id) {
 
 // --- BOOT ---
 window.addEventListener('DOMContentLoaded', () => {
-    console.log("🚀 JARVIS V21.28 MEAN REVERSION");
+    console.log("🚀 JARVIS V21.28 SaaS EDITION");
     
     if (!sessionStorage.getItem('cache_busted_v28')) {
         console.warn("CACHE WIPE V28...");
@@ -607,18 +745,18 @@ window.addEventListener('DOMContentLoaded', () => {
     }
 
     try {
-        checkAuth();
-        loadState();
-        setInterval(updateTimers, 1000);
+        // SAAS BOOT: START AT LOGIN SCREEN
+        setView('view-login'); 
+        loadState(); // Pre-load config but don't start system
+        setInterval(updateTimers, 1000); // Start Watchdog
     } catch(e) {
         console.error(e);
-        getEl('loginOverlay').style.display = 'flex';
     }
 });
 
 function initSystem() {
-    getEl('loginOverlay').style.display = 'none';
-    getEl('mainUI').style.display = 'grid';
+    // SAAS: ACTIVATE PLATFORM VIEW
+    setView('view-platform'); 
     
     getEl('posList').innerHTML = '';
     const hist = getEl('histList');
@@ -1424,33 +1562,30 @@ function checkAuth() {
         window.history.replaceState({}, document.title, window.location.pathname);
         availableAccounts = accs;
         
-        // Restore last used token or default to first
+        // SAAS GATEKEEPER: Don't start system yet!
+        // Just save the tokens and let the user Login via Auth.
+        
+        // Restore last used token preference
         const lastToken = localStorage.getItem('jarvis_last_token');
         const found = accs.find(a => a.token === lastToken);
         currentToken = found ? found.token : accs[0].token;
         
-        initSystem();
+        console.log("🔒 DERIV TOKENS SAVED. WAITING FOR SAAS LOGIN.");
+        if(getEl('loginMsg')) getEl('loginMsg').innerText = "CONECTADO COM A DERIV. FAÇA LOGIN ABAIXO.";
+
     } else {
         const saved = localStorage.getItem('jarvis_accounts');
         if (saved) {
             try {
                 availableAccounts = JSON.parse(saved);
                 if (Array.isArray(availableAccounts) && availableAccounts.length > 0) {
-                    
                     const lastToken = localStorage.getItem('jarvis_last_token');
                     const found = availableAccounts.find(a => a.token === lastToken);
                     currentToken = found ? found.token : availableAccounts[0].token;
-                    
-                    initSystem();
-                } else {
-                    getEl('loginOverlay').style.display = 'flex';
                 }
             } catch(e) {
                 localStorage.removeItem('jarvis_accounts');
-                getEl('loginOverlay').style.display = 'flex';
             }
-        } else {
-            getEl('loginOverlay').style.display = 'flex';
         }
     }
 }
