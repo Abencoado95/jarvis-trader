@@ -476,7 +476,21 @@
         #adminCard:hover { box-shadow: 0 0 30px rgba(255,0,60,0.2); background:rgba(255,0,60,0.1) !important; }
     </style>
 
-    <!-- ONBOARDING VIEW (JARVIS INTERVIEW) -->
+    <!-- MODAL TOKENS (Connection) -->
+    <div id="modal-token" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); z-index:2000; align-items:center; justify-content:center; backdrop-filter:blur(5px);">
+        <div style="background:var(--card-bg); padding:30px; border-radius:10px; border:1px solid var(--cyber-blue); width:90%; max-width:400px; text-align:center; box-shadow:0 0 50px rgba(0,243,255,0.2);">
+            <div style="font-size:3rem; margin-bottom:20px;">🔗</div>
+            <h2 style="color:var(--cyber-blue); margin-bottom:10px;">VINCULAR CONTA DERIV</h2>
+            <p style="color:#8899a6; font-size:0.9rem; margin-bottom:20px;">Para operar, o JARVIS precisa se conectar à sua conta na corretora.</p>
+            
+            <input type="text" id="derivTokenInput" placeholder="Cole seu Token API aqui..." style="width:100%; padding:15px; background:rgba(0,0,0,0.5); border:1px solid #3366ff; color:white; border-radius:4px; margin-bottom:20px; text-align:center;">
+            
+            <button onclick="saveDerivToken()" style="background:var(--cyber-blue); color:black; font-weight:bold; padding:15px; width:100%; border:none; border-radius:4px; cursor:pointer;">CONECTAR</button>
+            <button onclick="closeTokenModal()" style="background:transparent; color:#8899a6; padding:10px; border:none; margin-top:10px; cursor:pointer;">Cancelar (Modo Simulação Offline)</button>
+            
+            <p style="font-size:0.7rem; color:#445566; margin-top:20px;">Sua chave é salva apenas no seu navegador.</p>
+        </div>
+    </div>
     <div id="view-onboarding" class="view-section" style="background: radial-gradient(circle at 50% 50%, #0b1629 0%, #000 100%); align-items:center; justify-content:center;">
         <div style="width:100%; max-width:600px; height:80vh; display:flex; flex-direction:column; background:rgba(0,0,0,0.8); border:1px solid var(--cyber-blue); box-shadow:0 0 50px rgba(0,243,255,0.1); border-radius:4px; overflow:hidden;">
             <!-- CHAT HEADER -->
@@ -821,11 +835,41 @@ function checkSubscription(uid) {
     });
 }
 
+// --- TOKEN MANAGEMENT ---
 function openTrading() {
-    setView('view-platform');
-    if(!window.systemInitialized) {
-        initSystem();
+    // Check if we have a token
+    const saved = localStorage.getItem('jarvis_last_token');
+    
+    // Check if user is Admin or specifically allowed to bypass
+    const user = auth.currentUser;
+    const bypass = (user && (user.email === 'admin' || user.email === 'user')); // Mock user bypass
+
+    if (!saved && !bypass) {
+        // SHOW MODAL
+        getEl('modal-token').style.display = 'flex';
+    } else {
+        // PROCEED
+        setView('view-platform');
+        if(!window.systemInitialized) {
+            initSystem();
+        }
     }
+}
+
+function saveDerivToken() {
+    const val = getEl('derivTokenInput').value;
+    if(!val) return alert("Por favor, cole seu token.");
+    
+    // Save as Account 1 default
+    localStorage.setItem('jarvis_token_1', val);
+    localStorage.setItem('jarvis_last_token', val);
+    
+    closeTokenModal();
+    openTrading(); // Try again
+}
+
+function closeTokenModal() {
+    getEl('modal-token').style.display = 'none';
 }
 
 // --- ONBOARDING CHAT LOGIC ---
@@ -1014,7 +1058,8 @@ function initSystem() {
 // --- STATISTICAL INDICATORS ---
 
 function calculateMeanReversion() {
-    const period = 20;
+    // AUDIT REQUEST: "Analyze last 50 candles"
+    const period = 50; 
     if (candles.length < period) return null;
     
     // Calculate Simple Moving Average
@@ -1211,10 +1256,10 @@ async function runAI(mode) {
     }
 
     try {
-        if(sub) sub.innerText = `ANALISANDO DESVIO...`;
+        if(sub) sub.innerText = `🔎 ESCANEANDO 50 CANDLES...`;
         await new Promise(r => setTimeout(r, 300));
 
-        if (candles.length < 30) {
+        if (candles.length < 50) {
             if(sub) sub.innerText = "DADOS INSUFICIENTES...";
             isProcessing = false;
             return;
