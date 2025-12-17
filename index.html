@@ -635,12 +635,13 @@
 <script>
 // --- FIREBASE CONFIG (USER MUST PASTE HERE) ---
 const firebaseConfig = {
-    apiKey: "AIzaSyAzBTW14_ucANdAdJHy9ozLuaGnTfW_V6U",
-    authDomain: "jarvis-trader-a6d3d.firebaseapp.com",
-    projectId: "jarvis-trader-a6d3d",
-    storageBucket: "jarvis-trader-a6d3d.firebasestorage.app",
-    messagingSenderId: "805731500934",
-    appId: "1:805731500934:web:9711ce9b71317440727207"
+  apiKey: "AIzaSyAz0TWl4_ucANDaDJhY9ozLuaGnTFw_V6U",
+  authDomain: "jarvis-trader-a6d3d.firebaseapp.com",
+  projectId: "jarvis-trader-a6d3d",
+  storageBucket: "jarvis-trader-a6d3d.firebasestorage.app",
+  messagingSenderId: "1085731500934",
+  appId: "1:1085731500934:web:9711ce9b71317440727207",
+  measurementId: "G-L04M946NCJ"
 };
 
 // INITIALIZE FIREBASE
@@ -686,15 +687,14 @@ function authLogin() {
     if(auth) {
         auth.signInWithEmailAndPassword(email, pass)
             .then((userCredential) => {
+                // Check Database for Subscription Status
                 checkSubscription(userCredential.user.uid);
             })
             .catch((error) => {
-                // DEBUG: Show what key is actually being used
-                const keyDebug = firebaseConfig && firebaseConfig.apiKey ? firebaseConfig.apiKey.substring(0, 10) + "..." : "UNDEFINED";
-                msg.innerText = `ERRO: ${error.message} (Key Loaded: ${keyDebug})`;
+                msg.innerText = "ERRO: " + error.message;
             });
     } else {
-        msg.innerText = "FIREBASE NÃO CONFIGURADO (Auth Object Missing). USE user/user";
+        msg.innerText = "FIREBASE NÃO CONFIGURADO. USE user/user";
     }
 }
 
