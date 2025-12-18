@@ -474,6 +474,19 @@
     <style>
         .dashboard-card:hover { transform: scale(1.05); box-shadow: 0 0 30px rgba(0,243,255,0.2); background:rgba(0,243,255,0.1) !important; }
         #adminCard:hover { box-shadow: 0 0 30px rgba(255,0,60,0.2); background:rgba(255,0,60,0.1) !important; }
+        
+        /* FINANCIAL AWARENESS UI */
+        .goal-bar-container {
+            width: 100%; height: 6px; background: rgba(255,255,255,0.1);
+            border-radius: 3px; margin-top: 10px; overflow: hidden; position: relative;
+        }
+        .goal-bar-fill {
+            height: 100%; width: 0%; background: var(--cyber-green);
+            box-shadow: 0 0 10px var(--cyber-green); transition: width 0.5s ease;
+        }
+        .goal-text {
+            font-size: 0.65rem; color: #8899a6; margin-top: 5px; text-align: center; letter-spacing: 1px;
+        }
     </style>
 
     <!-- MODAL TOKENS (Connection) -->
@@ -664,8 +677,15 @@
             <div style="background:rgba(255,255,255,0.02); padding:20px; border-radius:4px; text-align:center; border:1px solid rgba(255,255,255,0.05); flex-shrink:0;">
                 <div style="font-size:0.8rem; color:#8899a6; letter-spacing:3px; font-weight:bold;">RESULTADO DO DIA</div>
                 <div id="sessionPL" style="font-size:3rem; font-weight:900; margin-top:5px; color:white; text-shadow:0 0 30px rgba(255,255,255,0.2);">0.00</div>
+                
+                <!-- FINANCIAL GOAL PROGRESS -->
+                <div class="goal-bar-container">
+                    <div id="goalProgressFill" class="goal-bar-fill"></div>
+                </div>
+                <div id="goalProgressText" class="goal-text">AGUARDANDO SALDO...</div>
+
                 <!-- RESET SESSION BUTTON -->
-                <div style="margin-top:5px; cursor:pointer; opacity:0.5; transition:0.3s;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.5" onclick="resetSession()" title="Zerar Histórico da Sessão">
+                <div style="margin-top:10px; cursor:pointer; opacity:0.5; transition:0.3s;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.5" onclick="resetSession()" title="Zerar Histórico da Sessão">
                     🗑️ <span style="font-size:0.7rem; color:#5f7e97;">ZERAR SESSÃO</span>
                 </div>
             </div>
@@ -1639,6 +1659,11 @@ function placeTrade(direction) {
         duration: duration,
         duration_unit: 'm'
     };
+    
+    // NARRATIVE LOG (Pre-Trade)
+    const curBal = parseFloat(getEl('balanceVal').innerText) || 0;
+    console.log(`🧠 CONSCIENCE: Saldo $${curBal.toFixed(2)}. Ordem ${direction} (Stake $${stake}). Buscando Alvo...`);
+    
     ws.send(JSON.stringify(req));
     
     console.log(`📤 TRADE SENT: ${direction} | Stake: ${stake}`);
@@ -1813,6 +1838,9 @@ function handlePosition(p) {
         getEl('sessionPL').innerText = sessionProfit.toFixed(2);
         getEl('sessionPL').style.color = sessionProfit >= 0 ? '#00ff41' : '#ff003c';
         
+        // UPDATE FINANCIAL NARRATIVE (User Request: "Narrativa do Saldo")
+        updateFinancialNarrative();
+        
         const resEl = getEl('resultBig');
         resEl.innerText = profit >= 0 ? "WIN" : "LOSS";
         resEl.className = profit >= 0 ? "result-overlay show-res sentiment-bullish" : "result-overlay show-res sentiment-bearish";
@@ -1891,6 +1919,63 @@ function addHistory(p) {
     list.insertBefore(item, list.firstChild);
     if(list.children.length > 50) list.lastChild.remove();
     saveState(); // Auto-save history
+}
+
+// FINANCIAL CONSCIOUSNESS STATE
+let startBalance = 0;
+let dailyGoalAmount = 0;
+
+function updateFinancialNarrative() {
+    // 1. Get Balances
+    const balEl = getEl('balanceVal');
+    if (!balEl) return;
+    const currentBal = parseFloat(balEl.innerText) || 0;
+    
+    // Safety check for start balance
+    if (startBalance === 0 && currentBal > 0) startBalance = currentBal;
+    if (startBalance === 0) return; // Wait for data
+
+    // 2. Determine Goal
+    let targetDollars = parseFloat(getEl('tpInput').value) || 50;
+    dailyGoalAmount = targetDollars;
+
+    // 3. Calculate Math
+    // We rely on 'sessionProfit' which is tracked trade-by-trade for accuracy,
+    // rather than balance diff which can include deposits/withdrawals.
+    // BUT user wants specific "Start Balance" awareness. Let's hybridize.
+    // Let's use sessionProfit as the truth for "Performance".
+    
+    const profit = sessionProfit;
+    const progress = Math.min((profit / targetDollars) * 100, 100);
+    const remaining = targetDollars - profit;
+
+    // 4. Update UI
+    const bar = getEl('goalProgressFill');
+    const txt = getEl('goalProgressText');
+    
+    if(bar) bar.style.width = `${Math.max(0, progress)}%`;
+
+    let narrative = "";
+    
+    if (profit < 0) {
+         if(bar) bar.style.background = "var(--cyber-gold)"; // Recovery Color
+         narrative = `⚠️ RECUPERAÇÃO: Drawdown de $${Math.abs(profit).toFixed(2)}. Foco: Retornar ao Zero.`;
+         // CONSOLE NARRATIVE (Mental Log)
+         console.log(`🧠 CONSCIENCE: Saldo Atual $${currentBal.toFixed(2)} | Iniciar ${Math.abs(profit).toFixed(2)} USD saldo negativo detectado. ATIVAR MODO RECUPERAÇÃO.`);
+    } else if (profit >= targetDollars) {
+         if(bar) bar.style.background = "var(--cyber-blue)"; // Success Color
+         narrative = `🏆 META ATINGIDA: +$${profit.toFixed(2)} (100%). Protegendo Capital.`;
+         console.log(`🧠 CONSCIENCE: MISSÃO CUMPRIDA. Saldo $${currentBal.toFixed(2)}. Meta atingida. Encerrar exposição ao risco.`);
+    } else {
+         if(bar) bar.style.background = "var(--cyber-green)"; // Normal Color
+         narrative = `🎯 EM PROGRESSO: Faltam $${remaining.toFixed(2)} para a Meta.`;
+         
+         // Only log neutral updates occasionally or on change to avoid spam, 
+         // BUT user wants to see it "thinking".
+         // We will rely on placeTrade to log the specific "Reviewing details..." thoughts.
+    }
+    
+    if(txt) txt.innerText = narrative;
 }
 
 function resetSession() {
@@ -2040,6 +2125,15 @@ function switchAccount() {
 }
 
 function updateAccountUI(info) {
+    // CAPTURE START BALANCE (Mental Anchor)
+    if (info.balance && (!startBalance || startBalance === 0)) {
+        startBalance = parseFloat(info.balance);
+        console.log(`💰 CONSCIENCE: Saldo Inicial Memorizado: $${startBalance.toFixed(2)}`);
+        
+        // Initial Narrative Check
+        setTimeout(updateFinancialNarrative, 1000);
+    }
+
     const badge = getEl('accBadge');
     if(!badge) return;
     const isDemo = info.fullname.includes('Virtual') || info.loginid.startsWith('VRTC');
