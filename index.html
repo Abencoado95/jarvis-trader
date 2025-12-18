@@ -1776,12 +1776,19 @@ function handlePosition(p) {
     const isLocked = (Date.now() < tradeLifecycle.lockUntil);
 
     if (isLocked) {
-        // LOCK STATE: Only Panic Stop allowed
-        // Relaxed to -80% to survive entry noise/spread
+        // LOCK STATE: Anti-Noise
+        // FIX: Allow USER SL to override Lock Phase (User Request: "Não respeita o Stop Loss")
+        const userSL = parseFloat(getEl('slTradePercent').value) || 999;
+        
         if (profitPercent <= -80) {
             console.warn(`🚨 PANIC STOP: -80% Hit during LOCK Phase.`);
             shouldSell = true;
-        } else {
+        } 
+        else if (profitPercent <= -userSL) {
+            console.warn(`⛔ SL HIT (LOCKED): ${profitPercent.toFixed(2)}% <= -${userSL}% (Override Lock)`);
+            shouldSell = true;
+        }
+        else {
             // Force Hold (Breathing Room)
             shouldSell = false; 
         }
@@ -1985,11 +1992,16 @@ function updateFinancialNarrative() {
 function resetSession() {
     if(!confirm("Tem certeza que deseja zerar o histórico desta sessão?")) return;
     
-    // Reset Logic
+    // Clear State
     sessionProfit = 0.0;
     accumulatedLoss = 0.0;
     martingaleLevel = 0;
     currentStake = parseFloat(getEl('stakeInput').value);
+    
+    // CLEAR PERSISTENCE
+    startBalance = 0;
+    localStorage.removeItem('jarvis_start_bal');
+    console.log("🧹 MEMORY WIPED: Start Balance Reset.");
     
     // UI Updates
     getEl('sessionPL').innerText = "0.00";
@@ -2129,13 +2141,22 @@ function switchAccount() {
 }
 
 function updateAccountUI(info) {
-    // CAPTURE START BALANCE (Mental Anchor)
-    if (info.balance && (!startBalance || startBalance === 0)) {
-        startBalance = parseFloat(info.balance);
-        console.log(`💰 CONSCIENCE: Saldo Inicial Memorizado: $${startBalance.toFixed(2)}`);
-        
-        // Initial Narrative Check
-        setTimeout(updateFinancialNarrative, 1000);
+    // CAPTURE START BALANCE (Mental Anchor - PERSISTENT)
+    if (info.balance) {
+        // Try to load persisted balance first
+        if (!startBalance || startBalance === 0) {
+            const savedBal = localStorage.getItem('jarvis_start_bal');
+            if (savedBal) {
+                startBalance = parseFloat(savedBal);
+                console.log(`💾 MEMORY LOADED: Persisted Start Balance: $${startBalance.toFixed(2)}`);
+            } else {
+                startBalance = parseFloat(info.balance);
+                localStorage.setItem('jarvis_start_bal', startBalance); // SAVE IT
+                console.log(`💾 MEMORY SAVED: New Start Balance: $${startBalance.toFixed(2)}`);
+            }
+            // Initial Narrative Check
+            setTimeout(updateFinancialNarrative, 1000);
+        }
     }
 
     const badge = getEl('accBadge');
