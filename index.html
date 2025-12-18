@@ -892,12 +892,14 @@ function openTrading() {
     const user = auth.currentUser;
     const bypass = (user && (user.email === 'admin' || user.email === 'user')); 
 
+    // ALWAYS SWITCH TO PLATFORM FIRST
+    setView('view-platform');
+
     if (!saved && !bypass) {
         // SHOW MODAL
         getEl('modal-token').style.display = 'flex';
     } else {
         // PROCEED
-        setView('view-platform');
         if(!window.systemInitialized) {
             initSystem();
         }
