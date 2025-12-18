@@ -721,6 +721,7 @@ try {
 function setView(viewId) {
     document.querySelectorAll('.view-section').forEach(el => el.classList.remove('view-active'));
     getEl(viewId).classList.add('view-active');
+    localStorage.setItem('jarvis_active_view', viewId);
 }
 
 // --- AUTH SERVICE ---
@@ -824,8 +825,16 @@ function checkSubscription(uid) {
             
             setTimeout(() => {
                 if (hasProfile) {
-                    // GO TO DASHBOARD (Step 3)
-                    setView('view-dashboard');
+                    // RESTORE VIEW (Persistence)
+                    const lastView = localStorage.getItem('jarvis_active_view');
+                    if(lastView === 'view-platform') {
+                        // Special Handling for Platform (Check Token)
+                        openTrading(); 
+                    } else if (lastView && getEl(lastView)) {
+                        setView(lastView);
+                    } else {
+                        setView('view-dashboard');
+                    }
                 } else {
                     // GO TO INTERVIEW (Step 2)
                     setView('view-onboarding');
@@ -851,12 +860,27 @@ function loginDeriv() {
 
 // --- TOKEN MANAGEMENT ---
 function openTrading() {
-    // 1. Check URL for OAuth Response
+    // 1. Check URL for OAuth Response (Capture ALL accounts)
     const params = new URLSearchParams(window.location.search);
     if(params.has('token1')) {
-        const t1 = params.get('token1');
-        localStorage.setItem('jarvis_last_token', t1);
-        localStorage.setItem('jarvis_token_1', t1);
+        let accounts = [];
+        let i = 1;
+        while(params.has(`token${i}`)) {
+            accounts.push({
+                token: params.get(`token${i}`),
+                loginid: params.get(`acct${i}`),
+                currency: params.get(`cur${i}`)
+            });
+            i++;
+        }
+        
+        if (accounts.length > 0) {
+            localStorage.setItem('jarvis_accounts', JSON.stringify(accounts));
+            // Default to first account (usually Real) if not set
+            localStorage.setItem('jarvis_last_token', accounts[0].token);
+            currentToken = accounts[0].token;
+        }
+
         // Clear URL
         window.history.replaceState({}, document.title, window.location.pathname);
     }
@@ -1072,6 +1096,13 @@ function initSystem() {
     getEl('emptyMsg').style.display = 'block';
     positions.clear();
     tradeStakes.clear();
+
+    // LOAD ACCOUNTS
+    const savedAccs = localStorage.getItem('jarvis_accounts');
+    if(savedAccs) {
+        availableAccounts = JSON.parse(savedAccs);
+        console.log(`💳 ACCOUNTS LOADED: ${availableAccounts.length}`);
+    }
 
     setTimeout(() => {
         initChart();
