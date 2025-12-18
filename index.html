@@ -1684,13 +1684,13 @@ function handlePosition(p) {
 
     if (isLocked) {
         // LOCK STATE: Only Panic Stop allowed
-        if (profitPercent <= -50) {
-            console.warn(`🚨 PANIC STOP: -50% Hit during LOCK Phase.`);
+        // Relaxed to -80% to survive entry noise/spread
+        if (profitPercent <= -80) {
+            console.warn(`🚨 PANIC STOP: -80% Hit during LOCK Phase.`);
             shouldSell = true;
         } else {
             // Force Hold (Breathing Room)
             shouldSell = false; 
-            // Optional: console.log(`🔒 LOCKED: ${((tradeLifecycle.lockUntil - Date.now())/1000).toFixed(1)}s`);
         }
     } 
     else if (useTrailing && !shouldSell) {
