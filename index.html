@@ -1953,8 +1953,24 @@ function initChart() {
 }
 
 function connectWS() {
-    ws = new WebSocket(`wss://ws.binaryws.com/websockets/v3?app_id=${APP_ID}`);
-    ws.onopen = () => { ws.send(JSON.stringify({ authorize: currentToken })); };
+    // ENSURE TOKEN IS READY
+    if (!currentToken) currentToken = localStorage.getItem('jarvis_last_token');
+    
+    // SANITIZE TOKEN
+    if (currentToken) currentToken = currentToken.trim();
+
+    if (!currentToken) {
+        console.error("❌ CONNECT WS ABORTED: No Token Available.");
+        return;
+    }
+
+    console.log(`🔌 CONNECTING WS... AppID: ${DERIV_APP_ID} | Token: ${currentToken.substring(0,4)}***`);
+
+    ws = new WebSocket(`wss://ws.binaryws.com/websockets/v3?app_id=${DERIV_APP_ID}`);
+    ws.onopen = () => { 
+        console.log("🟢 WS OPEN. SENDING AUTH...");
+        ws.send(JSON.stringify({ authorize: currentToken })); 
+    };
     ws.onmessage = (msg) => {
         lastTickTime = Date.now(); // HEARTBEAT PING
         const data = JSON.parse(msg.data);
