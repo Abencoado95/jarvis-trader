@@ -843,7 +843,7 @@ function checkSubscription(uid) {
     });
 }
 
-const DERIV_APP_ID = 65555; // JARVIS APP ID
+const DERIV_APP_ID = 1089; // Official Binary/Deriv ID (Broad Compatibility)
 
 function loginDeriv() {
     window.location.href = `https://oauth.deriv.com/oauth2/authorize?app_id=${DERIV_APP_ID}&l=pt`;
@@ -1952,6 +1952,8 @@ function initChart() {
     }).observe(container);
 }
 
+// function connectWS() uses global DERIV_APP_ID defined above
+
 function connectWS() {
     // ENSURE TOKEN IS READY
     if (!currentToken) currentToken = localStorage.getItem('jarvis_last_token');
@@ -1975,6 +1977,16 @@ function connectWS() {
         lastTickTime = Date.now(); // HEARTBEAT PING
         const data = JSON.parse(msg.data);
         if (data.error) {
+            // HANDLE INVALID TOKEN (Prevent Loop)
+            if (data.error.code === 'InvalidToken') {
+                console.error("💥 INVALID TOKEN DETECTED: Wiping and Reloading...");
+                localStorage.removeItem('jarvis_last_token');
+                localStorage.removeItem('jarvis_token_1');
+                alert("Seu Token é inválido para este App ID (1089). Por favor, conecte novamente.");
+                location.reload(); 
+                return;
+            }
+
             if (data.error.code === 'InvalidOfferings' || data.error.message.includes('Resale')) {
                 return;
             }
