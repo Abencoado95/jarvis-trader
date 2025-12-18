@@ -1610,9 +1610,22 @@ function placeTrade(direction) {
     // User Requirement: "Recuperação Inteligente sem dobrar a torta direita"
     // Formula: Stake = (Abs(Loss) + NormalProfit) / Yield%
     
-    if (sessionProfit < 0) {
+    // FIX: Trigger on Streak (martingaleLevel > 0) OR Drawdown (sessionProfit < 0)
+    // User Complaint: "Travado em $1.00 após loss" (because session was positive)
+    
+    if (martingaleLevel > 0 || sessionProfit < 0) {
         const tpPercent = parseFloat(getEl('scalpPercent').value) || 50; 
-        const lossToRecover = Math.abs(sessionProfit);
+        
+        // DETERMINE TARGET:
+        // 1. If in Drawdown (Negative Balance), prioritize clearing the Hole.
+        // 2. If in Profit but on Streak, prioritize clearing the Streak.
+        let lossToRecover = 0;
+        if (sessionProfit < 0) {
+             lossToRecover = Math.abs(sessionProfit);
+        } else {
+             lossToRecover = accumulatedLoss;
+        }
+
         const normalProfit = baseStake * (tpPercent / 100);
         const totalTarget = lossToRecover + normalProfit;
         
