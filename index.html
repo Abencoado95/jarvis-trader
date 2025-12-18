@@ -617,7 +617,7 @@
                     <div class="neon-ring"></div>
                     <img src="jarvis.gif" class="jarvis-img" onerror="this.style.display='none'">
                 </div>
-                <div class="live-price" id="priceTag" style="position:absolute; right:10px; top:10px; font-size:1.5rem; font-weight:bold; z-index:5;">--.--</div>
+                <div class="live-price" id="priceTag" style="position:absolute; left:20px; top:20px; font-size:1.5rem; font-weight:bold; z-index:5;">--.--</div>
                 <div class="result-overlay" id="resultBig">CALL</div>
             </div>
             
@@ -1119,7 +1119,9 @@ function initSystem() {
     
     getEl('posList').innerHTML = '';
     const hist = getEl('histList');
-    if(hist) hist.innerHTML = '';
+    // FIX: Do NOT clear history on boot, so persistence works. Only clear on Reset.
+    if(hist && hist.innerHTML === '') hist.innerHTML = '<div style="text-align:center; color:#445566; font-size:0.8rem; margin-top:40px;">Histórico vazio.</div>';
+    
     getEl('emptyMsg').style.display = 'block';
     positions.clear();
     tradeStakes.clear();
@@ -1308,6 +1310,45 @@ function getCandleAge() {
     return now - lastCandle.time;
 }
 
+function checkNanoPattern() {
+    // "NANO MOVIMENTO" (User Request)
+    // Detects micro-retracements and continuous pressure (Staircase)
+    if (candles.length < 2) return "NEUTRO";
+    const c = candles[candles.length - 1]; // Current Live
+    const prev = candles[candles.length - 2]; // Last Closed
+
+    const body = Math.abs(c.close - c.open);
+    const upperWick = c.high - Math.max(c.open, c.close);
+    const lowerWick = Math.min(c.open, c.close) - c.low;
+
+    // 1. STAIRCASE DOWN (Padrão de Queda Controlada)
+    // Prev: RED. Current: Fighting at bottom.
+    if (prev.close < prev.open) {
+         // Current is Red OR struggling below prev close
+         if (c.close < c.open || c.close < prev.close) {
+              // "Retraiu um pouquinho" (Upper Wick Exists but small)
+              if (upperWick > 0.01 && upperWick < (body * 3)) { // Valid Wick
+                   // "Desceu denovo" (Pushing Lows) -> Small Lower Wick means huge pressure down
+                   if (lowerWick < upperWick) return "PUT";
+              }
+         }
+    }
+
+    // 2. STAIRCASE UP (Padrão de Alta)
+    // Prev: GREEN. Current: Fighting at top.
+    if (prev.close > prev.open) {
+         if (c.close > c.open || c.close > prev.close) {
+              // "Retraiu um pouquinho" (Lower Wick Exists)
+              if (lowerWick > 0.01 && lowerWick < (body * 3)) {
+                   // "Subiu denovo" (Pushing Highs)
+                   if (upperWick < lowerWick) return "CALL";
+              }
+         }
+    }
+    
+    return "NEUTRO";
+}
+
 // --- MEAN REVERSION ANALYSIS ---
 
 async function runAI(mode) {
@@ -1388,23 +1429,19 @@ async function stateScan(mode) {
 
         let signal = "NEUTRO";
 
-        // MOMENTUM STRATEGY ("AVALANCHE" & "ROCKET")
-        const isUptrend = (mr.ema && mr.currentPrice > mr.ema);
-        const isDowntrend = (mr.ema && mr.currentPrice < mr.ema);
-        const trainGreen = countConsecutive('GREEN');
-        const trainRed = countConsecutive('RED');
-
-        // MOMENTUM CHECK
+        // NANO-PATTERN STRATEGY (User Request: "Micro/Nano Movimento")
+        // Logic: Detect specific wick rejections and continuous pressure (Staircase)
+        const nanoSignal = checkNanoPattern();
+        
         if (checkVolatility()) {
-            if (isUptrend && trainGreen >= 3 && rsi < 90 && mr.zScore > 0.5) {
+            if (nanoSignal === 'CALL' && rsi < 90 && mr.zScore > 0.5) {
                 signal = "CALL"; 
-                if(sub) sub.innerText = "🚀 ROCKET DETECTADO";
             }
-            if (isDowntrend && trainRed >= 3 && rsi > 10 && mr.zScore < -0.5) { 
+            if (nanoSignal === 'PUT' && rsi > 10 && mr.zScore < -0.5) {
                 signal = "PUT";
-                if(sub) sub.innerText = "📉 AVALANCHE DETECTADA";
             }
-        }
+        } 
+
 
         // MEAN REVERSION CHECK (If no momentum)
         if (signal === "NEUTRO") {
@@ -1995,7 +2032,13 @@ function initChart() {
         height: container.clientHeight,
         layout: { backgroundColor: 'transparent', textColor: '#5f7e97' }, // TRANSPARENT
         grid: { vertLines: { color: 'rgba(26, 38, 57, 0.5)'}, horzLines: { color: 'rgba(26, 38, 57, 0.5)'} },
-        timeScale: { timeVisible: true, secondsVisible: true }
+        timeScale: { 
+            timeVisible: true, 
+            secondsVisible: true,
+            rightOffset: 12, // Keep distance from right edge
+            shiftVisibleRangeOnNewBar: true, // Auto-scroll
+            borderColor: '#1a2639'
+        }
     });
     series = chart.addCandlestickSeries({
         upColor: '#00ff41', downColor: '#ff003c', 
