@@ -1612,6 +1612,14 @@ function placeTrade(direction) {
         
         // NO CAP (User Request: "Limitar a 5x é um problema").
         // Controlled ONLY by Daily Kill Switch (-10R) set above.
+        
+        // 3. BALANCE PROTECTION (New Fix)
+        // Prevent "Insufficient Balance" Error by capping at available funds.
+        const currentBalance = parseFloat(getEl('balanceVal').innerText) || 0;
+        if (currentBalance > 0 && finalStake > currentBalance) {
+             console.warn(`⚠️ BALANCE CAP: Smart Stake $${finalStake.toFixed(2)} exceeds Balance $${currentBalance.toFixed(2)}. Going All-In.`);
+             finalStake = currentBalance;
+        }
     }
 
     stake = finalStake.toFixed(2);
