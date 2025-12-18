@@ -1728,11 +1728,10 @@ function handlePosition(p) {
         
         // --- NANO-SCALPING & RATCET (A "CATRACA" USD) ---
         // CRITICAL FIX: Only use Scalping if NOT in deep recovery (or if profit covers debt)
-        // If we adhere to "Lucrar a qualquer custo", maybe current behaviour is intended?
-        // NO, user said "NA RECUPERAÇÃO ELE NÃO FAZ LUCROS".
-        // So we must NOT scalp early in recovery.
-        
-        if (martingaleLevel === 0 || profit > (accumulatedLoss + 0.50)) {
+        // User Requirement: "NA RECUPERAÇÃO ELE NÃO FAZ LUCROS" -> Disable Scalping in Recovery
+        const inRecovery = (martingaleLevel > 0 || sessionProfit < 0);
+
+        if (!inRecovery) {
             
             const secureProfit = 0.40; // Target 40 cents
             
@@ -1755,7 +1754,7 @@ function handlePosition(p) {
                 }
             }
         }
-    
+        
         const userTP = parseFloat(getEl('scalpPercent').value) || 999;
         if (profitPercent >= userTP) {
             console.log(`✅ TP HIT: ${profitPercent.toFixed(2)}% >= ${userTP}%`);
@@ -1785,9 +1784,14 @@ function handlePosition(p) {
         }
     } 
     else if (useTrailing && !shouldSell) {
-         // MANAGE STATE: Smart Trailing
-         // Logic: Arm at X%, then Trail by Y% from Peak
+         // MANAGE STATE: Smart Trailing (PROFIT MAXIMIZER)
+         // Logic: Arm ONLY after User TP is hit (e.g. 60%). Then trail.
+         // User Requirement: "Trailing só aciona ACIMA do Take Profit"
          
+         const userTP = parseFloat(getEl('scalpPercent').value) || 50;
+         const ARM_THRESHOLD = userTP; // Must hit TP first
+         const TRAIL_DISTANCE = parseFloat(getEl('trailingDistance').value) || 5;
+
          // 1. Update High Water Mark
          let high = highestProfit.get(p.contract_id) || 0;
          if (profitPercent > high) {
@@ -1795,17 +1799,14 @@ function handlePosition(p) {
              highestProfit.set(p.contract_id, high);
          }
 
-         // 2. Define Parameters (Could be dynamic later)
-         const ARM_THRESHOLD = 30.0; // Wait for +30% profit before acting
-         const TRAIL_DISTANCE = 15.0; // Give back 15% from peak
-         
-         const userTrigger = parseFloat(getEl('trailingTrigger').value) || ARM_THRESHOLD;
-         const userDist = parseFloat(getEl('trailingDistance').value) || TRAIL_DISTANCE;
+         if (high >= ARM_THRESHOLD) {
+             const dynamicStop = high - TRAIL_DISTANCE;
+             // Ensure Dynamic Stop never goes below TP (Lock in the Win)
+             const hardFloor = ARM_THRESHOLD; 
+             const finalStop = Math.max(dynamicStop, hardFloor);
 
-         if (high >= userTrigger) {
-             const dynamicStop = high - userDist;
-             if (profitPercent <= dynamicStop) {
-                 console.log(`📉 SMART TRAILING: Peak ${high.toFixed(2)}% | Stop ${dynamicStop.toFixed(2)}% | Now ${profitPercent.toFixed(2)}%`);
+             if (profitPercent <= finalStop) {
+                 console.log(`📉 SMART TRAILING: Peak ${high.toFixed(2)}% | Stop ${finalStop.toFixed(2)}% | Now ${profitPercent.toFixed(2)}%`);
                  shouldSell = true;
              }
          }
