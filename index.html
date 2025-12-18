@@ -1041,6 +1041,31 @@ const SYMBOL = "R_100";
 const MAX_TRADES = 1;
 const MAX_CANDLE_AGE_SECONDS = 20; // Allow up to 20s
 
+// --- TRADE LIFECYCLE STATE MACHINE (ARCHITECTURE V2) ---
+const TradeState = {
+    SCAN: 'SCAN',      // Looking for Setup
+    CONFIRM: 'CONFIRM',// Validating Setup (Rejection/Break)
+    ENTER: 'ENTER',    // Placing Order
+    LOCK: 'LOCK',      // Holding (No Exit)
+    MANAGE: 'MANAGE',  // Trailing Stop Logic
+    EXIT: 'EXIT',      // Closing
+    COOLDOWN: 'COOLDOWN' // Waiting
+};
+
+let tradeLifecycle = {
+    state: TradeState.SCAN,
+    signal: null,      // 'CALL' or 'PUT'
+    entryTime: 0,
+    entryPrice: 0,
+    targetPrice: 0,    // For R-Analysis
+    stopPrice: 0,      // Hard Stop
+    highestProfit: 0,  // For Trailing
+    riskUnit: 5.0,     // $5 per trade (Default)
+    rMultiple: 1.5,     // Target = 1.5R
+    lockUntil: 0,      // Timestamp for Lock
+    confirmStartVal: 0 // Price at start of CONFIRM
+};
+
 // --- STATE ---
 let ws;
 let chart, series;
@@ -1287,16 +1312,49 @@ function getCandleAge() {
 
 async function runAI(mode) {
     if (isProcessing) return;
+    
+    // --- STATE MACHINE DISPATCHER (ARCHITECTURE V2) ---
+    switch(tradeLifecycle.state) {
+        
+        // 1. SCANNING STATE (Looking for Opportunities)
+        case TradeState.SCAN:
+            await stateScan(mode);
+            break;
+            
+        // 2. CONFIRMATION STATE (Validating Signal)
+        case TradeState.CONFIRM:
+             await stateConfirm();
+             break;
+             
+        // 3. ENTER STATE (Execution)
+        case TradeState.ENTER:
+             // Executed immediately by state transition
+             break;
+             
+        // 4. MANAGING STATES (LOCK, MANAGE)
+        case TradeState.LOCK:
+        case TradeState.MANAGE:
+             await stateManage();
+             break;
+             
+        // 5. COOLDOWN
+        case TradeState.COOLDOWN:
+             checkCoolDown();
+             break;
+    }
+}
+
+// --- STATE: SCAN ---
+async function stateScan(mode) {
     if (positions.size > 0) {
-        if(mode === 'MANUAL') alert("JARVIS: Posição aberta. Aguarde.");
+        // Recover state if position exists
+        tradeLifecycle.state = TradeState.MANAGE;
         return;
     }
 
     // CHECK CANDLE AGE
     const candleAge = getCandleAge();
-    if (candleAge > MAX_CANDLE_AGE_SECONDS) {
-        return;
-    }
+    if (candleAge > MAX_CANDLE_AGE_SECONDS) return;
 
     isProcessing = true;
     const btn = getEl('btnDecode');
@@ -1306,15 +1364,14 @@ async function runAI(mode) {
 
     // VISUAL
     if (mode === 'MANUAL') btn.style.background = 'rgba(255, 215, 0, 0.1)';
-    
     if(anim) {
          anim.className = 'jarvis-container';
-         void anim.offsetWidth;
+         void anim.offsetWidth; 
          if(img) img.style.boxShadow = '0 0 30px rgba(255, 215, 0, 0.5)';
     }
 
     try {
-        if(sub) sub.innerText = `🔎 ESCANEANDO 50 CANDLES...`;
+        if(sub) sub.innerText = `🔎 SCAN (STATE: ${tradeLifecycle.state})...`;
         await new Promise(r => setTimeout(r, 300));
 
         if (candles.length < 50) {
@@ -1327,186 +1384,120 @@ async function runAI(mode) {
         const mr = calculateMeanReversion();
         const rsi = parseFloat(getEl('rsiVal').innerText) || 50;
 
-        if (!mr) {
-            isProcessing = false;
-            return;
-        }
-
-        console.log(`📊 STATS: Price=${mr.currentPrice.toFixed(2)} | Mean=${mr.mean.toFixed(2)} | Z-Score=${mr.zScore.toFixed(2)} | EMA=${mr.ema ? mr.ema.toFixed(2) : 'N/A'}`);
-        
-        // DEBUG DISP: Show user what is happening
-        if(sub) {
-             const modeStr = (martingaleLevel > 0) ? "RECUPERAÇÃO" : "BUSCANDO";
-             // Use innerHTML to style the numbers
-             // Only green/red if it meets the DYNAMIC threshold (not just multiplier)
-             sub.innerHTML = `<span style="color:#8899a6; font-size:0.8rem;">${modeStr}</span> <span style="font-weight:900; color:${Math.abs(mr.zScore) >= 1.2 ? '#00ff41' : '#ff003c'}">Z:${Math.abs(mr.zScore).toFixed(2)}</span>`;
-        }
+        if (!mr) { isProcessing = false; return; }
 
         let signal = "NEUTRO";
 
-
-
         // MOMENTUM STRATEGY ("AVALANCHE" & "ROCKET")
-        // User Request: "Avalanche de queda -> PUT", "Avalanche de alta -> CALL"
-        // This logic TRUMPS Mean Reversion.
-        
-        // 1. Identify Trend Definitions
         const isUptrend = (mr.ema && mr.currentPrice > mr.ema);
         const isDowntrend = (mr.ema && mr.currentPrice < mr.ema);
-        
         const trainGreen = countConsecutive('GREEN');
         const trainRed = countConsecutive('RED');
 
-        // 2. MOMENTUM CALL (ROCKET) 🚀
-        if (isUptrend && trainGreen >= 3) {
-             if (checkVolatility()) {
-                 // Confirmation: Price moving UP (Z > 0.5) and not totally exhausted (RSI < 90)
-                 if (rsi < 90 && mr.zScore > 0.5) {
-                     console.log("🚀 ROCKET MODE: Pumping with Trend!");
-                     signal = "CALL"; 
-                     if(sub) sub.innerText = "🚀 AVALANCHE DE ALTA";
-                 }
-             }
+        // MOMENTUM CHECK
+        if (checkVolatility()) {
+            if (isUptrend && trainGreen >= 3 && rsi < 90 && mr.zScore > 0.5) {
+                signal = "CALL"; 
+                if(sub) sub.innerText = "🚀 ROCKET DETECTADO";
+            }
+            if (isDowntrend && trainRed >= 3 && rsi > 10 && mr.zScore < -0.5) { 
+                signal = "PUT";
+                if(sub) sub.innerText = "📉 AVALANCHE DETECTADA";
+            }
+        }
+
+        // MEAN REVERSION CHECK (If no momentum)
+        if (signal === "NEUTRO") {
+            const THRESHOLD = 2.0;
+            // Adaptive Threshold based on Volatility could go here
+            
+            if (mr.zScore >= THRESHOLD && rsi > 35 && checkWickRejection('PUT')) {
+                signal = "PUT";
+            }
+            if (mr.zScore <= -THRESHOLD && rsi < 65 && checkWickRejection('CALL')) {
+                signal = "CALL";
+            }
         }
         
-        // 3. MOMENTUM PUT (AVALANCHE) 📉
-        if (isDowntrend && trainRed >= 3) {
-             if (checkVolatility()) {
-                 // Confirmation: Price moving DOWN (Z < -0.5) and not totally exhausted (RSI > 10)
-                 if (rsi > 10 && mr.zScore < -0.5) { 
-                     console.log("📉 AVALANCHE MODE: Crashing with Trend!");
-                     signal = "PUT";
-                     if(sub) sub.innerText = "📉 AVALANCHE DE BAIXA";
-                 }
-             }
-        }
-
-        // ONLY RUN MEAN REVERSION IF MOMENTUM DIDN'T TRIGGER
-        if (signal === "NEUTRO") {
-
-            // HYBRID STRATEGY: Trend Following + Mean Reversion
-            
-            // 2. Set Dynamic Thresholds
-            const THRESHOLD_TREND = 1.2; // Aggressive for Trend Following
-            const THRESHOLD_COUNTER = 2.0; // Strict for Reversals
-            const THRESHOLD_EXTREME = 2.1; // "Catch the Knife" Threshold
-            const THRESHOLD_NEUTRAL = 1.5; // Normal
-    
-            // --- PUT LOGIC (Expect Drop) ---
-            let requiredZ = THRESHOLD_NEUTRAL;
-            if (isDowntrend) requiredZ = THRESHOLD_TREND; 
-            if (isUptrend) requiredZ = THRESHOLD_COUNTER; 
-            
-            if (mr.zScore >= requiredZ) { 
-                 if (rsi > 35) { 
-                     
-                     // TREND FILTER
-                     const unsafeAgainstTrend = (mr.ema && mr.currentPrice > mr.ema);
-                     const isExtreme = mr.zScore >= THRESHOLD_EXTREME; 
-    
-                     // ANTI-TRAIN (If Z is extreme, ignoring train)
-                     if ((!unsafeAgainstTrend || martingaleLevel > 0 || isExtreme) && trainGreen < 6) {
-                         if (checkVisualPattern('PUT')) {
-                             if (checkWickRejection('PUT')) {
-                                 if (checkVolatility()) {
-                                     signal = "PUT";
-                                 } else if(sub) sub.innerText = "⚠️ MERCADO PARADO";
-                             } else if(sub) sub.innerText = "🛑 REJEIÇÃO (PAVIO)";
-                         } else if(sub) sub.innerText = "🛑 PADRÃO VISUAL";
-                     } else {
-                         if (trainGreen >= 6) {
-                             console.warn("🚂 ANTI-TRAIN: Skipping PUT (6+ Green Candles)");
-                             if(sub) sub.innerText = "🚂 ANTI-TREM: 6+ VELAS VERDES";
-                         } else {
-                             console.log("⚠️ TREND FILTER: Skip PUT (Price > EMA)");
-                             if(sub) sub.innerText = "⛔ TENDÊNCIA DE ALTA (EMA)";
-                         }
-                     }
-                 }
-            }
-            
-            // --- CALL LOGIC (Expect Rise) ---
-            requiredZ = THRESHOLD_NEUTRAL;
-            if (isUptrend) requiredZ = THRESHOLD_TREND; 
-            if (isDowntrend) requiredZ = THRESHOLD_COUNTER; 
-    
-            if (mr.zScore <= -requiredZ) { 
-                 if (rsi < 65) { 
-                     
-                     const unsafeAgainstTrend = (mr.ema && mr.currentPrice < mr.ema);
-                     const isExtreme = Math.abs(mr.zScore) >= THRESHOLD_EXTREME;
-    
-                     if ((!unsafeAgainstTrend || martingaleLevel > 0 || isExtreme) && trainRed < 6) {
-                         if (checkVisualPattern('CALL')) {
-                             if (checkWickRejection('CALL')) {
-                                 if (checkVolatility()) {
-                                     signal = "CALL";
-                                 } else if(sub) sub.innerText = "⚠️ MERCADO PARADO";
-                             } else if(sub) sub.innerText = "🛑 REJEIÇÃO (PAVIO)";
-                         } else if(sub) sub.innerText = "🛑 PADRÃO VISUAL";
-                     } else {
-                         if (trainRed >= 6) {
-                             console.warn("🚂 ANTI-TRAIN: Skipping CALL (6+ Red Candles)");
-                             if(sub) sub.innerText = "🚂 ANTI-TREM: 6+ VELAS VERMELHAS";
-                         } else {
-                             console.log("⚠️ TREND FILTER: Skip CALL (Price < EMA)");
-                             if(sub) sub.innerText = "⛔ TENDÊNCIA DE BAIXA (EMA)";
-                         }
-                     }
-                 }
-            }
-        } // END OF IF NEUTRO
-
-        // AI VETO (If loaded)
-        if (signal !== "NEUTRO" && model) {
+        // AI CONFIRMATION VETO
+         if (signal !== "NEUTRO" && model) {
             try {
                 const aiPred = await getAIPrediction();
                 if (aiPred !== null) {
-                    if (signal === "CALL" && aiPred < 0.3) {
-                        console.warn("🚫 AI VETO CALL: Predicted DOWN");
-                        signal = "NEUTRO";
-                        if(sub) sub.innerText = "AI VETO: Sinal cancelado";
-                    }
-                    else if (signal === "PUT" && aiPred > 0.7) {
-                        console.warn("🚫 AI VETO PUT: Predicted UP");
-                        signal = "NEUTRO";
-                        if(sub) sub.innerText = "AI VETO: Sinal cancelado";
-                    }
-                    else {
-                        console.log(`✅ AI CONFIRMAÇÃO: ${aiPred.toFixed(2)}`);
-                    }
+                    if (signal === "CALL" && aiPred < 0.3) signal = "NEUTRO";
+                    if (signal === "PUT" && aiPred > 0.7) signal = "NEUTRO";
                 }
-            } catch(e) {
-                console.warn("AI Error:", e);
-            }
-        }
+            } catch(e) {}
+         }
 
-        // EXECUTION
+        // TRANSITION TO ENTER (Phase 1: Direct Entry, skipping CONFIRM for now)
         if (signal !== "NEUTRO") {
-            if(anim) {
-                anim.className = signal === 'CALL' ? 'jarvis-container sentiment-bullish' : 'jarvis-container sentiment-bearish';
-                if(img) img.style.boxShadow = signal === 'CALL' ? '0 0 50px rgba(0,255,65,0.6)' : '0 0 50px rgba(255,0,60,0.6)';
-            }
-            if(mode === 'MANUAL') btn.style.borderColor = signal === 'CALL' ? 'var(--cyber-green)' : 'var(--cyber-red)';
-            
-            placeTrade(signal);
+             console.log(`📡 SIGNAL FOUND: ${signal}. EXECUTING.`);
+             transitionToEnter(signal, mr.currentPrice);
         } else {
-            if(sub) sub.innerText = "AGUARDANDO EXTREMO ESTATÍSTICO...";
-            if(anim) anim.className = 'jarvis-container';
-            if(img) img.style.boxShadow = 'none';
+             if(sub) sub.innerHTML = `<span style="color:#8899a6; font-size:0.8rem;">RASTREADOR</span> <span style="font-weight:900; color:${Math.abs(mr.zScore) >= 1.2 ? '#00ff41' : '#ff003c'}">Z:${Math.abs(mr.zScore).toFixed(2)}</span>`;
+             if(anim) anim.className = 'jarvis-container';
+             if(img) img.style.boxShadow = 'none';
         }
 
     } catch(e) {
-        console.error(e);
+        console.error("SCAN ERROR:", e);
     } finally {
         isProcessing = false;
-        if(mode === 'MANUAL') {
-            setTimeout(() => {
+        if (mode === 'MANUAL') {
+             setTimeout(() => {
                  btn.style.background = '';
                  btn.style.borderColor = 'var(--cyber-blue)';
                  if(sub) sub.innerText = "SISTEMA ONLINE";
-            }, 5000);
+             }, 5000);
         }
+    }
+}
+
+// --- STATE: HELPERS ---
+
+async function stateConfirm() {
+    // Placeholder for Phase 2 (Confirmation Layer)
+    // For now, we jump directly from SCAN to ENTER
+}
+
+function transitionToEnter(signal, price) {
+    tradeLifecycle.state = TradeState.ENTER;
+    tradeLifecycle.signal = signal;
+    tradeLifecycle.entryPrice = price;
+    tradeLifecycle.entryTime = Date.now();
+    
+    // EXECUTE
+    if(signal === 'CALL') placeTrade('CALL');
+    if(signal === 'PUT') placeTrade('PUT');
+    
+    // MOVE TO LOCK
+    tradeLifecycle.state = TradeState.LOCK;
+    tradeLifecycle.lockUntil = Date.now() + 10000; // 10s Lock (Breathing Room)
+    console.log(`🔒 ENTERED TRADE. LOCKED FOR 10s.`);
+}
+
+async function stateManage() {
+    // Manage Logic (Trailing, Lock)
+    const sub = getEl('btnSubText');
+    const remaining = Math.ceil((tradeLifecycle.lockUntil - Date.now())/1000);
+    
+    if(tradeLifecycle.state === TradeState.LOCK) {
+        if(sub) sub.innerText = `🔒 BLINDAGEM (${remaining}s)`;
+        
+        if(Date.now() > tradeLifecycle.lockUntil) {
+            tradeLifecycle.state = TradeState.MANAGE;
+            console.log("🔓 LOCK EXPIRED. ACTIVATING SMART TRAILING.");
+        }
+    } else {
+        if(sub) sub.innerText = `⚙️ GESTÃO INTELIGENTE...`;
+        // Smart Trailing Logic will be injected here in Phase 3
+    }
+} 
+
+function checkCoolDown() {
+    if(Date.now() > lossCoolDownTimestamp) {
+        tradeLifecycle.state = TradeState.SCAN;
     }
 }
 
@@ -1541,32 +1532,31 @@ function placeTrade(direction) {
     
     const isConservative = getEl('conservativeMode') && getEl('conservativeMode').checked;
 
-    if (martingaleLevel > 0) {
-        if (isConservative) {
-             stake = (currentStake * 1.3).toFixed(2);
-        } else {
-             // INTELLIGENT RECOVERY (User Request: "Engenharia Avançada")
-             // Context: With SL 30% and TP 70%, we don't need to double the stake!
-             // Loss is small ($3 on $10), so we calculate EXACTLY what's needed.
-             
-             const tpPercent = parseFloat(getEl('scalpPercent').value) || 50; 
-             const targetedRecovery = accumulatedLoss * 1.1; // Recover + 10% Profit
-             let smartStake = targetedRecovery / (tpPercent / 100);
-             
-             // SAFETY FLOOR: Never bid less than the fundamental Base Stake
-             const baseStake = parseFloat(getEl('stakeInput').value);
-             
-             if (smartStake < baseStake) {
-                 console.log(`🧠 SMART ADJUST: Math says $${smartStake.toFixed(2)} is enough, but keeping Base $${baseStake} for momentum.`);
-                 smartStake = baseStake;
-             }
-             
-             stake = smartStake.toFixed(2);
-             console.log(`🧠 INTELLIGENT RECOVERY: Loss $${accumulatedLoss.toFixed(2)} (Small SL) | Aiming for $${targetedRecovery.toFixed(2)} | TP ${tpPercent}% -> Optimal Stake $${stake}`);
-        }
-    } else {
-        stake = getEl('stakeInput').value;
+    // --- GOVERNANCE & RISK MANAGEMENT (PHASE 4) ---
+    const baseStake = parseFloat(getEl('stakeInput').value) || 1.0;
+    
+    // 1. KILL SWITCH CHECK
+    if (sessionProfit <= -(baseStake * 6)) {
+        console.error("☠️ KILL SWITCH: Daily Loss Limit Hit (-6R). Trading Blocked.");
+        tradeLifecycle.state = TradeState.COOLDOWN;
+        lossCoolDownTimestamp = Date.now() + 9999999; // Eternal Cooldown
+        return;
     }
+
+    // 2. ANTI-MARTINGALE (Stake Reduction on High Drawdown)
+    let finalStake = baseStake;
+    
+    if (sessionProfit <= -(baseStake * 3)) {
+        finalStake = baseStake * 0.5;
+        console.warn(`🛡️ GOVERNANCE: Drawdown > 3R. Stake reduced to 50% ($${finalStake.toFixed(2)}).`);
+    } else {
+        // Normal Stake
+        if (martingaleLevel > 0) {
+            console.log("🛡️ GOVERNANCE: Martingale prevented. Maintaining Base Stake.");
+        }
+    }
+    
+    stake = finalStake.toFixed(2);
 
     if (parseFloat(stake) < 0.35) stake = 0.35;
     if (parseFloat(stake) > 5000) stake = 5000;
@@ -1688,20 +1678,43 @@ function handlePosition(p) {
         }
     }
 
+    // --- SMART TRAILING & LOCK LOGIC (PHASE 3) ---
     const useTrailing = getEl('trailingToggle') && getEl('trailingToggle').checked;
-    
-    if (useTrailing && !shouldSell) {
-         let high = highestProfit.get(p.contract_id);
+    const isLocked = (Date.now() < tradeLifecycle.lockUntil);
+
+    if (isLocked) {
+        // LOCK STATE: Only Panic Stop allowed
+        if (profitPercent <= -50) {
+            console.warn(`🚨 PANIC STOP: -50% Hit during LOCK Phase.`);
+            shouldSell = true;
+        } else {
+            // Force Hold (Breathing Room)
+            shouldSell = false; 
+            // Optional: console.log(`🔒 LOCKED: ${((tradeLifecycle.lockUntil - Date.now())/1000).toFixed(1)}s`);
+        }
+    } 
+    else if (useTrailing && !shouldSell) {
+         // MANAGE STATE: Smart Trailing
+         // Logic: Arm at X%, then Trail by Y% from Peak
+         
+         // 1. Update High Water Mark
+         let high = highestProfit.get(p.contract_id) || 0;
          if (profitPercent > high) {
              high = profitPercent;
              highestProfit.set(p.contract_id, high);
          }
-         const trigger = parseFloat(getEl('trailingTrigger').value) || 15;
-         const distance = parseFloat(getEl('trailingDistance').value) || 5;
 
-         if (high >= trigger) {
-             if (profitPercent <= (high - distance)) {
-                 console.log(`📉 TRAILING STOP: High ${high.toFixed(2)}%, now ${profitPercent.toFixed(2)}%`);
+         // 2. Define Parameters (Could be dynamic later)
+         const ARM_THRESHOLD = 30.0; // Wait for +30% profit before acting
+         const TRAIL_DISTANCE = 15.0; // Give back 15% from peak
+         
+         const userTrigger = parseFloat(getEl('trailingTrigger').value) || ARM_THRESHOLD;
+         const userDist = parseFloat(getEl('trailingDistance').value) || TRAIL_DISTANCE;
+
+         if (high >= userTrigger) {
+             const dynamicStop = high - userDist;
+             if (profitPercent <= dynamicStop) {
+                 console.log(`📉 SMART TRAILING: Peak ${high.toFixed(2)}% | Stop ${dynamicStop.toFixed(2)}% | Now ${profitPercent.toFixed(2)}%`);
                  shouldSell = true;
              }
          }
@@ -1774,7 +1787,17 @@ function handlePosition(p) {
         }
         
         tradeStakes.delete(p.contract_id);
-        positions.delete(p.contract_id); // CRITICAL FIX: Free up slot!
+        positions.delete(p.contract_id); 
+        
+        // --- STATE MACHINE RESET ---
+        if (profit < 0) {
+            tradeLifecycle.state = TradeState.COOLDOWN;
+            console.log("🛑 STATE: COOLDOWN ACTIVATED");
+        } else {
+            tradeLifecycle.state = TradeState.SCAN;
+            console.log("🟢 STATE: SCANNING");
+        }
+        
         saveState();
     }
 }
