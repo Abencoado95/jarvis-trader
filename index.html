@@ -617,7 +617,7 @@
                     <div class="neon-ring"></div>
                     <img src="jarvis.gif" class="jarvis-img" onerror="this.style.display='none'">
                 </div>
-                <div class="live-price" id="priceTag" style="position:absolute; left:20px; top:20px; font-size:1.5rem; font-weight:bold; z-index:5;">--.--</div>
+                <div class="live-price" id="priceTag" style="position:absolute; right:60px; top:10px; font-size:1.5rem; font-weight:bold; z-index:5;">--.--</div>
                 <div class="result-overlay" id="resultBig">CALL</div>
             </div>
             
@@ -1569,30 +1569,51 @@ function placeTrade(direction) {
     
     const isConservative = getEl('conservativeMode') && getEl('conservativeMode').checked;
 
-    // --- GOVERNANCE & RISK MANAGEMENT (PHASE 4) ---
+    // --- GOVERNANCE & RISK MANAGEMENT (PHASE 4 - REVISED) ---
+    // User Request: "Intelligent Recovery", "Leverage High Confidence"
     const baseStake = parseFloat(getEl('stakeInput').value) || 1.0;
-    
-    // 1. KILL SWITCH CHECK
-    if (sessionProfit <= -(baseStake * 6)) {
-        console.error("☠️ KILL SWITCH: Daily Loss Limit Hit (-6R). Trading Blocked.");
+    let finalStake = baseStake;
+
+    // 1. KILL SWITCH (Safety Cap - Still Needed)
+    if (sessionProfit <= -(baseStake * 10)) { // increased tolerance from 6R to 10R
+        console.error("☠️ KILL SWITCH: Daily Loss Limit Hit (-10R). Trading Blocked.");
         tradeLifecycle.state = TradeState.COOLDOWN;
-        lossCoolDownTimestamp = Date.now() + 9999999; // Eternal Cooldown
+        lossCoolDownTimestamp = Date.now() + 9999999; 
         return;
     }
 
-    // 2. ANTI-MARTINGALE (Stake Reduction on High Drawdown)
-    let finalStake = baseStake;
+    // 2. INTELLIGENT RECOVERY (Smart Martingale)
+    // If we are conflicting with the market, we shouldn't just halve the stake.
+    // We should calculate the stake needed to recover + profit, BUT with limits.
     
-    if (sessionProfit <= -(baseStake * 3)) {
-        finalStake = baseStake * 0.5;
-        console.warn(`🛡️ GOVERNANCE: Drawdown > 3R. Stake reduced to 50% ($${finalStake.toFixed(2)}).`);
-    } else {
-        // Normal Stake
-        if (martingaleLevel > 0) {
-            console.log("🛡️ GOVERNANCE: Martingale prevented. Maintaining Base Stake.");
+    // 2. INTELLIGENT RECOVERY (Precision Math)
+    // User Requirement: "Recuperação Inteligente sem dobrar a torta direita"
+    // Formula: Stake = (Abs(Loss) + NormalProfit) / Yield%
+    
+    if (sessionProfit < 0) {
+        const tpPercent = parseFloat(getEl('scalpPercent').value) || 50; 
+        const lossToRecover = Math.abs(sessionProfit);
+        const normalProfit = baseStake * (tpPercent / 100);
+        const totalTarget = lossToRecover + normalProfit;
+        
+        // Yield is the TP% (If we win, we get Stake * TP%)
+        // Example: Loss $0.10. TP 50%. NormalProfit $0.17. Target $0.27.
+        // Stake = 0.27 / 0.50 = $0.54.
+        let smartStake = totalTarget / (tpPercent / 100);
+        
+        // SAFETY: Only apply if SmartStake is logically higher than BaseStake
+        if (smartStake > baseStake) {
+             finalStake = smartStake;
+             console.log(`🧠 PRECISION RECOVERY: Loss $${lossToRecover.toFixed(2)} | Target $${totalTarget.toFixed(2)} -> Stake $${finalStake.toFixed(2)}`);
+        } else {
+             // If BaseStake is enough to recover (e.g. small loss), keep BaseStake.
+             console.log(`🧠 PRECISION RECOVERY: Base Stake is sufficient to recover $${lossToRecover.toFixed(2)}.`);
         }
+        
+        // NO CAP (User Request: "Limitar a 5x é um problema").
+        // Controlled ONLY by Daily Kill Switch (-10R) set above.
     }
-    
+
     stake = finalStake.toFixed(2);
 
     if (parseFloat(stake) < 0.35) stake = 0.35;
@@ -2157,6 +2178,10 @@ function updateRSI() {
 
 function sellAtMarket(id) {
     if (!id || id === 'undefined') return;
+    // Fix: Prevent selling if already closed/expired
+    const p = positions.get(id);
+    if (p && (p.is_sold || p.is_expired)) return;
+    
     if(ws) ws.send(JSON.stringify({ sell: id, price: 0 }));
 }
 
