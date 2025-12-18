@@ -1621,6 +1621,9 @@ function placeTrade(direction) {
         // Stake = 0.27 / 0.50 = $0.54.
         let smartStake = totalTarget / (tpPercent / 100);
         
+        // DEBUG: DIAGNOSE WHY STAKE IS NOT INCREASING
+        console.warn(`🕵️ DEBUG RECOVERY: SessionPL=${sessionProfit.toFixed(2)} | Loss=${lossToRecover.toFixed(2)} | TP%=${tpPercent} | Target=${totalTarget.toFixed(2)} | CalcStake=${smartStake.toFixed(2)} | Base=${baseStake}`);
+
         // SAFETY: Only apply if SmartStake is logically higher than BaseStake
         if (smartStake > baseStake) {
              finalStake = smartStake;
