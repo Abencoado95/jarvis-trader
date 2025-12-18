@@ -283,10 +283,10 @@
             opacity: 1; 
             
             /* REAL MIST FADE */
-            -webkit-mask-image: radial-gradient(closest-side, rgba(0,0,0,1) 50%, rgba(0,0,0,0) 100%);
-            mask-image: radial-gradient(closest-side, rgba(0,0,0,1) 50%, rgba(0,0,0,0) 100%);
+            -webkit-mask-image: radial-gradient(closest-side, rgba(0,0,0,1) 65%, rgba(0,0,0,0) 100%);
+            mask-image: radial-gradient(closest-side, rgba(0,0,0,1) 65%, rgba(0,0,0,0) 100%);
             
-            mix-blend-mode: screen; 
+            mix-blend-mode: normal; /* "Mais vivo" - Remove Ghost Effect */ 
             transition: all 0.5s ease;
         }
         
@@ -318,10 +318,10 @@
         .neon-ring { display: none; } 
 
         .sentiment-bullish .energy-wave::before, .sentiment-bullish .energy-wave::after { border-color: rgba(0, 255, 65, 0.8); box-shadow: 0 0 40px rgba(0,255,65,0.5); }
-        .sentiment-bullish .jarvis-img { border-color: var(--cyber-green); box-shadow: 0 0 80px rgba(0,255,65,0.4); opacity: 0.6; }
+        .sentiment-bullish .jarvis-img { border-color: var(--cyber-green); box-shadow: 0 0 80px rgba(0,255,65,0.4); opacity: 1.0; }
         
         .sentiment-bearish .energy-wave::before, .sentiment-bearish .energy-wave::after { border-color: rgba(255, 0, 60, 0.8); box-shadow: 0 0 40px rgba(255,0,60,0.5); }
-        .sentiment-bearish .jarvis-img { border-color: var(--cyber-red); box-shadow: 0 0 80px rgba(255,0,60,0.4); opacity: 0.6; }
+        .sentiment-bearish .jarvis-img { border-color: var(--cyber-red); box-shadow: 0 0 80px rgba(255,0,60,0.4); opacity: 1.0; }
         
         @keyframes shockwave {
             0% { width: 100%; height: 100%; opacity: 0.9; border-width: 5px; }
@@ -617,7 +617,7 @@
                     <div class="neon-ring"></div>
                     <img src="jarvis.gif" class="jarvis-img" onerror="this.style.display='none'">
                 </div>
-                <div class="live-price" id="priceTag" style="position:absolute; right:60px; top:10px; font-size:1.5rem; font-weight:bold; z-index:5;">--.--</div>
+                <div class="live-price" id="priceTag" style="position:absolute; right:80px; top:20px; font-size:1.5rem; font-weight:bold; z-index:5;">--.--</div>
                 <div class="result-overlay" id="resultBig">CALL</div>
             </div>
             
