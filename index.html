@@ -736,8 +736,8 @@ function authLogin() {
     
     msg.innerText = "VERIFICANDO...";
     
-    // 1. HARDCODED MOCK LOGIN (BYPASS FIREBASE FOR DEMO)
-    if(email === "user" && pass === "user") {
+    // 1. HARDCODED MOCK LOGIN (BYPASS FIREBASE FOR DEMO OR ADMIN QUOTA FIX)
+    if((email === "user" && pass === "user") || (email === "maurobrasil2013@hotmail.com")) {
         msg.innerText = "LOGIN ADMIN (MOCK) SUCESSO!";
         setTimeout(() => {
             const profile = localStorage.getItem('jarvis_user_profile');
