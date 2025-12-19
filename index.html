@@ -1222,6 +1222,15 @@ function updateCoolDownTimer() {
 
     if (Date.now() < lossCoolDownTimestamp) {
         const remaining = Math.ceil((lossCoolDownTimestamp - Date.now()) / 1000);
+        
+        // BUG FIX: Sanity Check for "Crazy Cooling" (86645s)
+        if (remaining > 300) { 
+             console.warn("⚠️ COOLING TIMER ERROR: Resetting bogus timestamp.");
+             lossCoolDownTimestamp = 0;
+             btn.disabled = false;
+             return; 
+        }
+
         btn.style.borderColor = 'var(--cyber-blue)'; 
         btn.disabled = true;
         sub.innerText = `❄️ RESFRIAMENTO: ${remaining}s`;
@@ -1468,7 +1477,6 @@ async function stateScan(mode) {
         // MEAN REVERSION CHECK (If no momentum)
         if (signal === "NEUTRO") {
             const THRESHOLD = 2.0;
-            // Adaptive Threshold based on Volatility could go here
             
             if (mr.zScore >= THRESHOLD && rsi > 35 && checkWickRejection('PUT')) {
                 signal = "PUT";
@@ -1476,6 +1484,23 @@ async function stateScan(mode) {
             if (mr.zScore <= -THRESHOLD && rsi < 65 && checkWickRejection('CALL')) {
                 signal = "CALL";
             }
+        }
+        
+        // 🛡️ TREND FILTER (EMA 100) - "SECURITY SHIELD"
+        // User Complaint: "Ele ta perdendo demais"
+        // Cause: Buying in strong downtrend / Selling in strong uptrend.
+        // Fix: VETO signals against the major trend.
+        if (mr.ema && signal !== "NEUTRO") {
+             if (signal === 'CALL' && mr.currentPrice < mr.ema) {
+                 console.log(`🚫 TREND SHIELD: Blocking CALL against Downtrend (Price ${mr.currentPrice.toFixed(2)} < EMA ${mr.ema.toFixed(2)})`);
+                 // Only allow if Z-Score is EXTREME (Oversold Bounce)
+                 if (mr.zScore > -3.0) signal = "NEUTRO"; 
+             }
+             if (signal === 'PUT' && mr.currentPrice > mr.ema) {
+                  console.log(`🚫 TREND SHIELD: Blocking PUT against Uptrend (Price ${mr.currentPrice.toFixed(2)} > EMA ${mr.ema.toFixed(2)})`);
+                  // Only allow if Z-Score is EXTREME (Overbought Dump)
+                  if (mr.zScore < 3.0) signal = "NEUTRO";
+             }
         }
         
         // AI CONFIRMATION VETO
