@@ -1742,38 +1742,17 @@ function handlePosition(p) {
     
     if (!shouldSell) {
         
-        // --- NANO-SCALPING & RATCET (A "CATRACA" USD) ---
-        // CRITICAL FIX: Only use Scalping if NOT in deep recovery (or if profit covers debt)
-        // User Requirement: "NA RECUPERAÇÃO ELE NÃO FAZ LUCROS" -> Disable Scalping in Recovery
-        const inRecovery = (martingaleLevel > 0 || sessionProfit < 0);
-
-        if (!inRecovery) {
-            
-            const secureProfit = 0.40; // Target 40 cents
-            
-            // 1. HARD TAKE PROFIT (Micro-Target)
-            if (profit >= secureProfit) {
-                console.log(`💰 MICRO-HARVEST: ${profit.toFixed(2)} >= ${secureProfit}`);
-                shouldSell = true;
-            }
-    
-            // 2. THE RATCHET (Catraca)
-            if (profit >= 0.15) {
-                if (!p.maxProfitUSD || profit > p.maxProfitUSD) {
-                    p.maxProfitUSD = profit;
-                }
-                
-                const drawdown = p.maxProfitUSD - profit;
-                if (p.maxProfitUSD >= 0.20 && drawdown >= 0.10) {
-                     console.log(`📉 RATCHET STOP: Peak $${p.maxProfitUSD.toFixed(2)} - Drop $0.10`);
-                     shouldSell = true; 
-                }
-            }
-        }
+    // --- NANO-SCALPING REMOVED ---
+    // User Verification: Fixed USD values ($0.40) harm large stakes ($10+).
+    // Logic is now purely Percentage Based (TP/SL).
         
         const userTP = parseFloat(getEl('scalpPercent').value) || 999;
-        if (profitPercent >= userTP) {
-            console.log(`✅ TP HIT: ${profitPercent.toFixed(2)}% >= ${userTP}%`);
+        const useTrailing = getEl('trailingToggle') && getEl('trailingToggle').checked; // Check Toggle
+
+        // FIX: If Trailing is ON, do NOT hard-stop at TP. Let it run!
+        // If Trailing is OFF, hard-stop as usual.
+        if (!useTrailing && profitPercent >= userTP) {
+            console.log(`✅ TP HIT (HARD): ${profitPercent.toFixed(2)}% >= ${userTP}%`);
             shouldSell = true;
         }
 
