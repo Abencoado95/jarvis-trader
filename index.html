@@ -1621,11 +1621,14 @@ function placeTrade(direction) {
     const baseStake = parseFloat(getEl('stakeInput').value) || 1.0;
     let finalStake = baseStake;
 
-    // 1. KILL SWITCH (Safety Cap - Still Needed)
-    if (sessionProfit <= -(baseStake * 10)) { // increased tolerance from 6R to 10R
-        console.error("☠️ KILL SWITCH: Daily Loss Limit Hit (-10R). Trading Blocked.");
+    // 1. KILL SWITCH (Safety Cap - USER DEFINED)
+    // Fix: Use the actual input value, not a hardcoded multiplier.
+    const userDailySL = parseFloat(getEl('slInput').value) || 50;
+    
+    if (sessionProfit <= -userDailySL) { 
+        console.error(`☠️ KILL SWITCH: Daily Loss Limit Hit (-$${userDailySL}). Trading Blocked.`);
         tradeLifecycle.state = TradeState.COOLDOWN;
-        lossCoolDownTimestamp = Date.now() + 9999999; 
+        lossCoolDownTimestamp = Date.now() + 60000; // Pause for 1 min (Not forever, allow reset)
         return;
     }
 
