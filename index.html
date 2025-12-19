@@ -1616,12 +1616,11 @@ function placeTrade(direction) {
     // User Complaint: "Travado em $1.00 após loss" (because session was positive)
     
     if (martingaleLevel > 0 || sessionProfit < 0) {
-        // SMART RECOVERY V2: "ZERO GREED" (Segurança Máxima)
-        // User Request: "Menos agressiva e menos perigosa"
-        // Strategy: In Recovery, we DO NOT try to make profit. We only try to get the money back.
-        // Formula: Stake = Loss / Yield% (Pure Break-Even)
-        
-        const tpPercent = parseFloat(getEl('scalpPercent').value) || 60;
+        // SMART RECOVERY V2.1: "GENTLE PROFIT" (Lucro Suave)
+        // User Request: "Não quero zero a zero! Eu quero lucro também! Mas sem dobrar."
+        // Strategy: Recover Loss + 50% of Normal Profit. 
+        // Logic: Ensures we end green, but reduces the burden of the full target.
+        // Example: Loss $4. Base Target $6. New Target $4 + $3 = $7. Stake $11.6 (vs $16).
         
         let lossToRecover = 0;
         if (sessionProfit < 0) {
@@ -1630,13 +1629,13 @@ function placeTrade(direction) {
              lossToRecover = accumulatedLoss;
         }
 
-        let target = lossToRecover; // No 'normalProfit' added.
+        const tpPercent = parseFloat(getEl('scalpPercent').value) || 60;
+        const normalProfit = baseStake * (tpPercent / 100);
         
-        // If it's just the first loss (Level 1), we can be slightly greedy? 
-        // No, user wants safety. Let's stick to Break-Even for ALL recovery levels.
-        // This drops the multiplier from ~2.6x to ~1.6x (assuming 60% Yield).
+        // MIX: Loss + 50% Ambition
+        let target = lossToRecover + (normalProfit * 0.5); 
         
-        // Safety Buffer: Add tiny $0.10 just to cover fees/slippage if needed, but keep it tight.
+        // Safety Buffer
         target += 0.05; 
         
         let smartStake = target / (tpPercent / 100);
