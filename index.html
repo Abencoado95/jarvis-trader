@@ -1882,26 +1882,15 @@ function handlePosition(p) {
 
             console.warn(`💥 LOSS: Accumulated ${accumulatedLoss.toFixed(2)} | Level ${martingaleLevel}`);
         } else {
-            // WIN Logic
+            // WIN Logic = RESET (User Request: "Win = Zera Tudo")
+            // No Partial Recovery. Any Win resets the streak.
             if (martingaleLevel > 0) {
-                // PARTIAL RECOVERY LOGIC (Smart Debt)
-                accumulatedLoss -= profit;
-                
-                if (accumulatedLoss <= 0.10) { // Debt effectively cleared (dust allowed)
-                    console.log(`🎉 RECOVERY SUCCESS! Debt Cleared. Resetting.`);
-                    martingaleLevel = 0;
-                    accumulatedLoss = 0;
-                    currentStake = parseFloat(getEl('stakeInput').value);
-                } else {
-                    console.log(`📉 PARTIAL RECOVERY: Debt reduced to ${accumulatedLoss.toFixed(2)}. Keeping Recovery Mode.`);
-                    // DO NOT RESET LEVEL. Next trade will be sized to recover the REMAINING debt.
-                }
-            } else {
-                // Normal Win
-                martingaleLevel = 0;
-                accumulatedLoss = 0;
-                currentStake = parseFloat(getEl('stakeInput').value);
+                 console.log(`🎉 RECOVERY RESET: Win detected ($${profit.toFixed(2)}). Resetting Streak.`);
             }
+            martingaleLevel = 0;
+            accumulatedLoss = 0.0;
+            const baseStake = parseFloat(getEl('stakeInput').value) || 1.0;
+            currentStake = baseStake;
         }
         
         tradeStakes.delete(p.contract_id);
