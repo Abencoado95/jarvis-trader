@@ -1647,12 +1647,12 @@ function placeTrade(direction) {
         }
         
         // DEBUG: DIAGNOSE WHY STAKE IS NOT INCREASING
-        console.warn(`🕵️ DEBUG RECOVERY: SessionPL=${sessionProfit.toFixed(2)} | Loss=${lossToRecover.toFixed(2)} | TP%=${tpPercent} | Target=${totalTarget.toFixed(2)} | CalcStake=${smartStake.toFixed(2)} | Base=${baseStake}`);
+        console.warn(`🕵️ DEBUG RECOVERY: SessionPL=${sessionProfit.toFixed(2)} | Loss=${lossToRecover.toFixed(2)} | TP%=${tpPercent} | Target=${target.toFixed(2)} | CalcStake=${smartStake.toFixed(2)} | Base=${baseStake}`);
 
         // SAFETY: Only apply if SmartStake is logically higher than BaseStake
         if (smartStake > baseStake) {
              finalStake = smartStake;
-             console.log(`🧠 PRECISION RECOVERY: Loss $${lossToRecover.toFixed(2)} | Target $${totalTarget.toFixed(2)} -> Stake $${finalStake.toFixed(2)}`);
+             console.log(`🧠 PRECISION RECOVERY: Loss $${lossToRecover.toFixed(2)} | Target $${target.toFixed(2)} -> Stake $${finalStake.toFixed(2)}`);
         } else {
              // If BaseStake is enough to recover (e.g. small loss), keep BaseStake.
              console.log(`🧠 PRECISION RECOVERY: Base Stake is sufficient to recover $${lossToRecover.toFixed(2)}.`);
