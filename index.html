@@ -1191,14 +1191,16 @@ function calculateMeanReversion() {
     const currentPrice = candles[candles.length - 1].close;
     const zScore = (currentPrice - mean) / stdDev;
     
-    // DYNAMIC MULTIPLIER (BALANCED): 
-    // Normal: 2.0 (Conservative) / 1.5 (Aggressive - BALANCED)
-    // Recovery (Sniper): 1.8 (Strict but reachable)
+    // DYNAMIC MULTIPLIER (IMPROVED PRECISION)
+    // User Complaint: "Sem assertividade"
+    // Fix: Increase deviation requirement. Filter weak signals.
     const isConservative = getEl('conservativeMode') && getEl('conservativeMode').checked;
-    let multiplier = isConservative ? 2.0 : 1.5; 
+    
+    // Tighter Bands: 2.5 (Conservative) / 2.0 (Aggressive)
+    let multiplier = isConservative ? 2.5 : 2.0; 
     
     if (martingaleLevel > 0) {
-        multiplier = 1.8; // SNIPER BALANCED
+        multiplier = 2.8; // SNIPER MODE: Only take EXTREME reversals during recovery.
     }
     
     return {
@@ -1614,11 +1616,13 @@ function placeTrade(direction) {
     // User Complaint: "Travado em $1.00 após loss" (because session was positive)
     
     if (martingaleLevel > 0 || sessionProfit < 0) {
-        const tpPercent = parseFloat(getEl('scalpPercent').value) || 50; 
+        // SMART RECOVERY V2: "ZERO GREED" (Segurança Máxima)
+        // User Request: "Menos agressiva e menos perigosa"
+        // Strategy: In Recovery, we DO NOT try to make profit. We only try to get the money back.
+        // Formula: Stake = Loss / Yield% (Pure Break-Even)
         
-        // DETERMINE TARGET:
-        // 1. If in Drawdown (Negative Balance), prioritize clearing the Hole.
-        // 2. If in Profit but on Streak, prioritize clearing the Streak.
+        const tpPercent = parseFloat(getEl('scalpPercent').value) || 60;
+        
         let lossToRecover = 0;
         if (sessionProfit < 0) {
              lossToRecover = Math.abs(sessionProfit);
@@ -1626,13 +1630,22 @@ function placeTrade(direction) {
              lossToRecover = accumulatedLoss;
         }
 
-        const normalProfit = baseStake * (tpPercent / 100);
-        const totalTarget = lossToRecover + normalProfit;
+        let target = lossToRecover; // No 'normalProfit' added.
         
-        // Yield is the TP% (If we win, we get Stake * TP%)
-        // Example: Loss $0.10. TP 50%. NormalProfit $0.17. Target $0.27.
-        // Stake = 0.27 / 0.50 = $0.54.
-        let smartStake = totalTarget / (tpPercent / 100);
+        // If it's just the first loss (Level 1), we can be slightly greedy? 
+        // No, user wants safety. Let's stick to Break-Even for ALL recovery levels.
+        // This drops the multiplier from ~2.6x to ~1.6x (assuming 60% Yield).
+        
+        // Safety Buffer: Add tiny $0.10 just to cover fees/slippage if needed, but keep it tight.
+        target += 0.05; 
+        
+        let smartStake = target / (tpPercent / 100);
+        
+        console.warn(`🛡️ SAFE RECOVERY: Loss $${lossToRecover.toFixed(2)} | Target Breakdown (Loss Only) | Stake $${smartStake.toFixed(2)}`);
+        
+        if (smartStake > baseStake) {
+             finalStake = smartStake;
+        }
         
         // DEBUG: DIAGNOSE WHY STAKE IS NOT INCREASING
         console.warn(`🕵️ DEBUG RECOVERY: SessionPL=${sessionProfit.toFixed(2)} | Loss=${lossToRecover.toFixed(2)} | TP%=${tpPercent} | Target=${totalTarget.toFixed(2)} | CalcStake=${smartStake.toFixed(2)} | Base=${baseStake}`);
