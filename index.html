@@ -760,7 +760,7 @@ function authLogin() {
     msg.innerText = "VERIFICANDO...";
     
     // 1. HARDCODED MOCK LOGIN (BYPASS FIREBASE FOR DEMO OR ADMIN QUOTA FIX)
-    if((email === "user" && pass === "user") || (email === "maurobrasil2013@hotmail.com")) {
+    if(email === "user" && pass === "user") {
         msg.innerText = "LOGIN ADMIN (MOCK) SUCESSO!";
         setTimeout(() => {
             const profile = localStorage.getItem('jarvis_user_profile');
@@ -771,15 +771,19 @@ function authLogin() {
     }
 
     if(auth) {
+        console.log("🔐 Attempting Firebase login for:", email);
         auth.signInWithEmailAndPassword(email, pass)
             .then((userCredential) => {
+                console.log("✅ Firebase login successful. UID:", userCredential.user.uid);
                 // Check Database for Subscription Status
                 checkSubscription(userCredential.user.uid);
             })
             .catch((error) => {
+                console.error("❌ Firebase login error:", error);
                 msg.innerText = "ERRO: " + error.message;
             });
     } else {
+        console.warn("⚠️ Firebase not initialized");
         msg.innerText = "FIREBASE NÃO CONFIGURADO. USE user/user";
     }
 }
