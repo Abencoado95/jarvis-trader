@@ -1492,14 +1492,24 @@ async function stateScan(mode) {
         // Fix: VETO signals against the major trend.
         if (mr.ema && signal !== "NEUTRO") {
              if (signal === 'CALL' && mr.currentPrice < mr.ema) {
-                 console.log(`🚫 TREND SHIELD: Blocking CALL against Downtrend (Price ${mr.currentPrice.toFixed(2)} < EMA ${mr.ema.toFixed(2)})`);
                  // Only allow if Z-Score is EXTREME (Oversold Bounce)
-                 if (mr.zScore > -3.0) signal = "NEUTRO"; 
+                 // Relaxed from 3.0 to 2.2 to allow "Dip Buying"
+                 if (mr.zScore > -2.2) {
+                     console.log(`🚫 TREND SHIELD: Blocking CALL against Downtrend (Price ${mr.currentPrice.toFixed(2)} < EMA ${mr.ema.toFixed(2)})`);
+                     signal = "NEUTRO"; 
+                 } else {
+                     console.log(`✅ TREND SHIELD: ALLOWING CALL (OVERSOLD BOUNCE) | Z: ${mr.zScore.toFixed(2)}`);
+                 }
              }
              if (signal === 'PUT' && mr.currentPrice > mr.ema) {
-                  console.log(`🚫 TREND SHIELD: Blocking PUT against Uptrend (Price ${mr.currentPrice.toFixed(2)} > EMA ${mr.ema.toFixed(2)})`);
                   // Only allow if Z-Score is EXTREME (Overbought Dump)
-                  if (mr.zScore < 3.0) signal = "NEUTRO";
+                  // Relaxed from 3.0 to 2.2
+                  if (mr.zScore < 2.2) {
+                      console.log(`🚫 TREND SHIELD: Blocking PUT against Uptrend (Price ${mr.currentPrice.toFixed(2)} > EMA ${mr.ema.toFixed(2)})`);
+                      signal = "NEUTRO";
+                  } else {
+                      console.log(`✅ TREND SHIELD: ALLOWING PUT (OVERBOUGHT DUMP) | Z: ${mr.zScore.toFixed(2)}`);
+                  }
              }
         }
 
