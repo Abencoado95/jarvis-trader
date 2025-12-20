@@ -1642,6 +1642,27 @@ async function getAIPrediction() {
 function placeTrade(direction) {
     if (!ws || ws.readyState !== 1) return;
     if(positions.size >= MAX_TRADES) return;
+    
+    // 0. EMERGENCY CIRCUIT BREAKER (New HFT Safety)
+    // If we lost 3 times in a row fast, the market is toxic. PAUSE.
+    if (martingaleLevel >= 3) {
+         console.error(`🛑 CIRCUIT BREAKER: 3 Consecutive Losses. Pausing for 2 minutes to cool down.`);
+         tradeLifecycle.state = TradeState.COOLDOWN;
+         lossCoolDownTimestamp = Date.now() + 120000; // 2 Minutes
+         // Optional: Reset Level to avoid jumping back in immediately at Level 3
+         // But user wants recovery... let's keep level but pause.
+         return;
+    }
+    
+    // 0.1 LEVEL CAP (Absolute Limit)
+    // Never go beyond Level 4. Better to take the loss.
+    if (martingaleLevel > 4) {
+         console.warn(`☠️ LEVEL CAP HIT (L4). Aborting Recovery Streak. Resetting to Base.`);
+         martingaleLevel = 0;
+         accumulatedLoss = 0;
+         currentStake = parseFloat(getEl('stakeInput').value) || 1.0;
+         return; // Skip this tick, wait for reset
+    }
 
     let stake = currentStake;
     
@@ -1720,12 +1741,25 @@ function placeTrade(direction) {
         // NO CAP (User Request: "Limitar a 5x é um problema").
         // Controlled ONLY by Daily Kill Switch (-10R) set above.
         
-        // 3. BALANCE PROTECTION (New Fix)
-        // Prevent "Insufficient Balance" Error by capping at available funds.
+        // 3. BANKROLL PROTECTION (Solvency Guard)
+        // User Complaint: "Derrete a banca"
+        // Fix: NEVER bet more than 20% of the account on a single trade.
+        // If recovery requires > 20%, ABORT RECOVERY and RESET.
         const currentBalance = parseFloat(getEl('balanceVal').innerText) || 0;
+        const MAX_RISK_PCT = 0.20; // 20% Max Risk per trade
+        
+        if (currentBalance > 0 && finalStake > (currentBalance * MAX_RISK_PCT)) {
+             console.error(`🚨 SOLVENCY GUARD: Required Stake $${finalStake.toFixed(2)} exceeds 20% of Balance ($${currentBalance.toFixed(2)}). ABORTING RECOVERY.`);
+             // Reset to Base Stake
+             finalStake = baseStake;
+             martingaleLevel = 0;
+             accumulatedLoss = 0;
+             console.warn(`📉 RESET: Streak cleared to protect capital.`);
+        }
+        
+        // REMOVED: "Going All-In" Logic. That was suicide.
         if (currentBalance > 0 && finalStake > currentBalance) {
-             console.warn(`⚠️ BALANCE CAP: Smart Stake $${finalStake.toFixed(2)} exceeds Balance $${currentBalance.toFixed(2)}. Going All-In.`);
-             finalStake = currentBalance;
+             finalStake = baseStake; // Just in case
         }
     }
 
