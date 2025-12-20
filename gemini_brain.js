@@ -1,9 +1,14 @@
 
 // --------------------------------------------------------------------------
-// GEMINI 1.5 FLASH BRAIN INTEGRATION
+// GEMINI BRAIN INTEGRATION
+// Model: Gemini 1.5 Flash (Optimized for HFT)
 // --------------------------------------------------------------------------
+const INTERNAL_KEY = "AIzaSyDHaVHmWGFZfhinr_HUQVEEaY_V2DDE0NM"; // Hardcoded for User
+
 async function callGeminiBrain(candles, rsi, mr) {
-    const apiKey = getEl('geminiKey').value;
+    // Priority: Internal Key > Input Key
+    const apiKey = INTERNAL_KEY; 
+    
     if (!apiKey) {
         console.warn("⚠️ GEMINI BRAIN: No API Key provided.");
         return null;
