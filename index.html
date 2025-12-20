@@ -859,7 +859,27 @@ function checkSubscription(uid) {
             if(getEl('dashUserEmail')) getEl('dashUserEmail').innerText = data.email;
 
             // 4. ONBOARDING CHECK
-            const hasProfile = (data.onboardingComplete || localStorage.getItem('jarvis_user_profile'));
+            let hasProfile = (data.onboardingComplete || localStorage.getItem('jarvis_user_profile'));
+            
+            // 🛑 IDENTITY CHECK: Does the specific local profile belong to THIS user?
+            if (hasProfile && typeof hasProfile === 'string') {
+                try {
+                    const localP = JSON.parse(hasProfile);
+                    // If local profile has no email or email doesn't match current user... WIPE IT.
+                    if (localP.email && localP.email !== data.email) {
+                        console.warn("🛑 IDENTITY MISMATCH: Local profile is", localP.email, "but user is", data.email);
+                        console.warn("🧹 WIPING STALE DATA to prevent 'Ghost Login' bug...");
+                        localStorage.removeItem('jarvis_user_profile');
+                        localStorage.removeItem('jarvis_active_view');
+                        hasProfile = false; // Force re-evaluation
+                    }
+                } catch(e) { 
+                    // Invalid JSON in storage? Wipe it.
+                    localStorage.removeItem('jarvis_user_profile');
+                    hasProfile = false;
+                }
+            }
+
             console.log("📋 Has profile:", hasProfile);
             
             msg.innerText = "ACESSO AUTORIZADO! BEM-VINDO.";
