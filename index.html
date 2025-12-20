@@ -796,10 +796,12 @@ function authRegister() {
     if(!email || !pass) { msg.innerText = "PREENCHA EMAIL E SENHA PARA REGISTRAR"; return; }
     
     msg.innerText = "CRIANDO CONTA...";
+    console.log("📝 Attempting to register user:", email);
     
     if(auth) {
         auth.createUserWithEmailAndPassword(email, pass)
             .then((userCredential) => {
+                console.log("✅ User created in Firebase Auth. UID:", userCredential.user.uid);
                 // CREATE INITIAL DOC
                 const uid = userCredential.user.uid;
                 db.collection("users").doc(uid).set({
@@ -808,15 +810,21 @@ function authRegister() {
                     blocked: false,
                     plan: "free"
                 }).then(() => {
+                    console.log("✅ User document created in Firestore");
                     msg.innerText = "CONTA CRIADA! REDIRECIONANDO...";
                     setTimeout(() => checkSubscription(uid), 1000);
+                }).catch((dbError) => {
+                    console.error("❌ Firestore document creation error:", dbError);
+                    msg.innerText = "ERRO AO CRIAR PERFIL: " + dbError.message;
                 });
             })
             .catch((error) => {
+                console.error("❌ Firebase registration error:", error);
                 msg.innerText = "ERRO AO REGISTRAR: " + error.message;
             });
     } else {
-         msg.innerText = "FIREBASE OFF. USE O MOCK.";
+        console.warn("⚠️ Firebase not initialized");
+        msg.innerText = "FIREBASE OFF. USE O MOCK.";
     }
 }
 
