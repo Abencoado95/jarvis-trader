@@ -1534,6 +1534,22 @@ async function stateScan(mode) {
              }
         }
         
+        // SMART REVERSAL BIAS (Recovery Intelligence)
+        // If we are in a losing streak (Martingale > 0), simple trend following failed.
+        // We must adapt. Look for REJECTIONS aggressively.
+        if (martingaleLevel > 0 && signal === "NEUTRO") {
+             // If price is HIGH and Wick is UP -> PUT (Don't wait for extreme Z-Score)
+             if (checkWickRejection('PUT') && mr.zScore > 0.5) {
+                  signal = "PUT";
+                  console.log(`🦅 RECOVERY SNIPER: Found Weakness at Top. Counter-Attacking (PUT).`);
+             }
+             // If price is LOW and Wick is DOWN -> CALL
+             if (checkWickRejection('CALL') && mr.zScore < -0.5) {
+                  signal = "CALL";
+                  console.log(`🦅 RECOVERY SNIPER: Found Support at Bottom. Counter-Attacking (CALL).`);
+             }
+        }
+        
         // AI CONFIRMATION VETO
          if (signal !== "NEUTRO" && model) {
             try {
@@ -1643,26 +1659,10 @@ function placeTrade(direction) {
     if (!ws || ws.readyState !== 1) return;
     if(positions.size >= MAX_TRADES) return;
     
-    // 0. EMERGENCY CIRCUIT BREAKER (New HFT Safety)
-    // If we lost 3 times in a row fast, the market is toxic. PAUSE.
-    if (martingaleLevel >= 3) {
-         console.error(`🛑 CIRCUIT BREAKER: 3 Consecutive Losses. Pausing for 2 minutes to cool down.`);
-         tradeLifecycle.state = TradeState.COOLDOWN;
-         lossCoolDownTimestamp = Date.now() + 120000; // 2 Minutes
-         // Optional: Reset Level to avoid jumping back in immediately at Level 3
-         // But user wants recovery... let's keep level but pause.
-         return;
-    }
-    
-    // 0.1 LEVEL CAP (Absolute Limit)
-    // Never go beyond Level 4. Better to take the loss.
-    if (martingaleLevel > 4) {
-         console.warn(`☠️ LEVEL CAP HIT (L4). Aborting Recovery Streak. Resetting to Base.`);
-         martingaleLevel = 0;
-         accumulatedLoss = 0;
-         currentStake = parseFloat(getEl('stakeInput').value) || 1.0;
-         return; // Skip this tick, wait for reset
-    }
+    // 0. NO LIMITS (User Request: "Sem Palhaçada")
+    // Circuit Breaker & Level Cap REMOVED.
+    // The bot will fight until it wins or dies.
+    // "Intelligence" = Aggressive Adaptation, not stopping.
 
     let stake = currentStake;
     
