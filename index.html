@@ -1502,6 +1502,37 @@ async function stateScan(mode) {
                   if (mr.zScore < 3.0) signal = "NEUTRO";
              }
         }
+
+        // 🧠 EXHAUSTION FILTER (New "Malícia")
+        // User Complaint: "Entra com CALL no topo de 5 velas verdes!"
+        // Fix: Detect Exhaustion (4+ consecutive candles) and BLOCK trend following.
+        // Bonus: Hints at Reversal.
+        
+        const consecutiveGreen = countConsecutive('GREEN');
+        const consecutiveRed = countConsecutive('RED');
+
+        if (signal === 'CALL' && consecutiveGreen >= 4) {
+             console.warn(`🛑 EXHAUSTION: Blocking CALL after ${consecutiveGreen} Green Candles. Too risky.`);
+             signal = "NEUTRO";
+        }
+        
+        if (signal === 'PUT' && consecutiveRed >= 4) {
+             console.warn(`🛑 EXHAUSTION: Blocking PUT after ${consecutiveRed} Red Candles. Too risky.`);
+             signal = "NEUTRO";
+        }
+        
+        // 🎣 REVERSAL HUNTING (Malícia V2)
+        // If we see 4+ candles and signal is NEUTRO, checking for REVERSAL opportunity.
+        if (signal === "NEUTRO") {
+             if (consecutiveGreen >= 4 && checkWickRejection('PUT')) {
+                  console.log(`🎣 REVERSAL HUNTER: ${consecutiveGreen} Greens + Rejection. Trying SNAP PUT.`);
+                  signal = "PUT";
+             }
+             if (consecutiveRed >= 4 && checkWickRejection('CALL')) {
+                  console.log(`🎣 REVERSAL HUNTER: ${consecutiveRed} Reds + Rejection. Trying SNAP CALL.`);
+                  signal = "CALL";
+             }
+        }
         
         // AI CONFIRMATION VETO
          if (signal !== "NEUTRO" && model) {
@@ -1628,7 +1659,7 @@ function placeTrade(direction) {
     if (sessionProfit <= -userDailySL) { 
         console.error(`☠️ KILL SWITCH: Daily Loss Limit Hit (-$${userDailySL}). Trading Blocked.`);
         tradeLifecycle.state = TradeState.COOLDOWN;
-        lossCoolDownTimestamp = Date.now() + 60000; // Pause for 1 min (Not forever, allow reset)
+        lossCoolDownTimestamp = Date.now() + 15000; // Fixed: 15s Pause (User wanted reaction, not 60s stuck)
         return;
     }
 
