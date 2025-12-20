@@ -1547,6 +1547,21 @@ async function stateScan(mode) {
              console.warn(`🛑 EXHAUSTION: Blocking PUT after ${consecutiveRed} Red Candles. Too risky.`);
              signal = "NEUTRO";
         }
+
+        // 🛡️ ANTI-STUBBORNNESS (User Complaint: "Perde no mesmo lugar 3 vezes")
+        // Logic: If Last Trade was LOSS and Direction is SAME and Price is SIMILAR... BLOCK IT.
+        if (signal !== "NEUTRO" && window.tradeLifecycle && window.tradeLifecycle.lastTrade && window.tradeLifecycle.lastTrade.result === 'LOSS') {
+             const lt = window.tradeLifecycle.lastTrade;
+             // Check memory: Is direction same?
+             if (lt.direction === signal) {
+                  // Check Price level: Is it roughly the same struggle point? (e.g. within 0.50 diff)
+                  const priceDiff = Math.abs(mr.currentPrice - lt.entryPrice);
+                  if (priceDiff < 0.50) {
+                       console.warn(`🛑 WHIPSAW GUARD: Blocking ${signal} at same losing level ($${mr.currentPrice}). Don't be stubborn.`);
+                       signal = "NEUTRO";
+                  }
+             }
+        }
         
         // 🎣 REVERSAL HUNTING (Malícia V2)
         // If we see 4+ candles and signal is NEUTRO, checking for REVERSAL opportunity.

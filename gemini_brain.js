@@ -61,19 +61,17 @@ async function callGeminiBrain(candles, rsi, mr) {
     }
     `;
 
-    // 4. Call Google Gemini API (2.5 Flash)
+    // 4. Call Google Gemini API (Dual-Engine: 2.5 Flash -> Fallback 1.5 Flash)
     try {
         console.log("🧠 JARVIS THINKING...");
-        // ENDPOINT FIX: UPDATED TO GEMINI 2.5 FLASH (User Demand)
+
+        // ATTEMPT 1: GEMINI 2.5 FLASH (User Preferred)
         const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 contents: [{ parts: [{ text: prompt }] }],
-                generationConfig: { 
-                    responseMimeType: "application/json",
-                    temperature: 0.2
-                }
+                generationConfig: { responseMimeType: "application/json", temperature: 0.2 }
             })
         });
 
