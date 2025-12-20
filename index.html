@@ -2291,6 +2291,17 @@ function connectWS() {
             if (data.error.code === 'InvalidOfferings' || data.error.message.includes('Resale')) {
                 return;
             }
+            
+            // HFT ERROR HANDLER: 
+            // If we get "InvalidSellContractProposal", it means contract is likely closed/expired already.
+            // We must STOP trying to sell it.
+            if (data.error.code === 'InvalidSellContractProposal') {
+                 console.warn("⚠️ ALREADY SOLD/INVALID: Stopping retry.", data.error.details);
+                 // Try to identify which position caused this? 
+                 // Deriv doesn't always send echo_req for errors, but if we can, we should unlock.
+                 // Ideally, we assume success or expiration if this happens.
+            }
+
             if (data.error.code !== 'InvalidContractProposal') {
                 console.error("Deriv Error:", data.error);
             }
@@ -2359,9 +2370,12 @@ function updateRSI() {
 
 function sellAtMarket(id) {
     if (!id || id === 'undefined') return;
-    // Fix: Prevent selling if already closed/expired
+    // Fix: Prevent selling if already closed/expired OR IF CURRENTLY SELLING (Race Condition Fix)
     const p = positions.get(id);
-    if (p && (p.is_sold || p.is_expired)) return;
+    if (p && (p.is_sold || p.is_expired || p.is_selling)) return;
+    
+    // LOCK IT
+    if(p) p.is_selling = true;
     
     if(ws) ws.send(JSON.stringify({ sell: id, price: 0 }));
 }
