@@ -61,12 +61,11 @@ async function callGeminiBrain(candles, rsi, mr) {
     }
     `;
 
-    // 4. Call Google Gemini API (v1beta)
+    // 4. Call Google Gemini API (2.5 Flash)
     try {
         console.log("🧠 JARVIS THINKING...");
-        // ENDPOINT FIX: RESTORING STANDARD MODEL NAME 'gemini-1.5-flash'
-        // 'latest' alias caused 404.
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+        // ENDPOINT FIX: UPDATED TO GEMINI 2.5 FLASH (User Demand)
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
