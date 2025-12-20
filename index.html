@@ -1444,7 +1444,7 @@ async function stateScan(mode) {
 
     try {
         if(sub) sub.innerText = `🔎 SCAN (STATE: ${tradeLifecycle.state})...`;
-        await new Promise(r => setTimeout(r, 300));
+        await new Promise(r => setTimeout(r, 10)); // Hyper HFT: 10ms Scan Cycle (was 300ms)
 
         if (candles.length < 50) {
             if(sub) sub.innerText = "DADOS INSUFICIENTES...";
@@ -1925,11 +1925,11 @@ function handlePosition(p) {
             accumulatedLoss += Math.abs(profit);
             currentStake = buyPrice; 
             
-            // COOL DOWN ACTIVATION (Instant Reaction)
-            // User Feedback: "15s is too slow for reversals!"
-            // Fix: 2s just to clear the UI/API state, then back to SCAN.
-            lossCoolDownTimestamp = Date.now() + 2000; 
-            console.warn(`❄️ INSTANT REACTION: Pausing for 2s to reset. Accumulated Loss: ${accumulatedLoss.toFixed(2)}`);
+            // COOL DOWN ACTIVATION (Hyper HFT)
+            // User Feedback: "50ms! Instantâneo!"
+            // Fix: 50ms. The machine does not blink.
+            lossCoolDownTimestamp = Date.now() + 50; 
+            console.warn(`⚡ HYPER REACTION: 50ms Reset. Ready to Revenge.`);
             updateCoolDownTimer();
 
             console.warn(`💥 LOSS: Accumulated ${accumulatedLoss.toFixed(2)} | Level ${martingaleLevel}`);
