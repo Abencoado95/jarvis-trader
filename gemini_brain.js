@@ -66,7 +66,7 @@ async function callGeminiBrain(candles, rsi, mr) {
         console.log("🧠 JARVIS THINKING...");
 
         // ATTEMPT 1: GEMINI 2.5 FLASH (User Preferred)
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-001:generateContent?key=${apiKey}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
