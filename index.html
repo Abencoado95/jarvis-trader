@@ -1925,9 +1925,11 @@ function handlePosition(p) {
             accumulatedLoss += Math.abs(profit);
             currentStake = buyPrice; 
             
-            // COOL DOWN ACTIVATION (Anti-Tilt)
-            lossCoolDownTimestamp = Date.now() + COOL_DOWN_MS; // 60s
-            console.warn(`❄️ COOL DOWN: Pausing for 60s. Accumulated Loss: ${accumulatedLoss.toFixed(2)}`);
+            // COOL DOWN ACTIVATION (Instant Reaction)
+            // User Feedback: "15s is too slow for reversals!"
+            // Fix: 2s just to clear the UI/API state, then back to SCAN.
+            lossCoolDownTimestamp = Date.now() + 2000; 
+            console.warn(`❄️ INSTANT REACTION: Pausing for 2s to reset. Accumulated Loss: ${accumulatedLoss.toFixed(2)}`);
             updateCoolDownTimer();
 
             console.warn(`💥 LOSS: Accumulated ${accumulatedLoss.toFixed(2)} | Level ${martingaleLevel}`);
