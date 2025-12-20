@@ -831,13 +831,18 @@ function authRegister() {
 function checkSubscription(uid) {
     const msg = getEl('loginMsg');
     msg.innerText = "VERIFICANDO ASSINATURA...";
+    console.log("🔍 Checking subscription for UID:", uid);
     
     db.collection("users").doc(uid).get().then((doc) => {
+        console.log("📄 Firestore document fetch completed. Exists:", doc.exists);
+        
         if (doc.exists) {
             const data = doc.data();
+            console.log("📊 User data:", data);
             
             // 1. BLOCK CHECK
             if (data.blocked) {
+                console.warn("🚫 User is blocked");
                 msg.innerText = "🚫 ACESSO BLOQUEADO PELO ADMINISTRADOR.";
                 auth.signOut();
                 return;
@@ -846,24 +851,24 @@ function checkSubscription(uid) {
             // 2. ADMIN CHECK
             const isAdmin = (data.email === "admin" || data.email === "maurobrasil2013@hotmail.com");
             if(isAdmin) {
-                 if(getEl('adminCard')) getEl('adminCard').style.display = 'flex';
+                console.log("👑 Admin user detected");
+                if(getEl('adminCard')) getEl('adminCard').style.display = 'flex';
             }
 
             // 3. DASHBOARD INFO
             if(getEl('dashUserEmail')) getEl('dashUserEmail').innerText = data.email;
 
             // 4. ONBOARDING CHECK
-            // If user has local profile OR db profile (onboardingComplete)
             const hasProfile = (data.onboardingComplete || localStorage.getItem('jarvis_user_profile'));
+            console.log("📋 Has profile:", hasProfile);
             
             msg.innerText = "ACESSO AUTORIZADO! BEM-VINDO.";
             
             setTimeout(() => {
                 if (hasProfile) {
-                    // RESTORE VIEW (Persistence)
+                    console.log("✅ User has profile, going to dashboard");
                     const lastView = localStorage.getItem('jarvis_active_view');
                     if(lastView === 'view-platform') {
-                        // Special Handling for Platform (Check Token)
                         openTrading(); 
                     } else if (lastView && getEl(lastView)) {
                         setView(lastView);
@@ -871,19 +876,32 @@ function checkSubscription(uid) {
                         setView('view-dashboard');
                     }
                 } else {
-                    // GO TO INTERVIEW (Step 2)
+                    console.log("📝 No profile found, going to onboarding");
                     setView('view-onboarding');
                     initOnboarding();
                 }
             }, 1000);
 
         } else {
-            // Should not happen, but safe fallback
-             setView('view-onboarding');
-             initOnboarding();
+            console.warn("⚠️ User document does not exist in Firestore, creating default profile");
+            // Create missing document
+            db.collection("users").doc(uid).set({
+                email: auth.currentUser.email,
+                createdAt: Date.now(),
+                blocked: false,
+                plan: "free"
+            }).then(() => {
+                console.log("✅ Default profile created");
+                setView('view-onboarding');
+                initOnboarding();
+            }).catch((createError) => {
+                console.error("❌ Error creating default profile:", createError);
+                msg.innerText = "ERRO AO CRIAR PERFIL: " + createError.message;
+            });
         }
     }).catch((error) => {
-         msg.innerText = "ERRO AO VERIFICAR: " + error.message;
+        console.error("❌ Firestore read error:", error);
+        msg.innerText = "ERRO AO VERIFICAR: " + error.message;
     });
 }
 
