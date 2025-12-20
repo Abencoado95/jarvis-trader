@@ -595,16 +595,29 @@
                 <span class="label-sm">STAKE ($)</span>
                 <input type="number" id="stakeInput" value="1.00" step="0.50" min="0.35" onchange="saveState()">
             </div>
-            <div class="config-group">
-                <span class="label-sm">EXPIRAÇÃO (SEGURANÇA)</span>
+            <div class="control-group">
+                <label>EXPIRAÇÃO (SEGURANÇA)</label>
                 <select id="durationSelect" onchange="saveState()">
-                    <option value="60">1 Hora (Recomendado)</option>
-                    <option value="30">30 Minutos</option>
-                    <option value="15">15 Minutos</option>
-                    <option value="5">5 Minutos</option>
                     <option value="1">1 Minuto (Arriscado)</option>
+                    <option value="2">2 Minutos (Moderado)</option>
+                    <option value="3">3 Minutos (Seguro)</option>
+                    <option value="5">5 Minutos (Tendência)</option>
                 </select>
             </div>
+
+            <!-- GEMINI BRAIN INTEGRATION -->
+            <div class="control-group" style="border-top: 1px solid rgba(255,255,255,0.1); padding-top: 10px; margin-top: 10px;">
+                <label style="color: #4facfe;">🧠 CÉREBRO GEMINI (API)</label>
+                <input type="password" id="geminiKey" placeholder="Cole sua API Key do Gemini aqui..." style="margin-bottom: 5px;" onchange="saveState()">
+                <div class="switch-row">
+                    <span>ATIVAR GEMINI 1.5 FLASH</span>
+                    <label class="switch">
+                        <input type="checkbox" id="useGeminiBrain" onchange="saveState()">
+                        <span class="slider round"></span>
+                    </label>
+                </div>
+            </div>
+
             <div class="config-group">
                 <span class="label-sm" style="color:var(--cyber-gold)">TAKE PROFIT % (POR ORDEM)</span>
                 <div style="font-size:0.7rem; color:#888; margin-bottom:5px;">Fecha ao atingir % de lucro:</div>
@@ -1456,7 +1469,19 @@ async function stateScan(mode) {
         const mr = calculateMeanReversion();
         const rsi = parseFloat(getEl('rsiVal').innerText) || 50;
 
-        if (!mr) { isProcessing = false; return; }
+        // GEMINI BRAIN CHECK
+        const useGemini = getEl('useGeminiBrain') && getEl('useGeminiBrain').checked;
+        if (useGemini) {
+             const aiDecision = await callGeminiBrain(candles, rsi, mr);
+             if (aiDecision && aiDecision.confidence > 70) {
+                 signal = aiDecision.signal;
+                 // Override standard logic
+                 if (signal === 'CALL') placeTrade('CALL');
+                 if (signal === 'PUT') placeTrade('PUT');
+                 isProcessing = false;
+                 return; // Exit early, Gemini is the Captain.
+             }
+        }
 
         let signal = "NEUTRO";
 
@@ -2478,4 +2503,6 @@ async function loadAI() {
         console.warn("⚠️ IA não disponível, modo estatístico puro:", e);
     }
 }
-</script></body></html>
+</script>
+<script src="gemini_brain.js"></script>
+</body></html>
