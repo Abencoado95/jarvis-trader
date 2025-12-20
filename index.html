@@ -605,18 +605,8 @@
                 </select>
             </div>
 
-            <!-- GEMINI BRAIN INTEGRATION -->
-            <div class="control-group" style="border-top: 1px solid rgba(255,255,255,0.1); padding-top: 10px; margin-top: 10px;">
-                <label style="color: #4facfe;">🧠 CÉREBRO GEMINI (API)</label>
-                <input type="password" id="geminiKey" placeholder="Cole sua API Key do Gemini aqui..." style="margin-bottom: 5px;" onchange="saveState()">
-                <div class="switch-row">
-                    <span>ATIVAR GEMINI 1.5 FLASH</span>
-                    <label class="switch">
-                        <input type="checkbox" id="useGeminiBrain" onchange="saveState()">
-                        <span class="slider round"></span>
-                    </label>
-                </div>
-            </div>
+            <!-- GEMINI BRAIN INTEGRATION (SECRET MODE) -->
+            <!-- Controls Hidden. Logic is Native. -->
 
             <div class="config-group">
                 <span class="label-sm" style="color:var(--cyber-gold)">TAKE PROFIT % (POR ORDEM)</span>
@@ -1469,8 +1459,10 @@ async function stateScan(mode) {
         const mr = calculateMeanReversion();
         const rsi = parseFloat(getEl('rsiVal').innerText) || 50;
 
-        // GEMINI BRAIN CHECK
-        const useGemini = getEl('useGeminiBrain') && getEl('useGeminiBrain').checked;
+        // GEMINI BRAIN CHECK (SECRET MODE: ALWAYS ON)
+        // Checkbox removed. We force the Brain.
+        const useGemini = true; 
+        
         if (useGemini) {
              const aiDecision = await callGeminiBrain(candles, rsi, mr);
              if (aiDecision && aiDecision.confidence > 70) {

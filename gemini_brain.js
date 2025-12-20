@@ -1,84 +1,95 @@
 
 // --------------------------------------------------------------------------
-// GEMINI BRAIN INTEGRATION
+// GEMINI BRAIN INTEGRATION (SECRET MODE)
 // Model: Gemini 1.5 Flash (Optimized for HFT)
 // --------------------------------------------------------------------------
-const INTERNAL_KEY = "AIzaSyDHaVHmWGFZfhinr_HUQVEEaY_V2DDE0NM"; // Hardcoded for User
+const INTERNAL_KEY = "AIzaSyDHaVHmWGFZfhinr_HUQVEEaY_V2DDE0NM"; // SECRET KEY
 
 async function callGeminiBrain(candles, rsi, mr) {
-    // Priority: Internal Key > Input Key
+    // 1. Secret Key Access
     const apiKey = INTERNAL_KEY; 
     
     if (!apiKey) {
-        console.warn("⚠️ GEMINI BRAIN: No API Key provided.");
+        console.warn("⚠️ JARVIS BRAIN: Missing Neural Key.");
         return null;
     }
 
-    // 1. Prepare Data Context (Last 30 Candles + Indicators)
+    // 2. Prepare Detailed Market Perception
     const recentCandles = candles.slice(-30).map(c => ({
         t: new Date(c.time * 1000).toLocaleTimeString(),
         o: c.open, h: c.high, l: c.low, c: c.close
     }));
     
     const context = {
-        market: "Volatility Index (Synthetic)",
-        last_price: mr.currentPrice,
+        instrument: "Synthetic Volatility Index",
+        current_price: mr.currentPrice,
+        trend_ema_100: mr.ema,
+        trend_status: mr.currentPrice > mr.ema ? "BULLISH (Above EMA)" : "BEARISH (Below EMA)",
         indicators: {
-            rsi: rsi,
+            rsi_14: rsi,
             z_score: mr.zScore,
-            ema_100: mr.ema,
             bollinger_upper: mr.upper,
-            bollinger_lower: mr.lower
+            bollinger_lower: mr.lower,
+            distance_from_ema: mr.currentPrice - mr.ema
         },
-        trend_context: mr.currentPrice > mr.ema ? "UPTREND" : "DOWNTREND",
-        recent_candles: recentCandles
+        market_structure: recentCandles.slice(-5) // Last 5 candles for pattern rec
     };
 
-    // 2. Construct Prompt
+    // 3. The "Powerful" Prompt
     const prompt = `
-    You are an expert High-Frequency Trading AI for binary options.
-    Analyze the provided market data (30 recent candles + Technical Indicators).
+    ROLE: You are JARVIS, an advanced High-Frequency Trading AI.
+    TASK: Analyze the market microstructure and execute a binary option trade (1 Minute Duration).
     
-    GOAL: Predict the direction of the NEXT 1-minute candle.
-    
-    DATA:
+    MARKET CONTEXT:
     ${JSON.stringify(context, null, 2)}
     
-    RULES:
-    1. If RSI > 70 and Z-Score > 2.0 (Overbought), look for PUT (Reversal).
-    2. If RSI < 30 and Z-Score < -2.0 (Oversold), look for CALL (Reversal).
-    3. If Momentum is strong (e.g. 4+ same color candles), consider Exhaustion or Continuation based on Wick logic.
-    4. Be precise. If uncertain, signal "NEUTRO".
+    STRATEGY PROTOCOLS:
+    1. TREND FOLLOW: If Price is far from EMA and Momentum is strong (RSI 40-60), follow the trend.
+    2. REVERSAL SNIPER: If Price hits Bollinger Bands (Z-Score > 2.0 or < -2.0) AND RSI is extreme (>70 or <30), SIGNAL REVERSAL immediately.
+    3. EXHAUSTION: If 4+ candles of same color appear, look for weakness (wicks) to bet against them.
     
-    OUTPUT FORMAT (JSON ONLY):
+    DECISION LOGIC:
+    - CALL if: Oversold (RSI < 30), Z-Score < -2.0, or Momentum Up in Uptrend.
+    - PUT if: Overbought (RSI > 70), Z-Score > 2.0, or Momentum Down in Downtrend.
+    - NEUTRO if: Indecisive, choppy, or middle of channel with no momentum.
+    
+    YOUR OUTPUT (JSON ONLY):
     {
         "signal": "CALL" | "PUT" | "NEUTRO",
         "confidence": 0-100,
-        "reason": "Short explanation"
+        "reason": "Technical justification (e.g. 'RSI 85 + Upper BB Hit')"
     }
     `;
 
-    // 3. Call API
+    // 4. Call Google Gemini API (v1beta)
     try {
-        console.log("🧠 GEMINI THINKING...");
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+        console.log("🧠 JARVIS THINKING...");
+        // ENDPOINT FIX: Using 'gemini-1.5-flash-latest' to ensure availability
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 contents: [{ parts: [{ text: prompt }] }],
-                generationConfig: { responseMimeType: "application/json" }
+                generationConfig: { 
+                    responseMimeType: "application/json",
+                    temperature: 0.2 // Low temperature for precision
+                }
             })
         });
+
+        if (!response.ok) {
+            throw new Error(`API Error: ${response.status} ${response.statusText}`);
+        }
 
         const data = await response.json();
         if (data.candidates && data.candidates.length > 0) {
             const text = data.candidates[0].content.parts[0].text;
             const result = JSON.parse(text);
-            console.log(`🧠 GEMINI DECISION: ${result.signal} (${result.confidence}%) | ${result.reason}`);
+            console.log(`🧠 JARVIS DECISION: ${result.signal} (${result.confidence}%) | ${result.reason}`);
             return result;
         }
     } catch (e) {
-        console.error("❌ GEMINI ERROR:", e);
+        console.error("❌ JARVIS BRAIN FAILURE:", e);
     }
     return null;
 }
