@@ -865,13 +865,14 @@ function checkSubscription(uid) {
             if (hasProfile && typeof hasProfile === 'string') {
                 try {
                     const localP = JSON.parse(hasProfile);
-                    // If local profile has no email or email doesn't match current user... WIPE IT.
-                    if (localP.email && localP.email !== data.email) {
-                        console.warn("🛑 IDENTITY MISMATCH: Local profile is", localP.email, "but user is", data.email);
+                    // STRICT CHECK: If local profile has NO email OR email doesn't match... WIPE IT.
+                    if (!localP.email || localP.email !== data.email) {
+                        console.warn("🛑 IDENTITY MISMATCH: Local profile email is", localP.email, "but user is", data.email);
                         console.warn("🧹 WIPING STALE DATA to prevent 'Ghost Login' bug...");
                         localStorage.removeItem('jarvis_user_profile');
                         localStorage.removeItem('jarvis_active_view');
-                        hasProfile = false; // Force re-evaluation
+                        localStorage.removeItem('jarvis_state_v20'); // Wipe state too just in case
+                        hasProfile = false; // Force re-evaluation (will go to onboarding)
                     }
                 } catch(e) { 
                     // Invalid JSON in storage? Wipe it.
