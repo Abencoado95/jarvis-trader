@@ -991,48 +991,35 @@ function checkSubscription(uid) {
             }
 
             // 3. DASHBOARD INFO
-            if(getEl('dashUserEmail')) getEl('dashUserEmail').innerText = data.email;
+            if(getEl('topUserEmail')) getEl('topUserEmail').innerText = data.email;
 
             // 4. ONBOARDING CHECK
             let hasProfile = (data.onboardingComplete || localStorage.getItem('jarvis_user_profile'));
             
-            // 🛑 IDENTITY CHECK: Does the specific local profile belong to THIS user?
+            // 🛑 IDENTITY CHECK
             if (hasProfile && typeof hasProfile === 'string') {
                 try {
                     const localP = JSON.parse(hasProfile);
-                    // STRICT CHECK: If local profile has NO email OR email doesn't match... WIPE IT.
                     if (!localP.email || localP.email !== data.email) {
-                        console.warn("🛑 IDENTITY MISMATCH: Local profile email is", localP.email, "but user is", data.email);
-                        console.warn("🧹 WIPING STALE DATA to prevent 'Ghost Login' bug...");
                         localStorage.removeItem('jarvis_user_profile');
                         localStorage.removeItem('jarvis_active_view');
-                        localStorage.removeItem('jarvis_state_v20'); // Wipe state too just in case
-                        hasProfile = false; // Force re-evaluation (will go to onboarding)
+                        localStorage.removeItem('jarvis_state_v20');
+                        hasProfile = false;
                     }
                 } catch(e) { 
-                    // Invalid JSON in storage? Wipe it.
                     localStorage.removeItem('jarvis_user_profile');
                     hasProfile = false;
                 }
             }
-
-            console.log("📋 Has profile:", hasProfile);
             
-            msg.innerText = "ACESSO AUTORIZADO! BEM-VINDO.";
+            msg.innerText = "ACESSO AUTORIZADO! INICIANDO SISTEMA...";
             
             setTimeout(() => {
                 if (hasProfile) {
-                    console.log("✅ User has profile, going to dashboard");
-                    const lastView = localStorage.getItem('jarvis_active_view');
-                    if(lastView === 'view-platform') {
-                        openTrading(); 
-                    } else if (lastView && getEl(lastView)) {
-                        setView(lastView);
-                    } else {
-                        setView('view-dashboard');
-                    }
+                    // DIRECT TO COMMAND CENTER (V21)
+                    setView('view-platform');
+                    initSystem(); // Boot trading engine
                 } else {
-                    console.log("📝 No profile found, going to onboarding");
                     setView('view-onboarding');
                     initOnboarding();
                 }
