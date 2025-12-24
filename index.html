@@ -394,21 +394,137 @@
         #hardResetBtn:hover { opacity: 1; }
     </style>
 
-    <!-- LOGIN OVERLAY -->
-    <div id="view-login" class="view-section view-active" style="position:fixed; top:0; left:0; width:100vw; height:100vh; z-index:9999; background:#000; display:flex; justify-content:center; align-items:center;">
-        <div class="login-card" style="background:rgba(20, 30, 50, 0.9); border:1px solid var(--accent-cyan); padding:40px; border-radius:20px; box-shadow:0 0 50px rgba(0,0,0,0.8); text-align:center; max-width:400px; width:90%;">
-            <img src="JARVIS ROSTO.jpg" style="width:120px; border-radius:50%; border:3px solid var(--accent-cyan); box-shadow:0 0 30px rgba(0,243,255,0.4); margin-bottom:20px;">
-            <h1 style="color:var(--accent-cyan); margin:0; font-size:2.5rem; font-family:var(--font-display); text-shadow:0 0 10px rgba(0,243,255,0.5);">JARVIS V21</h1>
-            <p style="color:#8899a6; font-family:var(--font-ui); letter-spacing:4px; font-size:0.8rem; margin-bottom:30px; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:20px;">ULTIMATE TRADING STATION</p>
-            
-            <input type="email" id="loginEmail" placeholder="EMAIL DE ACESSO" style="width:100%; padding:15px; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.1); color:white; margin-bottom:10px; border-radius:5px;">
-            <input type="password" id="loginPass" placeholder="SENHA" style="width:100%; padding:15px; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.1); color:white; margin-bottom:20px; border-radius:5px;">
-            
-            <button class="login-btn" onclick="authLogin()" style="font-family:var(--font-display); background:var(--accent-cyan); color:black; font-weight:900; border:none; border-radius:5px; font-size:1.2rem; padding:15px; width:100%; margin-bottom:10px; cursor:pointer; transition:0.3s;">ENTRAR NO SISTEMA</button>
-            <button class="login-btn" onclick="authRegister()" style="font-family:var(--font-ui); font-size:0.9rem; padding:10px; width:100%; background:transparent; border:1px solid #3366ff; color:#3366ff; border-radius:5px; cursor:pointer;">CRIAR CONTA GRÁTIS</button>
-            
-            <div id="loginMsg" style="margin-top:15px; font-size:0.8rem; color:#ff003c; min-height:20px; font-family:monospace;"></div>
+        /* --- VIEW MANAGER FIX (Grid vs Flex) --- */
+        .view-section {
+            display: none !important; /* Force hide inactive views */
+            width: 100vw; height: 100vh;
+            position: fixed; top: 0; left: 0;
+            background: var(--bg-deep);
+            z-index: 10;
+        }
+
+        /* DEFAULT Active View is Flex (Login, Admin, etc) */
+        .view-active {
+            display: flex !important;
+            justify-content: center; align-items: center;
+        }
+
+        /* PLATFORM Active View MUST be Grid */
+        #view-platform.view-active {
+            display: grid !important;
+            grid-template-columns: 70px 1fr 350px;
+            grid-template-rows: 60px 1fr 80px;
+            grid-template-areas: 
+                "sidebar topbar topbar"
+                "sidebar content brain"
+                "sidebar tabs brain";
+        }
+
+        /* --- LOGIN REDESIGN (Split Screen) --- */
+        #view-login {
+            flex-direction: row; /* Split Layout */
+            background: #000;
+        }
+
+        .login-left {
+            width: 50%; height: 100%;
+            background: url('JARVIS ROSTO.jpg') center/cover no-repeat;
+            position: relative;
+        }
+        .login-left::after {
+            content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(135deg, rgba(0,0,0,0.8) 0%, rgba(5,10,20,0.4) 100%);
+        }
+
+        .login-right {
+            width: 50%; height: 100%;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            background: #050a14;
+            padding: 50px;
+            position: relative;
+        }
+
+        .login-form-container {
+            width: 100%; max-width: 400px;
+            display: flex; flex-direction: column; gap: 15px;
+        }
+
+        .login-input {
+            width: 100%; padding: 15px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 8px;
+            color: white; font-family: var(--font-ui);
+            transition: 0.3s;
+        }
+        .login-input:focus {
+            border-color: var(--accent-green);
+            background: rgba(0, 255, 65, 0.05);
+            box-shadow: 0 0 15px rgba(0, 255, 65, 0.1);
+        }
+
+        .login-btn-primary {
+            background: var(--accent-green);
+            color: #000; font-weight: 800;
+            padding: 15px; border: none; border-radius: 8px;
+            cursor: pointer; transition: 0.3s;
+            text-transform: uppercase; letter-spacing: 1px;
+        }
+        .login-btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 0 20px rgba(0, 255, 65, 0.4);
+        }
+
+        .login-btn-secondary {
+            background: transparent;
+            color: rgba(255,255,255,0.5);
+            padding: 10px; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px;
+            cursor: pointer; transition: 0.3s; font-size: 0.8rem;
+        }
+        .login-btn-secondary:hover { border-color: white; color: white; }
+
+    </style>
+
+    <!-- LOGIN OVERLAY (Split Screen Style) -->
+    <div id="view-login" class="view-section view-active" style="z-index:9999;">
+        
+        <!-- LEFT SIDE (Visual) -->
+        <div class="login-left">
+            <div style="position:absolute; bottom:50px; left:50px; z-index:2; font-family:var(--font-display);">
+                <h1 style="font-size:3rem; margin:0; color:white;">JARVIS V21</h1>
+                <p style="color:var(--accent-green); letter-spacing:2px; font-weight:700;">INSTITUTIONAL GRADE AI</p>
+            </div>
         </div>
+
+        <!-- RIGHT SIDE (Form) -->
+        <div class="login-right">
+            <div class="login-form-container">
+                <div style="margin-bottom:30px;">
+                    <h2 style="font-size:2rem; margin:0;">BEM-VINDO</h2>
+                    <p style="color:#8899a6; font-size:0.9rem;">Acesso Exclusivo Platinum</p>
+                </div>
+
+                <div style="display:flex; flex-direction:column; gap:5px;">
+                    <label style="font-size:0.7rem; font-weight:700; color:#556677; margin-left:5px;">E-MAIL</label>
+                    <input type="email" id="loginEmail" class="login-input" placeholder="seu@email.com">
+                </div>
+
+                <div style="display:flex; flex-direction:column; gap:5px;">
+                    <label style="font-size:0.7rem; font-weight:700; color:#556677; margin-left:5px;">SENHA</label>
+                    <input type="password" id="loginPass" class="login-input" placeholder="••••••••">
+                </div>
+
+                <button class="login-btn-primary" onclick="authLogin()">ENTRAR AGORA →</button>
+                <button class="login-btn-secondary" onclick="authRegister()">NÃO TEM CONTA? CADASTRE-SE GRATIS</button>
+                
+                <div id="loginMsg" style="margin-top:10px; font-size:0.8rem; color:#ff003c; min-height:20px; text-align:center;"></div>
+            </div>
+            
+            <div style="position:absolute; bottom:20px; color:rgba(255,255,255,0.2); font-size:0.7rem;">
+                © 2025 JARVIS TRADING SYSTEMS | SECURITY SHA-256
+            </div>
+        </div>
+
     </div>
 
     <!-- NEW V21 APP GRID (Hidden until login) -->
