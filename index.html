@@ -10,6 +10,8 @@
     
     <!-- CHART.JS -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- TENSORFLOW.JS (AI BRAIN) - RESTORED -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
     <!-- LIGHTWEIGHT CHARTS (TRADINGVIEW) - RESTORED -->
     <script src="https://unpkg.com/lightweight-charts@3.8.0/dist/lightweight-charts.standalone.production.js"></script>
     
@@ -561,9 +563,9 @@
         <!-- 3. MAIN CONTENT (Chart) -->
         <div id="area-content">
             <!-- Dynamic Chart Container -->
-            <div id="chart-container" style="width:100%; height:100%; background:rgba(0,0,0,0.2); border-radius:8px; display:flex; justify-content:center; align-items:center;">
-                <!-- Chart.js Canvas will be injected here -->
-                <canvas id="derivChart"></canvas>
+            <div id="chartContainer" style="width:100%; height:100%; background:rgba(0,0,0,0.2); border-radius:8px; display:flex; justify-content:center; align-items:center;">
+                <!-- LIGHTWEIGHT CHARTS REQUIRES A DIV, NOT CANVAS -->
+                <div id="tvChart" style="width:100%; height:100%;"></div>
             </div>
         </div>
 
