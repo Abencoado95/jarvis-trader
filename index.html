@@ -10,6 +10,8 @@
     
     <!-- CHART.JS -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- LIGHTWEIGHT CHARTS (TRADINGVIEW) - RESTORED -->
+    <script src="https://unpkg.com/lightweight-charts@3.8.0/dist/lightweight-charts.standalone.production.js"></script>
     
     <!-- FIREBASE APP (COMPAT) -->
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
@@ -880,6 +882,26 @@ function setView(viewId) {
     document.querySelectorAll('.view-section').forEach(el => el.classList.remove('view-active'));
     getEl(viewId).classList.add('view-active');
     localStorage.setItem('jarvis_active_view', viewId);
+}
+
+// --- V21 MODE SWITCHER ---
+function switchMode(mode) {
+    console.log("🔄 SWITCHING MODE:", mode);
+    
+    // 1. Visual Update (Tabs)
+    document.querySelectorAll('.mode-tab').forEach(el => el.classList.remove('active'));
+    // Find the button that called this (hacky but works for onclick) or matching text
+    // ideally pass 'this' but strict mode... let's just highlight based on text match for now or simplistic logic
+    // actually, let's just highlight the clicked one if event is passed, or iterate.
+    const tabs = document.querySelectorAll('.mode-tab');
+    if(mode === 'RISE_FALL') tabs[0].classList.add('active');
+    if(mode === 'MATCH_DIFFER') tabs[1].classList.add('active');
+    if(mode === 'OVER_UNDER') tabs[2].classList.add('active');
+    if(mode === 'ACCUMULATORS') tabs[3].classList.add('active');
+
+    // 2. Logic Update (TODO: Connect to Brain)
+    // window.currentMode = mode;
+    // updateChartOverlay(mode);
 }
 
 // --- AUTH SERVICE ---
