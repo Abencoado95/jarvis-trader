@@ -128,8 +128,12 @@ function switchAccount(accountType) {
     currentAccount = accountType;
     
     // Update UI
-    document.querySelectorAll('.account-btn').forEach(btn => btn.classList.remove('active'));
-    event.target.classList.add('active');
+    document.querySelectorAll('.account-btn').forEach(btn => {
+        btn.classList.remove('active');
+        if (btn.classList.contains(accountType)) {
+            btn.classList.add('active');
+        }
+    });
     
     // Reconnect with appropriate token
     if (ws) {
