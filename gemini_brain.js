@@ -1,93 +1,234 @@
+/**
+ * JARVIS TRADER - GEMINI BRAIN MODULE
+ * Sistema de IA para análise e decisão de trades
+ */
 
-// --------------------------------------------------------------------------
-// GEMINI BRAIN INTEGRATION (SECRET MODE)
-// Model: Gemini 1.5 Flash (Optimized for HFT)
-// --------------------------------------------------------------------------
-const INTERNAL_KEY = "AIzaSyDHaVHmWGFZfhinr_HUQVEEaY_V2DDE0NM"; // SECRET KEY
-
-async function callGeminiBrain(candles, rsi, mr) {
-    // 1. Secret Key Access
-    const apiKey = INTERNAL_KEY; 
-    
-    if (!apiKey) {
-        console.warn("⚠️ JARVIS BRAIN: Missing Neural Key.");
-        return null;
+class GeminiBrain {
+    constructor() {
+        this.apiKey = "AIzaSyDHaVHmWGFZfhinr_HUQVEEaY_V2DDE0NM";
+        this.model = "gemini-2.0-flash-exp";
+        this.endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:generateContent`;
+        this.analysisHistory = [];
+        this.lastAnalysis = null;
     }
-
-    // 2. Prepare Detailed Market Perception
-    const recentCandles = candles.slice(-30).map(c => ({
-        t: new Date(c.time * 1000).toLocaleTimeString(),
-        o: c.open, h: c.high, l: c.low, c: c.close
-    }));
     
-    const context = {
-        instrument: "Synthetic Volatility Index",
-        current_price: mr.currentPrice,
-        trend_ema_100: mr.ema,
-        trend_status: mr.currentPrice > mr.ema ? "BULLISH (Above EMA)" : "BEARISH (Below EMA)",
-        indicators: {
-            rsi_14: rsi,
-            z_score: mr.zScore,
-            bollinger_upper: mr.upper,
-            bollinger_lower: mr.lower,
-            distance_from_ema: mr.currentPrice - mr.ema
-        },
-        market_structure: recentCandles.slice(-5) // Last 5 candles for pattern rec
-    };
-
-    // 3. The "Powerful" Prompt
-    const prompt = `
-    ROLE: You are JARVIS, an advanced High-Frequency Trading AI.
-    TASK: Analyze the market microstructure and execute a binary option trade (1 Minute Duration).
-    
-    MARKET CONTEXT:
-    ${JSON.stringify(context, null, 2)}
-    
-    STRATEGY PROTOCOLS:
-    1. TREND FOLLOW: If Price is far from EMA and Momentum is strong (RSI 40-60), follow the trend.
-    2. REVERSAL SNIPER: If Price hits Bollinger Bands (Z-Score > 2.0 or < -2.0) AND RSI is extreme (>70 or <30), SIGNAL REVERSAL immediately.
-    3. EXHAUSTION: If 4+ candles of same color appear, look for weakness (wicks) to bet against them.
-    
-    DECISION LOGIC:
-    - CALL if: Oversold (RSI < 30), Z-Score < -2.0, or Momentum Up in Uptrend.
-    - PUT if: Overbought (RSI > 70), Z-Score > 2.0, or Momentum Down in Downtrend.
-    - NEUTRO if: Indecisive, choppy, or middle of channel with no momentum.
-    
-    YOUR OUTPUT (JSON ONLY):
-    {
-        "signal": "CALL" | "PUT" | "NEUTRO",
-        "confidence": 0-100,
-        "reason": "Technical justification (e.g. 'RSI 85 + Upper BB Hit')"
-    }
-    `;
-
-    // 4. Call Google Gemini API (Dual-Engine: 2.5 Flash -> Fallback 1.5 Flash)
-    try {
-        console.log("🧠 JARVIS THINKING...");
-
-        // ATTEMPT 1: GEMINI 2.5 FLASH (User Preferred)
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-001:generateContent?key=${apiKey}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                contents: [{ parts: [{ text: prompt }] }],
-                generationConfig: { responseMimeType: "application/json", temperature: 0.2 }
-            })
-        });
-
-        if (!response.ok) {
-            throw new Error(`API Error: ${response.status} ${response.statusText}`);
+    /**
+     * Analisa o mercado e retorna decisão de trade
+     * @param {Object} marketData - Dados do mercado (candles, indicators, etc)
+     * @param {String} mode - Modo de operação (RISE_FALL, MATCH_DIFFER, etc)
+     * @returns {Promise<Object>} - Decisão de trade com confiança
+     */
+    async analyze(marketData, mode = 'RISE_FALL') {
+        try {
+            const prompt = this.buildPrompt(marketData, mode);
+            
+            const response = await fetch(`${this.endpoint}?key=${this.apiKey}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    contents: [{
+                        parts: [{
+                            text: prompt
+                        }]
+                    }],
+                    generationConfig: {
+                        temperature: 0.7,
+                        topK: 40,
+                        topP: 0.95,
+                        maxOutputTokens: 1024
+                    }
+                })
+            });
+            
+            if (!response.ok) {
+                throw new Error(`API Error: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            const analysis = this.parseResponse(data);
+            
+            this.lastAnalysis = analysis;
+            this.analysisHistory.push({
+                timestamp: Date.now(),
+                mode: mode,
+                analysis: analysis
+            });
+            
+            return analysis;
+            
+        } catch (error) {
+            console.error("❌ Gemini Brain Error:", error);
+            return {
+                action: 'WAIT',
+                confidence: 0,
+                reason: 'Erro na análise: ' + error.message
+            };
         }
-
-        const data = await response.json();
-        if (data.candidates && data.candidates.length > 0) {
-            const text = data.candidates[0].content.parts[0].text;
-            const result = JSON.parse(text);
-            console.log(`🧠 JARVIS DECISION: ${result.signal} (${result.confidence}%) | ${result.reason}`);
-            return result;
-        }
-    } catch (e) {
-        console.error("❌ JARVIS BRAIN FAILURE:", e);
     }
-    return null;
+    
+    /**
+     * Constrói o prompt baseado no modo de operação
+     */
+    buildPrompt(marketData, mode) {
+        const baseContext = `Você é JARVIS, uma IA especializada em trading de opções binárias.
+Analise os dados do mercado e forneça uma decisão de trade.
+
+DADOS DO MERCADO:
+${JSON.stringify(marketData, null, 2)}
+
+MODO DE OPERAÇÃO: ${mode}
+`;
+        
+        const modeInstructions = {
+            'RISE_FALL': `
+ESTRATÉGIA RISE/FALL:
+- Analise reversão de tendência usando Bollinger Bands
+- Identifique zonas de sobrecompra/sobrevenda (RSI)
+- Procure por padrões de candlestick de reversão
+- Considere a força da tendência atual
+
+RESPONDA NO FORMATO JSON:
+{
+    "action": "CALL" ou "PUT" ou "WAIT",
+    "confidence": 0-100,
+    "reason": "explicação breve da decisão",
+    "entry_price": preço sugerido,
+    "stop_loss": nível de stop,
+    "take_profit": nível de lucro
+}`,
+            
+            'MATCH_DIFFER': `
+ESTRATÉGIA MATCH/DIFFER:
+- Analise os últimos 3 dígitos
+- Identifique padrões de repetição ou diferença
+- Considere a probabilidade estatística
+- Procure por sequências contrárias
+
+RESPONDA NO FORMATO JSON:
+{
+    "action": "MATCH" ou "DIFFER" ou "WAIT",
+    "confidence": 0-100,
+    "reason": "explicação da análise de dígitos",
+    "predicted_digit": dígito previsto,
+    "pattern": "padrão identificado"
+}`,
+            
+            'OVER_UNDER': `
+ESTRATÉGIA OVER/UNDER:
+- Analise a distribuição de dígitos recentes
+- Identifique tendências de dígitos altos/baixos
+- Considere o threshold (geralmente 5)
+- Procure por desequilíbrios estatísticos
+
+RESPONDA NO FORMATO JSON:
+{
+    "action": "OVER" ou "UNDER" ou "WAIT",
+    "confidence": 0-100,
+    "reason": "análise estatística dos dígitos",
+    "threshold": 5,
+    "predicted_range": "faixa prevista"
+}`,
+            
+            'ACCUMULATORS': `
+ESTRATÉGIA ACCUMULATORS:
+- Analise a volatilidade do mercado
+- Identifique períodos de baixa volatilidade
+- Calcule o risco de knockout
+- Considere o potencial de acumulação
+
+RESPONDA NO FORMATO JSON:
+{
+    "action": "ACCUMULATE" ou "WAIT",
+    "confidence": 0-100,
+    "reason": "análise de volatilidade",
+    "growth_rate": taxa de crescimento esperada,
+    "knockout_risk": "baixo/médio/alto"
+}`
+        };
+        
+        return baseContext + (modeInstructions[mode] || modeInstructions['RISE_FALL']);
+    }
+    
+    /**
+     * Extrai a decisão da resposta da API
+     */
+    parseResponse(apiResponse) {
+        try {
+            const text = apiResponse.candidates[0].content.parts[0].text;
+            
+            // Tenta extrair JSON da resposta
+            const jsonMatch = text.match(/\{[\s\S]*\}/);
+            if (jsonMatch) {
+                const decision = JSON.parse(jsonMatch[0]);
+                return {
+                    action: decision.action || 'WAIT',
+                    confidence: decision.confidence || 0,
+                    reason: decision.reason || 'Análise concluída',
+                    metadata: decision
+                };
+            }
+            
+            // Fallback: análise de texto
+            return this.parseTextResponse(text);
+            
+        } catch (error) {
+            console.error("❌ Parse Error:", error);
+            return {
+                action: 'WAIT',
+                confidence: 0,
+                reason: 'Erro ao interpretar resposta'
+            };
+        }
+    }
+    
+    /**
+     * Analisa resposta em texto livre
+     */
+    parseTextResponse(text) {
+        const lowerText = text.toLowerCase();
+        
+        // Detecta ação
+        let action = 'WAIT';
+        if (lowerText.includes('call') || lowerText.includes('compra')) action = 'CALL';
+        else if (lowerText.includes('put') || lowerText.includes('venda')) action = 'PUT';
+        else if (lowerText.includes('match')) action = 'MATCH';
+        else if (lowerText.includes('differ')) action = 'DIFFER';
+        else if (lowerText.includes('over')) action = 'OVER';
+        else if (lowerText.includes('under')) action = 'UNDER';
+        
+        // Detecta confiança
+        let confidence = 50;
+        const confMatch = text.match(/(\d+)%/);
+        if (confMatch) {
+            confidence = parseInt(confMatch[1]);
+        }
+        
+        return {
+            action: action,
+            confidence: confidence,
+            reason: text.substring(0, 200)
+        };
+    }
+    
+    /**
+     * Retorna o histórico de análises
+     */
+    getHistory(limit = 10) {
+        return this.analysisHistory.slice(-limit);
+    }
+    
+    /**
+     * Limpa o histórico
+     */
+    clearHistory() {
+        this.analysisHistory = [];
+        this.lastAnalysis = null;
+    }
+}
+
+// Exporta para uso global
+if (typeof window !== 'undefined') {
+    window.GeminiBrain = GeminiBrain;
 }
