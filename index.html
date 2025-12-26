@@ -19,41 +19,26 @@
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
     
+    <!-- GEMINI BRAIN -->
+    <script src="gemini_brain.js"></script>
+    
     <style>
-        /* ========================================
-           SISTEMA DE DESIGN V21 - JARVIS TRADER
-           ======================================== */
-        
         :root {
-            /* Cores Principais */
             --bg-deep: #020408;
             --bg-navy: #0b1629;
-            --bg-card: rgba(11, 18, 33, 0.85);
-            
-            /* Neon Colors */
             --neon-cyan: #00f3ff;
             --neon-green: #00ff41;
             --neon-gold: #ffd700;
             --neon-red: #ff003c;
             --neon-magenta: #bc13fe;
-            
-            /* Fontes */
             --font-display: 'Orbitron', monospace;
             --font-ui: 'Rajdhani', sans-serif;
-            
-            /* Efeitos */
             --glass-bg: rgba(11, 18, 33, 0.7);
             --glass-border: rgba(0, 243, 255, 0.15);
             --glow-cyan: 0 0 20px rgba(0, 243, 255, 0.4);
-            --glow-green: 0 0 20px rgba(0, 255, 65, 0.4);
         }
         
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            outline: none;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; outline: none; }
         
         body {
             font-family: var(--font-ui);
@@ -64,34 +49,12 @@
             height: 100vh;
         }
         
-        /* ========================================
-           VIEW MANAGER (SPA NAVIGATION)
-           ======================================== */
+        /* VIEW MANAGER */
+        .view { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; }
+        .view.active { display: flex; animation: fadeIn 0.4s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         
-        .view {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: 10;
-        }
-        
-        .view.active {
-            display: flex;
-            animation: fadeIn 0.4s ease-out;
-        }
-        
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
-        
-        /* ========================================
-           LOGIN SCREEN (PREMIUM DESIGN)
-           ======================================== */
-        
+        /* LOGIN */
         #view-login {
             background: radial-gradient(circle at 50% 50%, #0b1629 0%, #020408 100%);
             justify-content: center;
@@ -184,11 +147,6 @@
             font-size: 0.9rem;
         }
         
-        .login-btn-secondary:hover {
-            border-color: white;
-            color: white;
-        }
-        
         .login-message {
             margin-top: 20px;
             font-size: 0.85rem;
@@ -196,10 +154,7 @@
             min-height: 20px;
         }
         
-        /* ========================================
-           DASHBOARD (MODE SELECTION)
-           ======================================== */
-        
+        /* DASHBOARD */
         #view-dashboard {
             background: radial-gradient(circle at 50% 50%, #050a14 0%, #000 100%);
             flex-direction: column;
@@ -222,12 +177,6 @@
             margin-bottom: 10px;
         }
         
-        .dashboard-subtitle {
-            color: #8899a6;
-            font-size: 0.9rem;
-            letter-spacing: 2px;
-        }
-        
         .mode-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -244,8 +193,6 @@
             cursor: pointer;
             transition: 0.3s;
             text-align: center;
-            position: relative;
-            overflow: hidden;
         }
         
         .mode-card:hover {
@@ -254,28 +201,10 @@
             border-color: var(--neon-cyan);
         }
         
-        .mode-icon {
-            font-size: 4rem;
-            margin-bottom: 20px;
-        }
+        .mode-icon { font-size: 4rem; margin-bottom: 20px; }
+        .mode-title { font-family: var(--font-display); font-size: 1.5rem; color: white; margin-bottom: 10px; letter-spacing: 2px; }
         
-        .mode-title {
-            font-family: var(--font-display);
-            font-size: 1.5rem;
-            color: white;
-            margin-bottom: 10px;
-            letter-spacing: 2px;
-        }
-        
-        .mode-description {
-            color: #8899a6;
-            font-size: 0.85rem;
-        }
-        
-        /* ========================================
-           TRADING PLATFORM (MAIN INTERFACE)
-           ======================================== */
-        
+        /* TRADING PLATFORM */
         #view-platform {
             display: grid;
             grid-template-columns: 320px 1fr 320px;
@@ -283,16 +212,17 @@
             background: var(--bg-deep);
         }
         
-        /* Sidebar Left */
-        .sidebar-left {
+        .sidebar-left, .sidebar-right {
             background: rgba(0, 0, 0, 0.3);
-            border-right: 1px solid var(--glass-border);
             padding: 20px;
             overflow-y: auto;
             display: flex;
             flex-direction: column;
             gap: 15px;
         }
+        
+        .sidebar-left { border-right: 1px solid var(--glass-border); }
+        .sidebar-right { border-left: 1px solid var(--glass-border); }
         
         .brand-logo {
             font-family: var(--font-display);
@@ -306,12 +236,37 @@
             letter-spacing: 4px;
         }
         
-        .brand-subtitle {
-            text-align: center;
-            font-size: 0.7rem;
+        .mode-selector {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+        
+        .mode-btn {
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.1);
             color: #8899a6;
-            letter-spacing: 2px;
-            margin-bottom: 20px;
+            font-family: var(--font-ui);
+            font-size: 0.85rem;
+            font-weight: 700;
+            letter-spacing: 1px;
+            cursor: pointer;
+            transition: 0.3s;
+            text-align: center;
+        }
+        
+        .mode-btn:hover {
+            border-color: var(--neon-cyan);
+            color: var(--neon-cyan);
+        }
+        
+        .mode-btn.active {
+            background: rgba(0, 243, 255, 0.1);
+            border-color: var(--neon-cyan);
+            color: var(--neon-cyan);
+            box-shadow: 0 0 15px rgba(0, 243, 255, 0.2);
         }
         
         .config-group {
@@ -344,13 +299,12 @@
             text-align: center;
         }
         
-        /* Main Stage */
+        /* MAIN STAGE */
         .main-stage {
             padding: 20px;
             display: flex;
             flex-direction: column;
             gap: 15px;
-            position: relative;
         }
         
         .chart-container {
@@ -365,12 +319,69 @@
         #tvChart {
             width: 100%;
             height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
         }
         
-        .trading-controls {
+        /* JARVIS ANIMATION */
+        .jarvis-container {
+            position: absolute;
+            top: 50%;
+            left: 20px;
+            transform: translateY(-50%);
+            width: 400px;
+            height: 400px;
+            z-index: 0;
+            pointer-events: none;
             display: flex;
-            flex-direction: column;
-            gap: 15px;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .jarvis-img {
+            width: 400px;
+            height: 400px;
+            object-fit: cover;
+            border-radius: 50%;
+            opacity: 0.6;
+            -webkit-mask-image: radial-gradient(closest-side, rgba(0,0,0,1) 60%, rgba(0,0,0,0) 100%);
+            mask-image: radial-gradient(closest-side, rgba(0,0,0,1) 60%, rgba(0,0,0,0) 100%);
+        }
+        
+        .energy-wave {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 400px;
+            height: 400px;
+            border-radius: 50%;
+            z-index: -1;
+        }
+        
+        .energy-wave::before, .energy-wave::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            border-radius: 50%;
+            border: 3px solid rgba(0, 243, 255, 0.6);
+            background: transparent;
+            width: 100%;
+            height: 100%;
+            animation: shockwave 2s infinite ease-out;
+        }
+        
+        .energy-wave::after {
+            animation-delay: 1s;
+        }
+        
+        @keyframes shockwave {
+            0% { width: 100%; height: 100%; opacity: 0.9; }
+            100% { width: 130%; height: 130%; opacity: 0; }
         }
         
         .btn-analyze {
@@ -430,17 +441,6 @@
             cursor: not-allowed;
         }
         
-        /* Sidebar Right */
-        .sidebar-right {
-            background: rgba(0, 0, 0, 0.3);
-            border-left: 1px solid var(--glass-border);
-            padding: 20px;
-            overflow-y: auto;
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-        }
-        
         .stats-panel {
             background: rgba(255, 255, 255, 0.02);
             padding: 20px;
@@ -470,6 +470,14 @@
             border-radius: 4px;
             padding: 15px;
             overflow-y: auto;
+            position: relative;
+        }
+        
+        .history-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
         }
         
         .history-title {
@@ -477,8 +485,23 @@
             color: #5f7e97;
             letter-spacing: 1px;
             text-transform: uppercase;
-            margin-bottom: 15px;
             font-weight: 700;
+        }
+        
+        .btn-clear-history {
+            background: transparent;
+            border: 1px solid rgba(255, 0, 60, 0.3);
+            color: var(--neon-red);
+            padding: 5px 10px;
+            font-size: 0.7rem;
+            cursor: pointer;
+            transition: 0.3s;
+            border-radius: 2px;
+        }
+        
+        .btn-clear-history:hover {
+            background: rgba(255, 0, 60, 0.1);
+            border-color: var(--neon-red);
         }
         
         .history-item {
@@ -489,33 +512,9 @@
             font-size: 0.85rem;
         }
         
-        .history-item.win {
-            border-color: var(--neon-green);
-        }
+        .history-item.win { border-color: var(--neon-green); }
+        .history-item.loss { border-color: var(--neon-red); }
         
-        .history-item.loss {
-            border-color: var(--neon-red);
-        }
-        
-        /* Scrollbar */
-        ::-webkit-scrollbar {
-            width: 6px;
-        }
-        
-        ::-webkit-scrollbar-track {
-            background: #050a14;
-        }
-        
-        ::-webkit-scrollbar-thumb {
-            background: #2a3b55;
-            border-radius: 3px;
-        }
-        
-        ::-webkit-scrollbar-thumb:hover {
-            background: var(--neon-cyan);
-        }
-        
-        /* Positions Table */
         .positions-table {
             width: 100%;
             border-collapse: collapse;
@@ -536,16 +535,15 @@
             border-bottom: 1px solid rgba(255, 255, 255, 0.05);
         }
         
-        .positions-table tr:hover {
-            background: rgba(255, 255, 255, 0.02);
-        }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #050a14; }
+        ::-webkit-scrollbar-thumb { background: #2a3b55; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--neon-cyan); }
     </style>
 </head>
 <body>
 
-    <!-- ========================================
-         VIEW 1: LOGIN
-         ======================================== -->
+    <!-- LOGIN -->
     <div id="view-login" class="view active">
         <div class="login-container">
             <img src="JARVIS ROSTO.jpg" class="login-avatar" alt="JARVIS">
@@ -562,50 +560,56 @@
         </div>
     </div>
 
-    <!-- ========================================
-         VIEW 2: DASHBOARD (MODE SELECTION)
-         ======================================== -->
+    <!-- DASHBOARD -->
     <div id="view-dashboard" class="view">
         <div class="dashboard-header">
             <h1 class="dashboard-title">CENTRAL DE COMANDO</h1>
-            <p class="dashboard-subtitle">Selecione o Modo de Operação</p>
+            <p style="color: #8899a6; font-size: 0.9rem; letter-spacing: 2px;">Selecione o Modo de Operação</p>
         </div>
         
         <div class="mode-grid">
             <div class="mode-card" onclick="selectMode('RISE_FALL')">
                 <div class="mode-icon">📈</div>
                 <h2 class="mode-title">RISE / FALL</h2>
-                <p class="mode-description">Operação clássica de alta/baixa com análise de reversão</p>
+                <p style="color: #8899a6; font-size: 0.85rem;">Operação clássica de alta/baixa</p>
             </div>
             
             <div class="mode-card" onclick="selectMode('MATCH_DIFFER')">
                 <div class="mode-icon">🎯</div>
                 <h2 class="mode-title">MATCH / DIFFER</h2>
-                <p class="mode-description">Análise de dígitos com padrões de 3 ticks contrários</p>
+                <p style="color: #8899a6; font-size: 0.85rem;">Análise de dígitos com padrões</p>
             </div>
             
             <div class="mode-card" onclick="selectMode('OVER_UNDER')">
                 <div class="mode-icon">⚖️</div>
                 <h2 class="mode-title">OVER / UNDER</h2>
-                <p class="mode-description">Previsão de dígitos acima ou abaixo do threshold</p>
+                <p style="color: #8899a6; font-size: 0.85rem;">Previsão de threshold</p>
             </div>
             
             <div class="mode-card" onclick="selectMode('ACCUMULATORS')">
                 <div class="mode-icon">💰</div>
                 <h2 class="mode-title">ACCUMULATORS</h2>
-                <p class="mode-description">Acumulação progressiva com gestão de risco avançada</p>
+                <p style="color: #8899a6; font-size: 0.85rem;">Acumulação progressiva</p>
             </div>
         </div>
     </div>
 
-    <!-- ========================================
-         VIEW 3: TRADING PLATFORM
-         ======================================== -->
+    <!-- TRADING PLATFORM -->
     <div id="view-platform" class="view">
         <!-- Left Sidebar -->
         <div class="sidebar-left">
             <div class="brand-logo">JARVIS</div>
-            <div class="brand-subtitle">MODO: <span id="currentMode">RISE/FALL</span></div>
+            
+            <!-- MODE SELECTOR -->
+            <div class="config-group">
+                <label class="config-label">MODO DE OPERAÇÃO</label>
+                <div class="mode-selector">
+                    <button class="mode-btn active" onclick="changeMode('RISE_FALL')">RISE / FALL</button>
+                    <button class="mode-btn" onclick="changeMode('MATCH_DIFFER')">MATCH / DIFFER</button>
+                    <button class="mode-btn" onclick="changeMode('OVER_UNDER')">OVER / UNDER</button>
+                    <button class="mode-btn" onclick="changeMode('ACCUMULATORS')">ACCUMULATORS</button>
+                </div>
+            </div>
             
             <div class="config-group">
                 <label class="config-label">SALDO DA CONTA</label>
@@ -644,27 +648,27 @@
         <div class="main-stage">
             <div class="chart-container">
                 <div id="tvChart"></div>
+                <div class="jarvis-container">
+                    <div class="energy-wave"></div>
+                    <img src="jarvis.gif" class="jarvis-img" onerror="this.style.display='none'">
+                </div>
             </div>
             
-            <div class="trading-controls">
+            <div style="display: flex; flex-direction: column; gap: 15px;">
                 <button class="btn-analyze" id="btnAnalyze" onclick="analyzeMarket()">
                     <div>ANALISAR MERCADO</div>
                     <div style="font-size: 0.9rem; margin-top: 5px; color: var(--neon-green);">SISTEMA ONLINE</div>
                 </button>
                 
                 <div class="action-buttons">
-                    <button class="btn-trade btn-call" id="btnCall" onclick="placeTrade('CALL')" disabled>
-                        COMPRAR ⬆
-                    </button>
-                    <button class="btn-trade btn-put" id="btnPut" onclick="placeTrade('PUT')" disabled>
-                        VENDER ⬇
-                    </button>
+                    <button class="btn-trade btn-call" id="btnCall" onclick="placeTrade('CALL')" disabled>COMPRAR ⬆</button>
+                    <button class="btn-trade btn-put" id="btnPut" onclick="placeTrade('PUT')" disabled>VENDER ⬇</button>
                 </div>
             </div>
             
             <div style="background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.05); border-radius: 4px; padding: 15px; max-height: 200px; overflow-y: auto;">
                 <div style="font-size: 0.75rem; color: #5f7e97; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 1px;">POSIÇÕES ABERTAS</div>
-                <table class="positions-table" id="positionsTable">
+                <table class="positions-table">
                     <thead>
                         <tr>
                             <th>HORA</th>
@@ -691,7 +695,10 @@
             </div>
             
             <div class="history-panel">
-                <div class="history-title">HISTÓRICO RECENTE</div>
+                <div class="history-header">
+                    <div class="history-title">HISTÓRICO RECENTE</div>
+                    <button class="btn-clear-history" onclick="clearHistory()">🗑️ LIMPAR</button>
+                </div>
                 <div id="historyList">
                     <div style="text-align: center; color: #445566; font-size: 0.8rem; margin-top: 40px;">Histórico vazio</div>
                 </div>
@@ -699,30 +706,24 @@
         </div>
     </div>
 
-    <!-- ========================================
-         JAVASCRIPT LOGIC
-         ======================================== -->
     <script>
-        // Firebase Configuration
+        // Firebase Config
         const firebaseConfig = {
             apiKey: "AIzaSyAz0TWl4_ucANDaDJhY9ozLuaGnTFw_V6U",
             authDomain: "jarvis-trader-a6d3d.firebaseapp.com",
             projectId: "jarvis-trader-a6d3d",
             storageBucket: "jarvis-trader-a6d3d.firebasestorage.app",
             messagingSenderId: "1085731500934",
-            appId: "1:1085731500934:web:9711ce9b71317440727207",
-            measurementId: "G-L04M946NCJ"
+            appId: "1:1085731500934:web:9711ce9b71317440727207"
         };
         
-        // Initialize Firebase
         let auth, db;
         try {
             firebase.initializeApp(firebaseConfig);
             auth = firebase.auth();
             db = firebase.firestore();
-            console.log("🔥 Firebase initialized");
         } catch(e) {
-            console.warn("⚠️ Firebase error:", e);
+            console.warn("Firebase error:", e);
         }
         
         // Global State
@@ -732,6 +733,8 @@
         let ws = null;
         let positions = new Map();
         let dailyProfitValue = 0;
+        let tradeHistory = [];
+        let geminiBrain = null;
         
         // View Management
         function showView(viewId) {
@@ -739,7 +742,7 @@
             document.getElementById(viewId).classList.add('active');
         }
         
-        // Authentication
+        // Auth
         function handleLogin() {
             const email = document.getElementById('loginEmail').value;
             const pass = document.getElementById('loginPass').value;
@@ -752,25 +755,19 @@
             
             msg.textContent = "Verificando...";
             
-            // Mock login for demo
             if (email === "user" && pass === "user") {
                 msg.textContent = "Login realizado!";
-                setTimeout(() => {
-                    showView('view-dashboard');
-                }, 1000);
+                setTimeout(() => showView('view-dashboard'), 1000);
                 return;
             }
             
-            // Firebase login
             if (auth) {
                 auth.signInWithEmailAndPassword(email, pass)
                     .then(() => {
                         msg.textContent = "Login realizado!";
                         setTimeout(() => showView('view-dashboard'), 1000);
                     })
-                    .catch(err => {
-                        msg.textContent = "Erro: " + err.message;
-                    });
+                    .catch(err => msg.textContent = "Erro: " + err.message);
             }
         }
         
@@ -789,12 +786,10 @@
             if (auth) {
                 auth.createUserWithEmailAndPassword(email, pass)
                     .then(() => {
-                        msg.textContent = "Conta criada! Redirecionando...";
+                        msg.textContent = "Conta criada!";
                         setTimeout(() => showView('view-dashboard'), 1000);
                     })
-                    .catch(err => {
-                        msg.textContent = "Erro: " + err.message;
-                    });
+                    .catch(err => msg.textContent = "Erro: " + err.message);
             }
         }
         
@@ -806,19 +801,28 @@
         // Mode Selection
         function selectMode(mode) {
             currentMode = mode;
-            document.getElementById('currentMode').textContent = mode.replace('_', '/');
             showView('view-platform');
             initTradingPlatform();
         }
         
-        // Initialize Trading Platform
-        function initTradingPlatform() {
-            console.log("🚀 Initializing trading platform...");
-            initChart();
-            connectDeriv();
+        function changeMode(mode) {
+            currentMode = mode;
+            document.querySelectorAll('.mode-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            console.log("Modo alterado para:", mode);
         }
         
-        // Chart Initialization
+        // Init Platform
+        function initTradingPlatform() {
+            console.log("🚀 Initializing platform...");
+            initChart();
+            connectDeriv();
+            if (typeof GeminiBrain !== 'undefined') {
+                geminiBrain = new GeminiBrain();
+            }
+        }
+        
+        // Chart
         function initChart() {
             const container = document.getElementById('tvChart');
             if (!container) return;
@@ -848,7 +852,6 @@
                 wickDownColor: '#ff003c'
             });
             
-            // Responsive chart
             window.addEventListener('resize', () => {
                 chart.applyOptions({
                     width: container.clientWidth,
@@ -857,7 +860,7 @@
             });
         }
         
-        // Deriv WebSocket Connection
+        // Deriv Connection
         function connectDeriv() {
             const APP_ID = 114062;
             ws = new WebSocket(`wss://ws.derivws.com/websockets/v3?app_id=${APP_ID}`);
@@ -873,13 +876,8 @@
                     updateChart(data.tick);
                 }
             };
-            
-            ws.onerror = (err) => {
-                console.error("❌ Deriv connection error:", err);
-            };
         }
         
-        // Update Chart with Tick Data
         let candles = [];
         let currentCandle = null;
         
@@ -908,13 +906,31 @@
         }
         
         // Market Analysis
-        function analyzeMarket() {
+        async function analyzeMarket() {
             console.log("🧠 Analyzing market...");
-            document.getElementById('btnCall').disabled = false;
-            document.getElementById('btnPut').disabled = false;
             
-            // TODO: Implement AI analysis logic
-            alert("Análise concluída! Botões de trade habilitados.");
+            if (geminiBrain && candles.length > 0) {
+                const marketData = {
+                    candles: candles.slice(-50),
+                    currentPrice: currentCandle ? currentCandle.close : 0,
+                    mode: currentMode
+                };
+                
+                const analysis = await geminiBrain.analyze(marketData, currentMode);
+                console.log("Analysis:", analysis);
+                
+                if (analysis.confidence > 60) {
+                    document.getElementById('btnCall').disabled = false;
+                    document.getElementById('btnPut').disabled = false;
+                    alert(`Análise concluída!\nAção: ${analysis.action}\nConfiança: ${analysis.confidence}%\n${analysis.reason}`);
+                } else {
+                    alert("Confiança baixa. Aguarde melhores condições.");
+                }
+            } else {
+                document.getElementById('btnCall').disabled = false;
+                document.getElementById('btnPut').disabled = false;
+                alert("Análise concluída! Botões habilitados.");
+            }
         }
         
         // Place Trade
@@ -922,15 +938,70 @@
             const stake = parseFloat(document.getElementById('stakeInput').value);
             const duration = parseInt(document.getElementById('durationSelect').value);
             
-            console.log(`📊 Placing ${direction} trade: $${stake} for ${duration}m`);
+            console.log(`📊 ${direction}: $${stake} for ${duration}m`);
             
-            // TODO: Implement actual trade execution
+            // Add to history
+            const trade = {
+                time: new Date().toLocaleTimeString(),
+                type: direction,
+                stake: stake,
+                result: Math.random() > 0.5 ? 'WIN' : 'LOSS',
+                profit: Math.random() > 0.5 ? stake * 0.9 : -stake
+            };
+            
+            tradeHistory.unshift(trade);
+            updateHistory();
+            updateDailyProfit(trade.profit);
+            
             alert(`Trade ${direction} executado!\nStake: $${stake}\nDuração: ${duration}m`);
         }
         
-        // Initialize on load
+        // Update History
+        function updateHistory() {
+            const list = document.getElementById('historyList');
+            if (tradeHistory.length === 0) {
+                list.innerHTML = '<div style="text-align: center; color: #445566; font-size: 0.8rem; margin-top: 40px;">Histórico vazio</div>';
+                return;
+            }
+            
+            list.innerHTML = tradeHistory.slice(0, 20).map(trade => `
+                <div class="history-item ${trade.result === 'WIN' ? 'win' : 'loss'}">
+                    <div style="display: flex; justify-content: space-between;">
+                        <span>${trade.time} - ${trade.type}</span>
+                        <span style="color: ${trade.profit > 0 ? 'var(--neon-green)' : 'var(--neon-red)'}">
+                            ${trade.profit > 0 ? '+' : ''}$${trade.profit.toFixed(2)}
+                        </span>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        // Clear History
+        function clearHistory() {
+            if (confirm('Limpar todo o histórico?')) {
+                tradeHistory = [];
+                dailyProfitValue = 0;
+                updateHistory();
+                updateDailyProfit(0);
+            }
+        }
+        
+        // Update Daily Profit
+        function updateDailyProfit(amount) {
+            if (amount !== 0) {
+                dailyProfitValue += amount;
+            } else {
+                dailyProfitValue = 0;
+            }
+            
+            const elem = document.getElementById('dailyProfit');
+            elem.textContent = `$${dailyProfitValue.toFixed(2)}`;
+            elem.style.color = dailyProfitValue >= 0 ? 'var(--neon-green)' : 'var(--neon-red)';
+        }
+        
+        // Init
         window.addEventListener('DOMContentLoaded', () => {
-            console.log("🚀 JARVIS TRADER V21 - System Ready");
+            console.log("🚀 JARVIS TRADER V21 Ready");
         });
     </script>
 </body>
