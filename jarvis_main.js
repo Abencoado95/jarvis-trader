@@ -1,6 +1,6 @@
 /**
- * JARVIS TRADER V3.0 - MAIN LOGIC
- * Sistema completo de trading com automação
+ * JARVIS TRADER V3.1 - REAL TRADING SYSTEM
+ * Sistema completo com OAuth Deriv e trades reais
  */
 
 // Firebase Config
@@ -23,16 +23,18 @@ try {
     console.warn("⚠️ Firebase error:", e);
 }
 
-// DERIV TOKENS
+// DERIV CONFIG
 const DERIV_CONFIG = {
     APP_ID: 114062,
-    DEMO_TOKEN: "SEU_TOKEN_DEMO_AQUI", // Usuário deve configurar
-    REAL_TOKEN: "SEU_TOKEN_REAL_AQUI"  // Usuário deve configurar
+    OAUTH_URL: "https://oauth.deriv.com/oauth2/authorize",
+    SCOPES: "read,trade,trading_information,payments"
 };
 
 // Global State
 let currentMode = 'RISE_FALL';
-let currentAccount = 'demo'; // 'demo' or 'real'
+let currentAccount = 'demo';
+let derivToken = null;
+let derivAccountId = null;
 let chart = null;
 let series = null;
 let ws = null;
@@ -44,6 +46,7 @@ let isAutomationActive = false;
 let automationInterval = null;
 let candles = [];
 let currentCandle = null;
+let currentBalance = 0;
 
 // View Management
 function showView(viewId) {
@@ -105,6 +108,9 @@ function handleRegister() {
 function logout() {
     if (auth) auth.signOut();
     if (isAutomationActive) toggleAutomation();
+    if (ws) ws.close();
+    derivToken = null;
+    derivAccountId = null;
     showView('view-login');
 }
 
@@ -112,7 +118,7 @@ function logout() {
 function selectMode(mode) {
     currentMode = mode;
     showView('view-platform');
-    initTradingPlatform();
+    setTimeout(() => initTradingPlatform(), 100);
 }
 
 function changeMode(mode) {
@@ -123,7 +129,7 @@ function changeMode(mode) {
     console.log("🔄 Modo alterado para:", mode);
 }
 
-// Account Switcher
+// DERIV OAUTH
 function switchAccount(accountType) {
     currentAccount = accountType;
     
@@ -135,18 +141,80 @@ function switchAccount(accountType) {
         }
     });
     
-    // Reconnect with appropriate token
+    // Start OAuth flow
+    startDerivOAuth(accountType);
+}
+
+function startDerivOAuth(accountType) {
+    // Check if we already have a token in localStorage
+    const storedToken = localStorage.getItem(`deriv_token_${accountType}`);
+    
+    if (storedToken) {
+        console.log(`✅ Token ${accountType} encontrado no cache`);
+        derivToken = storedToken;
+        reconnectDeriv();
+        return;
+    }
+    
+    // Build OAuth URL
+    const redirectUri = window.location.origin + window.location.pathname;
+    const oauthUrl = `${DERIV_CONFIG.OAUTH_URL}?app_id=${DERIV_CONFIG.APP_ID}&l=PT&brand=deriv`;
+    
+    console.log("🔐 Iniciando OAuth Deriv...");
+    
+    // Open OAuth in popup
+    const width = 600;
+    const height = 700;
+    const left = (screen.width - width) / 2;
+    const top = (screen.height - height) / 2;
+    
+    const popup = window.open(
+        oauthUrl,
+        'DerivOAuth',
+        `width=${width},height=${height},left=${left},top=${top}`
+    );
+    
+    // Listen for OAuth callback
+    window.addEventListener('message', function handleOAuth(event) {
+        if (event.origin !== 'https://oauth.deriv.com') return;
+        
+        if (event.data.token) {
+            derivToken = event.data.token;
+            localStorage.setItem(`deriv_token_${accountType}`, derivToken);
+            console.log("✅ Token OAuth recebido!");
+            
+            if (popup) popup.close();
+            reconnectDeriv();
+            
+            window.removeEventListener('message', handleOAuth);
+        }
+    });
+}
+
+// Handle OAuth redirect
+window.addEventListener('load', () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const token1 = urlParams.get('token1');
+    const acct1 = urlParams.get('acct1');
+    
+    if (token1 && window.opener) {
+        // Send token to parent window
+        window.opener.postMessage({ token: token1, account: acct1 }, window.location.origin);
+        window.close();
+    }
+});
+
+function reconnectDeriv() {
     if (ws) {
         ws.close();
     }
     connectDeriv();
-    
-    console.log(`💳 Conta alterada para: ${accountType.toUpperCase()}`);
 }
 
 // Update Trade Buttons Based on Mode
 function updateTradeButtons() {
     const container = document.getElementById('tradeButtons');
+    if (!container) return;
     
     const buttonConfigs = {
         'RISE_FALL': [
@@ -188,9 +256,7 @@ function toggleAutomation() {
         status.textContent = '🤖 SISTEMA AUTOMÁTICO ATIVO';
         status.style.color = 'var(--neon-magenta)';
         
-        // Start automation loop
         startAutomation();
-        
         console.log("🤖 AUTOMAÇÃO ATIVADA");
     } else {
         btn.classList.remove('active');
@@ -198,47 +264,42 @@ function toggleAutomation() {
         status.textContent = 'SISTEMA MANUAL';
         status.style.color = '#8899a6';
         
-        // Stop automation
         stopAutomation();
-        
         console.log("⏸️ AUTOMAÇÃO PAUSADA");
     }
 }
 
 function startAutomation() {
-    // Run analysis every 30 seconds
     automationInterval = setInterval(async () => {
         if (!isAutomationActive) return;
         
         console.log("🤖 Executando análise automática...");
         
-        const analysis = await analyzeMarket(true); // Silent mode
+        const analysis = await analyzeMarket(true);
         
         if (analysis && analysis.confidence > 70) {
             console.log(`🎯 Sinal detectado: ${analysis.action} (${analysis.confidence}%)`);
             
-            // Check daily limits
             const takeProfit = parseFloat(document.getElementById('takeProfitInput').value);
             const stopLoss = parseFloat(document.getElementById('stopLossInput').value);
             
             if (dailyProfitValue >= takeProfit) {
-                console.log("✅ Take Profit diário atingido. Pausando automação.");
+                console.log("✅ Take Profit diário atingido.");
                 toggleAutomation();
-                alert(`🎉 Take Profit atingido! Lucro do dia: $${dailyProfitValue.toFixed(2)}`);
+                alert(`🎉 Take Profit atingido! Lucro: $${dailyProfitValue.toFixed(2)}`);
                 return;
             }
             
             if (dailyProfitValue <= -stopLoss) {
-                console.log("❌ Stop Loss diário atingido. Pausando automação.");
+                console.log("❌ Stop Loss diário atingido.");
                 toggleAutomation();
-                alert(`⚠️ Stop Loss atingido! Perda do dia: $${Math.abs(dailyProfitValue).toFixed(2)}`);
+                alert(`⚠️ Stop Loss atingido! Perda: $${Math.abs(dailyProfitValue).toFixed(2)}`);
                 return;
             }
             
-            // Execute trade automatically
             placeTrade(analysis.action, true);
         }
-    }, 30000); // 30 seconds
+    }, 30000);
 }
 
 function stopAutomation() {
@@ -252,50 +313,71 @@ function stopAutomation() {
 function initTradingPlatform() {
     console.log("🚀 Initializing platform...");
     updateTradeButtons();
-    initChart();
-    connectDeriv();
-    if (typeof GeminiBrain !== 'undefined') {
-        geminiBrain = new GeminiBrain();
-        console.log("🧠 Gemini Brain V3.0 loaded");
-    }
+    
+    setTimeout(() => {
+        initChart();
+        connectDeriv();
+        
+        if (typeof GeminiBrain !== 'undefined') {
+            geminiBrain = new GeminiBrain();
+            console.log("🧠 Gemini Brain V3.0 loaded");
+        }
+    }, 200);
 }
 
 // Chart
 function initChart() {
     const container = document.getElementById('tvChart');
-    if (!container) return;
+    if (!container) {
+        console.error("❌ Chart container not found!");
+        return;
+    }
     
-    chart = LightweightCharts.createChart(container, {
-        width: container.clientWidth,
-        height: container.clientHeight,
-        layout: {
-            backgroundColor: 'transparent',
-            textColor: '#5f7e97'
-        },
-        grid: {
-            vertLines: { color: 'rgba(26, 38, 57, 0.5)' },
-            horzLines: { color: 'rgba(26, 38, 57, 0.5)' }
-        },
-        timeScale: {
-            timeVisible: true,
-            secondsVisible: true
+    try {
+        if (chart) {
+            chart.remove();
+            chart = null;
+            series = null;
         }
-    });
-    
-    series = chart.addCandlestickSeries({
-        upColor: '#00ff41',
-        downColor: '#ff003c',
-        borderVisible: false,
-        wickUpColor: '#00ff41',
-        wickDownColor: '#ff003c'
-    });
-    
-    window.addEventListener('resize', () => {
-        chart.applyOptions({
+        
+        chart = LightweightCharts.createChart(container, {
             width: container.clientWidth,
-            height: container.clientHeight
+            height: container.clientHeight,
+            layout: {
+                backgroundColor: 'transparent',
+                textColor: '#5f7e97'
+            },
+            grid: {
+                vertLines: { color: 'rgba(26, 38, 57, 0.5)' },
+                horzLines: { color: 'rgba(26, 38, 57, 0.5)' }
+            },
+            timeScale: {
+                timeVisible: true,
+                secondsVisible: true
+            }
         });
-    });
+        
+        series = chart.addCandlestickSeries({
+            upColor: '#00ff41',
+            downColor: '#ff003c',
+            borderVisible: false,
+            wickUpColor: '#00ff41',
+            wickDownColor: '#ff003c'
+        });
+        
+        window.addEventListener('resize', () => {
+            if (chart) {
+                chart.applyOptions({
+                    width: container.clientWidth,
+                    height: container.clientHeight
+                });
+            }
+        });
+        
+        console.log("✅ Chart initialized");
+    } catch (error) {
+        console.error("❌ Chart init error:", error);
+    }
 }
 
 // Deriv Connection
@@ -306,17 +388,15 @@ function connectDeriv() {
     ws.onopen = () => {
         console.log("✅ Connected to Deriv");
         
-        // Authorize with token if available
-        const token = currentAccount === 'demo' ? DERIV_CONFIG.DEMO_TOKEN : DERIV_CONFIG.REAL_TOKEN;
-        
-        if (token && token !== "SEU_TOKEN_DEMO_AQUI" && token !== "SEU_TOKEN_REAL_AQUI") {
+        // Authorize if we have a token
+        if (derivToken) {
             ws.send(JSON.stringify({
-                authorize: token
+                authorize: derivToken
             }));
+        } else {
+            // Just subscribe to ticks for demo
+            ws.send(JSON.stringify({ ticks: "R_100", subscribe: 1 }));
         }
-        
-        // Subscribe to ticks
-        ws.send(JSON.stringify({ ticks: "R_100" }));
     };
     
     ws.onmessage = (msg) => {
@@ -324,50 +404,82 @@ function connectDeriv() {
         
         if (data.authorize) {
             console.log("✅ Authorized:", data.authorize.loginid);
-            updateBalance(data.authorize.balance);
+            derivAccountId = data.authorize.loginid;
+            currentBalance = parseFloat(data.authorize.balance);
+            updateBalance(currentBalance);
+            
+            // Subscribe to ticks after authorization
+            ws.send(JSON.stringify({ ticks: "R_100", subscribe: 1 }));
         }
         
         if (data.tick) {
             updateChart(data.tick);
         }
+        
+        if (data.buy) {
+            console.log("✅ Trade placed:", data.buy.contract_id);
+            // Monitor contract
+            monitorContract(data.buy.contract_id);
+        }
+        
+        if (data.proposal_open_contract) {
+            handleContractUpdate(data.proposal_open_contract);
+        }
+        
+        if (data.error) {
+            console.error("❌ Deriv API Error:", data.error.message);
+            alert(`Erro Deriv: ${data.error.message}`);
+        }
     };
     
     ws.onerror = (err) => {
-        console.error("❌ Deriv error:", err);
+        console.error("❌ Deriv connection error:", err);
+    };
+    
+    ws.onclose = () => {
+        console.log("⚠️ Deriv connection closed");
     };
 }
 
 function updateBalance(balance) {
+    currentBalance = balance;
     const elem = document.getElementById('accountBalance');
-    elem.textContent = `$${parseFloat(balance).toFixed(2)}`;
+    if (elem) {
+        elem.textContent = `$${parseFloat(balance).toFixed(2)}`;
+    }
 }
 
 function updateChart(tick) {
-    const time = Math.floor(tick.epoch / 60) * 60;
-    const price = parseFloat(tick.quote);
+    if (!series) return;
     
-    if (!currentCandle || currentCandle.time !== time) {
-        if (currentCandle) {
-            candles.push(currentCandle);
-            series.update(currentCandle);
-            
-            // Keep only last 100 candles
-            if (candles.length > 100) {
-                candles.shift();
+    try {
+        const time = Math.floor(tick.epoch / 60) * 60;
+        const price = parseFloat(tick.quote);
+        
+        if (!currentCandle || currentCandle.time !== time) {
+            if (currentCandle) {
+                candles.push(currentCandle);
+                series.update(currentCandle);
+                
+                if (candles.length > 100) {
+                    candles.shift();
+                }
             }
+            currentCandle = {
+                time: time,
+                open: price,
+                high: price,
+                low: price,
+                close: price
+            };
+        } else {
+            currentCandle.high = Math.max(currentCandle.high, price);
+            currentCandle.low = Math.min(currentCandle.low, price);
+            currentCandle.close = price;
+            series.update(currentCandle);
         }
-        currentCandle = {
-            time: time,
-            open: price,
-            high: price,
-            low: price,
-            close: price
-        };
-    } else {
-        currentCandle.high = Math.max(currentCandle.high, price);
-        currentCandle.low = Math.min(currentCandle.low, price);
-        currentCandle.close = price;
-        series.update(currentCandle);
+    } catch (error) {
+        console.error("❌ Chart update error:", error);
     }
 }
 
@@ -376,9 +488,11 @@ async function analyzeMarket(silent = false) {
     if (!silent) {
         const btn = document.getElementById('btnAnalyze');
         const subtext = document.getElementById('analyzeSubtext');
-        btn.disabled = true;
-        subtext.textContent = 'ANALISANDO...';
-        subtext.style.color = 'var(--neon-gold)';
+        if (btn) btn.disabled = true;
+        if (subtext) {
+            subtext.textContent = 'ANALISANDO...';
+            subtext.style.color = 'var(--neon-gold)';
+        }
     }
     
     console.log("🧠 Analyzing market...");
@@ -396,17 +510,17 @@ async function analyzeMarket(silent = false) {
         if (!silent) {
             const btn = document.getElementById('btnAnalyze');
             const subtext = document.getElementById('analyzeSubtext');
-            btn.disabled = false;
-            subtext.textContent = 'SISTEMA ONLINE';
-            subtext.style.color = 'var(--neon-green)';
+            if (btn) btn.disabled = false;
+            if (subtext) {
+                subtext.textContent = 'SISTEMA ONLINE';
+                subtext.style.color = 'var(--neon-green)';
+            }
             
             if (analysis.confidence > 60) {
-                // Enable trade buttons
                 document.querySelectorAll('.btn-trade').forEach(btn => btn.disabled = false);
-                
                 alert(`✅ Análise concluída!\n\nAção: ${analysis.action}\nConfiança: ${analysis.confidence}%\n\n${analysis.reason}`);
             } else {
-                alert(`⚠️ Confiança baixa (${analysis.confidence}%)\n\nAguarde melhores condições de mercado.\n\n${analysis.reason}`);
+                alert(`⚠️ Confiança baixa (${analysis.confidence}%)\n\n${analysis.reason}`);
             }
         }
         
@@ -415,47 +529,147 @@ async function analyzeMarket(silent = false) {
         if (!silent) {
             const btn = document.getElementById('btnAnalyze');
             const subtext = document.getElementById('analyzeSubtext');
-            btn.disabled = false;
-            subtext.textContent = 'SISTEMA ONLINE';
-            subtext.style.color = 'var(--neon-green)';
+            if (btn) btn.disabled = false;
+            if (subtext) {
+                subtext.textContent = 'SISTEMA ONLINE';
+                subtext.style.color = 'var(--neon-green)';
+            }
             
             document.querySelectorAll('.btn-trade').forEach(btn => btn.disabled = false);
-            alert("✅ Análise concluída!\n\nBotões de trade habilitados.");
+            alert("✅ Análise concluída!");
         }
         
         return null;
     }
 }
 
-// Place Trade
+// REAL TRADE EXECUTION
 function placeTrade(action, isAuto = false) {
     const stake = parseFloat(document.getElementById('stakeInput').value);
     const duration = parseInt(document.getElementById('durationSelect').value);
     
+    // Check if we have a token
+    if (!derivToken) {
+        alert("⚠️ Você precisa conectar sua conta Deriv primeiro!\n\nClique em DEMO ou REAL para fazer login.");
+        return;
+    }
+    
+    // Check balance
+    if (currentBalance < stake) {
+        alert(`⚠️ Saldo insuficiente!\n\nSaldo: $${currentBalance.toFixed(2)}\nStake: $${stake.toFixed(2)}`);
+        return;
+    }
+    
     console.log(`📊 ${isAuto ? '[AUTO]' : '[MANUAL]'} ${action}: $${stake} for ${duration}m`);
     
-    // Simulate trade result (replace with actual Deriv API call)
-    const trade = {
-        time: new Date().toLocaleTimeString(),
-        type: action,
-        stake: stake,
-        result: Math.random() > 0.45 ? 'WIN' : 'LOSS', // 55% win rate
-        profit: Math.random() > 0.45 ? stake * 0.9 : -stake,
-        isAuto: isAuto
-    };
+    // Build contract parameters based on mode
+    const contractParams = buildContractParams(action, stake, duration);
     
-    tradeHistory.unshift(trade);
-    updateHistory();
-    updateDailyProfit(trade.profit);
+    if (!contractParams) {
+        alert("❌ Erro ao construir parâmetros do contrato");
+        return;
+    }
+    
+    // Send buy request to Deriv
+    ws.send(JSON.stringify({
+        buy: "1",
+        price: stake,
+        parameters: contractParams
+    }));
     
     if (!isAuto) {
-        alert(`✅ Trade ${action} executado!\n\nStake: $${stake}\nDuração: ${duration}m\n\nResultado será processado em ${duration} minuto(s).`);
+        alert(`✅ Trade ${action} enviado!\n\nStake: $${stake}\nDuração: ${duration}m\n\nAguardando confirmação...`);
+    }
+}
+
+function buildContractParams(action, stake, duration) {
+    const symbol = "R_100";
+    const durationUnit = "m";
+    
+    switch (currentMode) {
+        case 'RISE_FALL':
+            return {
+                contract_type: action === 'CALL' ? 'CALL' : 'PUT',
+                symbol: symbol,
+                duration: duration,
+                duration_unit: durationUnit,
+                basis: 'stake',
+                amount: stake
+            };
+            
+        case 'MATCH_DIFFER':
+            return {
+                contract_type: action === 'MATCH' ? 'DIGITMATCH' : 'DIGITDIFF',
+                symbol: symbol,
+                duration: 5,
+                duration_unit: 't',
+                basis: 'stake',
+                amount: stake,
+                barrier: '5'
+            };
+            
+        case 'OVER_UNDER':
+            return {
+                contract_type: action === 'OVER' ? 'DIGITOVER' : 'DIGITUNDER',
+                symbol: symbol,
+                duration: 5,
+                duration_unit: 't',
+                basis: 'stake',
+                amount: stake,
+                barrier: '5'
+            };
+            
+        case 'ACCUMULATORS':
+            return {
+                contract_type: 'ACCU',
+                symbol: symbol,
+                growth_rate: 0.03,
+                basis: 'stake',
+                amount: stake
+            };
+            
+        default:
+            return null;
+    }
+}
+
+function monitorContract(contractId) {
+    ws.send(JSON.stringify({
+        proposal_open_contract: 1,
+        contract_id: contractId,
+        subscribe: 1
+    }));
+}
+
+function handleContractUpdate(contract) {
+    const profit = parseFloat(contract.profit);
+    const status = contract.status;
+    
+    if (status === 'sold' || status === 'won' || status === 'lost') {
+        // Contract finished
+        const trade = {
+            time: new Date().toLocaleTimeString(),
+            type: contract.contract_type,
+            stake: parseFloat(contract.buy_price),
+            result: profit > 0 ? 'WIN' : 'LOSS',
+            profit: profit,
+            isAuto: isAutomationActive
+        };
+        
+        tradeHistory.unshift(trade);
+        updateHistory();
+        updateDailyProfit(profit);
+        updateBalance(currentBalance + profit);
+        
+        console.log(`${profit > 0 ? '✅ WIN' : '❌ LOSS'}: $${profit.toFixed(2)}`);
     }
 }
 
 // Update History
 function updateHistory() {
     const list = document.getElementById('historyList');
+    if (!list) return;
+    
     if (tradeHistory.length === 0) {
         list.innerHTML = '<div style="text-align: center; color: #445566; font-size: 0.8rem; margin-top: 40px;">Histórico vazio</div>';
         return;
@@ -496,27 +710,28 @@ function updateDailyProfit(amount) {
     }
     
     const elem = document.getElementById('dailyProfit');
-    elem.textContent = `$${dailyProfitValue.toFixed(2)}`;
-    elem.style.color = dailyProfitValue >= 0 ? 'var(--neon-green)' : 'var(--neon-red)';
+    if (elem) {
+        elem.textContent = `$${dailyProfitValue.toFixed(2)}`;
+        elem.style.color = dailyProfitValue >= 0 ? 'var(--neon-green)' : 'var(--neon-red)';
+    }
     
-    // Check limits
     const takeProfit = parseFloat(document.getElementById('takeProfitInput').value);
     const stopLoss = parseFloat(document.getElementById('stopLossInput').value);
     
     if (dailyProfitValue >= takeProfit && isAutomationActive) {
         toggleAutomation();
-        alert(`🎉 TAKE PROFIT ATINGIDO!\n\nLucro do dia: $${dailyProfitValue.toFixed(2)}\n\nAutomação pausada.`);
+        alert(`🎉 TAKE PROFIT!\n\nLucro: $${dailyProfitValue.toFixed(2)}`);
     }
     
     if (dailyProfitValue <= -stopLoss && isAutomationActive) {
         toggleAutomation();
-        alert(`⚠️ STOP LOSS ATINGIDO!\n\nPerda do dia: $${Math.abs(dailyProfitValue).toFixed(2)}\n\nAutomação pausada.`);
+        alert(`⚠️ STOP LOSS!\n\nPerda: $${Math.abs(dailyProfitValue).toFixed(2)}`);
     }
 }
 
 // Init
 window.addEventListener('DOMContentLoaded', () => {
-    console.log("🚀 JARVIS TRADER V3.0 Ready");
-    console.log("🧠 Gemini Brain V3.0 with Advanced Technical Analysis");
-    console.log("🤖 Automation System Ready");
+    console.log("🚀 JARVIS TRADER V3.1 Ready");
+    console.log("🔐 OAuth Deriv Enabled");
+    console.log("💰 Real Trading System Active");
 });
