@@ -344,21 +344,29 @@ function toggleAutomation() {
     }
     
     isAutomationActive = !isAutomationActive;
-    
     const btn = document.getElementById('automationBtn');
-    const status = document.getElementById('automationStatus');
     
     if (isAutomationActive) {
         btn.classList.add('active');
-        btn.textContent = 'PAUSAR SISTEMA JARVIS';
-        status.textContent = 'SISTEMA AUTOMÁTICO ATIVO';
-        status.style.color = 'var(--neon-magenta)';
+        btn.style.borderColor = 'var(--neon-magenta)';
+        btn.style.background = 'rgba(188, 19, 254, 0.2)';
+        
+        btn.innerHTML = `
+            <div>PAUSAR SISTEMA JARVIS</div>
+            <div id="automationStatus" style="font-size: 0.9rem; margin-top: 5px; color: var(--neon-magenta);">SISTEMA AUTOMÁTICO ATIVO</div>
+        `;
+        
         startAutomation();
     } else {
         btn.classList.remove('active');
-        btn.textContent = 'LIGAR SISTEMA JARVIS';
-        status.textContent = 'SISTEMA MANUAL';
-        status.style.color = '#8899a6';
+        btn.style.borderColor = 'var(--neon-magenta)';
+        btn.style.background = 'rgba(188, 19, 254, 0.1)';
+        
+        btn.innerHTML = `
+            <div>LIGAR SISTEMA JARVIS</div>
+            <div id="automationStatus" style="font-size: 0.9rem; margin-top: 5px; color: #8899a6;">SISTEMA MANUAL</div>
+        `;
+        
         stopAutomation();
     }
 }

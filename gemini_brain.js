@@ -152,22 +152,27 @@ class GeminiBrain {
             // Preço Atual
             currentPrice: marketData.currentPrice || closes[closes.length - 1],
             
-            // RSI (14 períodos)
-            rsi: this.calculateRSI(closes, 14),
-            
-            // Bollinger Bands (20, 2)
-            bollingerBands: this.calculateBollingerBands(closes, 20, 2),
-            
-            // EMAs
-            ema9: this.calculateEMA(closes, 9),
-            ema21: this.calculateEMA(closes, 21),
-            ema50: this.calculateEMA(closes, 50),
-            
-            // MACD
-            macd: this.calculateMACD(closes),
-            
-            // ATR (Volatilidade)
-            atr: this.calculateATR(highs, lows, closes, 14),
+            indicators: {
+                // RSI (14 períodos)
+                rsi: this.calculateRSI(closes, 14),
+                
+                // Bollinger Bands (20, 2)
+                bollinger: this.calculateBollingerBands(closes, 20, 2),
+                
+                // EMAs
+                ema9: this.calculateEMA(closes, 9),
+                ema21: this.calculateEMA(closes, 21),
+                ema50: this.calculateEMA(closes, 50),
+                
+                // MACD
+                macd: this.calculateMACD(closes),
+                
+                // ATR (Volatilidade)
+                atr: this.calculateATR(highs, lows, closes, 14),
+                
+                // Momentum
+                momentum: this.calculateMomentum(closes, 10)
+            },
             
             // Padrões de Candlestick
             patterns: this.detectCandlestickPatterns(candles.slice(-5)),
@@ -180,10 +185,7 @@ class GeminiBrain {
             
             // Volume Profile
             volumeProfile: this.analyzeVolume(volumes),
-            
-            // Momentum
-            momentum: this.calculateMomentum(closes, 10),
-            
+
             // Dados brutos
             candles: candles.slice(-50),
             lastCandles: candles.slice(-10)
