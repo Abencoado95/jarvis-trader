@@ -118,7 +118,20 @@ function logout() {
 function selectMode(mode) {
     currentMode = mode;
     showView('view-platform');
-    setTimeout(() => checkAuthAndInit(), 100);
+    
+    // Check if already connected
+    if (isConnected && ws && ws.readyState === 1) {
+        console.log("✅ Already connected, just updating mode");
+        updateTradeButtons();
+        return;
+    }
+    
+    // Check auth and init
+    const hasAccounts = checkAuthAndInit();
+    
+    if (!hasAccounts) {
+        console.log("⚠️ No accounts, waiting for user to connect");
+    }
 }
 
 function changeMode(mode) {
@@ -142,28 +155,22 @@ function switchAccount(accountType) {
     });
     
     // Check if we have accounts saved
-    const saved = localStorage.getItem('jarvis_accounts');
-    if (saved) {
-        try {
-            availableAccounts = JSON.parse(saved);
-            if (availableAccounts.length > 0) {
-                // Find account by type
-                const account = availableAccounts.find(a => 
-                    accountType === 'demo' ? a.id.startsWith('VRT') : a.id.startsWith('CR')
-                );
-                
-                if (account) {
-                    currentToken = account.token;
-                    reconnectDeriv();
-                    return;
-                }
-            }
-        } catch(e) {
-            console.error("Error loading accounts:", e);
+    if (availableAccounts.length > 0) {
+        // Find account by type
+        const account = availableAccounts.find(a => 
+            accountType === 'demo' ? a.id.startsWith('VRT') : a.id.startsWith('CR')
+        );
+        
+        if (account) {
+            console.log(`🔄 Switching to ${accountType.toUpperCase()}: ${account.id}`);
+            currentToken = account.token;
+            reconnectDeriv();
+            return;
         }
     }
     
-    // No saved account, redirect to OAuth
+    // No saved account, redirect to OAuth (ONLY ONCE)
+    console.log("⚠️ No saved accounts, redirecting to OAuth...");
     connectDeriv();
 }
 
@@ -191,38 +198,50 @@ function checkAuthAndInit() {
         }
         
         localStorage.setItem('jarvis_accounts', JSON.stringify(accounts));
+        
+        // Clean URL
         window.history.replaceState({}, document.title, window.location.pathname);
         
         availableAccounts = accounts;
         currentToken = accounts[0].token;
         
-        console.log(`✅ ${accounts.length} conta(s) autorizada(s)`);
+        console.log(`✅ ${accounts.length} conta(s) salva(s):`);
         accounts.forEach(acc => {
             console.log(`   - ${acc.type}: ${acc.id} (${acc.currency})`);
         });
         
-        initTradingPlatform();
-    } else {
-        // Check for saved accounts
-        const saved = localStorage.getItem('jarvis_accounts');
-        if (saved) {
-            try {
-                availableAccounts = JSON.parse(saved);
-                if (availableAccounts.length > 0) {
-                    currentToken = availableAccounts[0].token;
-                    console.log("✅ Using saved account:", availableAccounts[0].id);
+        // INITIALIZE IMMEDIATELY
+        setTimeout(() => {
+            initTradingPlatform();
+        }, 500);
+        
+        return true;
+    }
+    
+    // Check for saved accounts
+    const saved = localStorage.getItem('jarvis_accounts');
+    if (saved) {
+        try {
+            availableAccounts = JSON.parse(saved);
+            if (availableAccounts.length > 0) {
+                currentToken = availableAccounts[0].token;
+                console.log(`✅ Using saved accounts (${availableAccounts.length})`);
+                
+                // INITIALIZE IMMEDIATELY
+                setTimeout(() => {
                     initTradingPlatform();
-                } else {
-                    console.log("⚠️ No accounts found, please connect");
-                }
-            } catch(e) {
-                console.error("Error loading saved accounts:", e);
-                localStorage.removeItem('jarvis_accounts');
+                }, 500);
+                
+                return true;
             }
-        } else {
-            console.log("⚠️ No accounts saved, please connect");
+        } catch(e) {
+            console.error("Error loading saved accounts:", e);
+            localStorage.removeItem('jarvis_accounts');
         }
     }
+    
+    console.log("⚠️ No accounts found");
+    return false;
 }
 
 function reconnectDeriv() {
