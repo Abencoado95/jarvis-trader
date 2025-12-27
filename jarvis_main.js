@@ -433,6 +433,267 @@ function buildContractParams(action, stake, duration) {
     }
 }
 
+// Init Platform
+function initTradingPlatform() {
+    console.log("🚀 Initializing...");
+    updateTradeButtons();
+    
+    setTimeout(() => {
+        initChart();
+        connectWS();
+        
+        if (typeof GeminiBrain !== 'undefined') {
+            geminiBrain = new GeminiBrain();
+        }
+    }, 200);
+}
+
+// Chart
+function initChart() {
+    const container = document.getElementById('tvChart');
+    if (!container) return;
+    
+    try {
+        if (chart) {
+            chart.remove();
+            chart = null;
+            series = null;
+        }
+        
+        chart = LightweightCharts.createChart(container, {
+            width: container.clientWidth,
+            height: container.clientHeight,
+            layout: {
+                backgroundColor: 'transparent',
+                textColor: '#5f7e97'
+            },
+            grid: {
+                vertLines: { color: 'rgba(26, 38, 57, 0.5)' },
+                horzLines: { color: 'rgba(26, 38, 57, 0.5)' }
+            },
+            timeScale: {
+                timeVisible: true,
+                secondsVisible: true
+            }
+        });
+        
+        series = chart.addCandlestickSeries({
+            upColor: '#00ff41',
+            downColor: '#ff003c',
+            borderVisible: false,
+            wickUpColor: '#00ff41',
+            wickDownColor: '#ff003c'
+        });
+        
+        window.addEventListener('resize', () => {
+            if (chart) {
+                chart.applyOptions({
+                    width: container.clientWidth,
+                    height: container.clientHeight
+                });
+            }
+        });
+        
+        console.log("✅ Chart OK");
+    } catch (error) {
+        console.error("❌ Chart error:", error);
+    }
+}
+
+// WebSocket (Igual ao backup)
+function connectWS() {
+    ws = new WebSocket(`wss://ws.binaryws.com/websockets/v3?app_id=${APP_ID}`);
+    
+    ws.onopen = () => {
+        console.log("✅ Connected to Deriv");
+        
+        if (currentToken) {
+            ws.send(JSON.stringify({ authorize: currentToken }));
+        }
+    };
+    
+    ws.onmessage = (msg) => {
+        const data = JSON.parse(msg.data);
+        
+        if (data.error) {
+            console.error("❌ Deriv Error:", data.error.message);
+            if (data.error.code === 'InvalidToken') {
+                alert("Token inválido! Reconectando...");
+                localStorage.removeItem('jarvis_accounts');
+                connectDeriv();
+            }
+            return;
+        }
+        
+        if (data.msg_type === 'authorize') {
+            isConnected = true;
+            const info = data.authorize;
+            currentBalance = parseFloat(info.balance);
+            
+            console.log("✅ Authorized!");
+            console.log(`   Account: ${info.loginid}`);
+            console.log(`   Balance: ${info.balance} ${info.currency}`);
+            console.log(`   Name: ${info.fullname}`);
+            
+            updateBalance(currentBalance);
+            updateAccountUI(info);
+            
+            // Subscribe to data
+            ws.send(JSON.stringify({ balance: 1, subscribe: 1 }));
+            ws.send(JSON.stringify({ 
+                ticks_history: SYMBOL, 
+                adjust_start_time: 1, 
+                count: 500, 
+                end: 'latest', 
+                style: 'candles', 
+                granularity: 60, 
+                subscribe: 1 
+            }));
+            ws.send(JSON.stringify({ proposal_open_contract: 1, subscribe: 1 }));
+        }
+        
+        if (data.msg_type === 'balance') {
+            currentBalance = parseFloat(data.balance.balance);
+            updateBalance(currentBalance);
+        }
+        
+        if (data.msg_type === 'candles') {
+            candles = data.candles.map(c => ({
+                time: c.epoch,
+                open: +c.open,
+                high: +c.high,
+                low: +c.low,
+                close: +c.close
+            }));
+            if (series) series.setData(candles);
+        }
+        
+        if (data.msg_type === 'ohlc') {
+            const c = data.ohlc;
+            updateCandles({
+                time: c.open_time,
+                open: +c.open,
+                high: +c.high,
+                low: +c.low,
+                close: +c.close
+            });
+        }
+        
+        if (data.msg_type === 'proposal') {
+            if (data.proposal.id) {
+                ws.send(JSON.stringify({
+                    buy: data.proposal.id,
+                    price: data.proposal.ask_price
+                }));
+            }
+        }
+        
+        if (data.msg_type === 'proposal_open_contract') {
+            handlePosition(data.proposal_open_contract);
+        }
+    };
+    
+    ws.onerror = (err) => {
+        console.error("❌ WS error:", err);
+    };
+    
+    ws.onclose = () => {
+        console.log("⚠️ Connection closed");
+        isConnected = false;
+    };
+}
+
+function updateAccountUI(info) {
+    const isDemo = info.fullname.includes('Virtual') || info.loginid.startsWith('VRT');
+    
+    // Update account buttons
+    document.querySelectorAll('.account-btn').forEach(btn => {
+        btn.classList.remove('active');
+        if ((isDemo && btn.classList.contains('demo')) || (!isDemo && btn.classList.contains('real'))) {
+            btn.classList.add('active');
+        }
+    });
+    
+    console.log(`🎯 Account Type: ${isDemo ? 'DEMO' : 'REAL'}`);
+}
+
+function updateBalance(balance) {
+    currentBalance = balance;
+    const elem = document.getElementById('accountBalance');
+    if (elem) {
+        elem.textContent = `$${parseFloat(balance).toFixed(2)}`;
+    }
+}
+
+function updateCandles(candle) {
+    if (!series) return;
+    
+    try {
+        if (candles.length > 0 && candles[candles.length - 1].time === candle.time) {
+            candles[candles.length - 1] = candle;
+        } else {
+            candles.push(candle);
+            if (candles.length > 600) candles.shift();
+        }
+        
+        series.update(candle);
+    } catch (error) {
+        console.error("❌ Candle update error:", error);
+    }
+}
+
+// Market Analysis
+async function analyzeMarket(silent = false) {
+    if (!silent) {
+        const btn = document.getElementById('btnAnalyze');
+        const subtext = document.getElementById('analyzeSubtext');
+        if (btn) btn.disabled = true;
+        if (subtext) {
+            subtext.textContent = 'ANALISANDO...';
+            subtext.style.color = 'var(--neon-gold)';
+        }
+    }
+    
+    if (geminiBrain && candles.length > 20) {
+        const analysis = await geminiBrain.analyze({
+            candles: candles,
+            currentPrice: candles[candles.length - 1].close,
+            mode: currentMode
+        }, currentMode);
+        
+        if (!silent) {
+            const btn = document.getElementById('btnAnalyze');
+            const subtext = document.getElementById('analyzeSubtext');
+            if (btn) btn.disabled = false;
+            if (subtext) {
+                subtext.textContent = 'SISTEMA ONLINE';
+                subtext.style.color = 'var(--neon-green)';
+            }
+            
+            if (analysis.confidence > 60) {
+                document.querySelectorAll('.btn-trade').forEach(btn => btn.disabled = false);
+                alert(`✅ Análise OK!\n\nAção: ${analysis.action}\nConfiança: ${analysis.confidence}%`);
+            }
+        }
+        
+        return analysis;
+    } else {
+        if (!silent) {
+            const btn = document.getElementById('btnAnalyze');
+            const subtext = document.getElementById('analyzeSubtext');
+            if (btn) btn.disabled = false;
+            if (subtext) {
+                subtext.textContent = 'SISTEMA ONLINE';
+                subtext.style.color = 'var(--neon-green)';
+            }
+            
+            document.querySelectorAll('.btn-trade').forEach(btn => btn.disabled = false);
+        }
+        
+        return null;
+    }
+}
+
 // Place Trade
 function placeTrade(direction, isAuto = false) {
     if (!isConnected || !currentToken) {
