@@ -702,4 +702,9 @@ function updateDailyProfit(amount) {
 window.addEventListener('DOMContentLoaded', () => {
     console.log("🚀 JARVIS TRADER V3.3 Ready");
     console.log("🔐 OAuth Deriv System");
+    
+    // Check for OAuth callback or saved accounts immediately
+    setTimeout(() => {
+        checkAuthAndInit();
+    }, 500);
 });
