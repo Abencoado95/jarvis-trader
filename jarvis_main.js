@@ -1,6 +1,6 @@
 /**
- * JARVIS TRADER V3.2 - REAL TRADING WITH API TOKENS
- * Sistema simplificado com tokens de API diretos
+ * JARVIS TRADER V3.3 - OAUTH DERIV REAL
+ * Sistema idêntico ao backup funcionando
  */
 
 // Firebase Config
@@ -24,15 +24,14 @@ try {
 }
 
 // DERIV CONFIG
-const DERIV_CONFIG = {
-    APP_ID: 114062
-};
+const APP_ID = 114062;
+const SYMBOL = "R_100";
 
 // Global State
 let currentMode = 'RISE_FALL';
 let currentAccount = 'demo';
-let derivToken = null;
-let derivAccountId = null;
+let availableAccounts = [];
+let currentToken = "";
 let chart = null;
 let series = null;
 let ws = null;
@@ -108,8 +107,9 @@ function logout() {
     if (auth) auth.signOut();
     if (isAutomationActive) toggleAutomation();
     if (ws) ws.close();
-    derivToken = null;
-    derivAccountId = null;
+    localStorage.removeItem('jarvis_accounts');
+    availableAccounts = [];
+    currentToken = "";
     isConnected = false;
     showView('view-login');
 }
@@ -118,7 +118,7 @@ function logout() {
 function selectMode(mode) {
     currentMode = mode;
     showView('view-platform');
-    setTimeout(() => initTradingPlatform(), 100);
+    setTimeout(() => checkAuthAndInit(), 100);
 }
 
 function changeMode(mode) {
@@ -129,7 +129,7 @@ function changeMode(mode) {
     console.log("🔄 Modo alterado para:", mode);
 }
 
-// SIMPLIFIED TOKEN SYSTEM
+// DERIV OAUTH (Igual ao backup)
 function switchAccount(accountType) {
     currentAccount = accountType;
     
@@ -141,36 +141,87 @@ function switchAccount(accountType) {
         }
     });
     
-    // Prompt for API token
-    promptForToken(accountType);
-}
-
-function promptForToken(accountType) {
-    const storedToken = localStorage.getItem(`deriv_token_${accountType}`);
-    
-    if (storedToken) {
-        const useStored = confirm(`Usar token ${accountType} salvo?\n\nClique OK para usar o token salvo\nClique Cancelar para inserir novo token`);
-        
-        if (useStored) {
-            derivToken = storedToken;
-            reconnectDeriv();
-            return;
+    // Check if we have accounts saved
+    const saved = localStorage.getItem('jarvis_accounts');
+    if (saved) {
+        try {
+            availableAccounts = JSON.parse(saved);
+            if (availableAccounts.length > 0) {
+                // Find account by type
+                const account = availableAccounts.find(a => 
+                    accountType === 'demo' ? a.id.startsWith('VRT') : a.id.startsWith('CR')
+                );
+                
+                if (account) {
+                    currentToken = account.token;
+                    reconnectDeriv();
+                    return;
+                }
+            }
+        } catch(e) {
+            console.error("Error loading accounts:", e);
         }
     }
     
-    const message = accountType === 'demo' 
-        ? `Cole seu TOKEN DE API DEMO da Deriv:\n\n1. Vá em https://app.deriv.com/account/api-token\n2. Crie um token com permissões: Read, Trade\n3. Copie o token e cole aqui`
-        : `Cole seu TOKEN DE API REAL da Deriv:\n\n⚠️ ATENÇÃO: Este token dá acesso à sua conta REAL!\n\n1. Vá em https://app.deriv.com/account/api-token\n2. Crie um token com permissões: Read, Trade\n3. Copie o token e cole aqui`;
+    // No saved account, redirect to OAuth
+    connectDeriv();
+}
+
+function connectDeriv() {
+    console.log("🔐 Redirecting to Deriv OAuth...");
+    window.location.href = `https://oauth.deriv.com/oauth2/authorize?app_id=${APP_ID}&l=PT&brand=deriv`;
+}
+
+function checkAuthAndInit() {
+    const params = new URLSearchParams(window.location.search);
     
-    const token = prompt(message);
-    
-    if (token && token.trim().length > 10) {
-        derivToken = token.trim();
-        localStorage.setItem(`deriv_token_${accountType}`, derivToken);
-        console.log(`✅ Token ${accountType} salvo`);
-        reconnectDeriv();
+    if (params.has('token1')) {
+        // OAuth callback - save all accounts
+        let i = 1;
+        let accounts = [];
+        
+        while (params.has(`token${i}`)) {
+            accounts.push({
+                token: params.get(`token${i}`),
+                id: params.get(`acct${i}`),
+                currency: params.get(`cur${i}`),
+                type: params.get(`acct${i}`).startsWith('VRT') ? 'DEMO' : 'REAL'
+            });
+            i++;
+        }
+        
+        localStorage.setItem('jarvis_accounts', JSON.stringify(accounts));
+        window.history.replaceState({}, document.title, window.location.pathname);
+        
+        availableAccounts = accounts;
+        currentToken = accounts[0].token;
+        
+        console.log(`✅ ${accounts.length} conta(s) autorizada(s)`);
+        accounts.forEach(acc => {
+            console.log(`   - ${acc.type}: ${acc.id} (${acc.currency})`);
+        });
+        
+        initTradingPlatform();
     } else {
-        alert("❌ Token inválido!");
+        // Check for saved accounts
+        const saved = localStorage.getItem('jarvis_accounts');
+        if (saved) {
+            try {
+                availableAccounts = JSON.parse(saved);
+                if (availableAccounts.length > 0) {
+                    currentToken = availableAccounts[0].token;
+                    console.log("✅ Using saved account:", availableAccounts[0].id);
+                    initTradingPlatform();
+                } else {
+                    console.log("⚠️ No accounts found, please connect");
+                }
+            } catch(e) {
+                console.error("Error loading saved accounts:", e);
+                localStorage.removeItem('jarvis_accounts');
+            }
+        } else {
+            console.log("⚠️ No accounts saved, please connect");
+        }
     }
 }
 
@@ -178,10 +229,10 @@ function reconnectDeriv() {
     if (ws) {
         ws.close();
     }
-    connectDeriv();
+    connectWS();
 }
 
-// Update Trade Buttons Based on Mode
+// Update Trade Buttons
 function updateTradeButtons() {
     const container = document.getElementById('tradeButtons');
     if (!container) return;
@@ -213,10 +264,10 @@ function updateTradeButtons() {
     `).join('');
 }
 
-// Automation System
+// Automation
 function toggleAutomation() {
     if (!isConnected) {
-        alert("⚠️ Conecte sua conta Deriv primeiro!\n\nClique em DEMO ou REAL.");
+        alert("⚠️ Conecte sua conta Deriv primeiro!");
         return;
     }
     
@@ -227,49 +278,26 @@ function toggleAutomation() {
     
     if (isAutomationActive) {
         btn.classList.add('active');
-        btn.textContent = '⏸️ PAUSAR SISTEMA JARVIS';
-        status.textContent = '🤖 SISTEMA AUTOMÁTICO ATIVO';
+        btn.textContent = '⏸️ PAUSAR JARVIS';
+        status.textContent = '🤖 AUTOMÁTICO ATIVO';
         status.style.color = 'var(--neon-magenta)';
-        
         startAutomation();
-        console.log("🤖 AUTOMAÇÃO ATIVADA");
     } else {
         btn.classList.remove('active');
-        btn.textContent = '🤖 LIGAR SISTEMA JARVIS';
+        btn.textContent = '🤖 LIGAR JARVIS';
         status.textContent = 'SISTEMA MANUAL';
         status.style.color = '#8899a6';
-        
         stopAutomation();
-        console.log("⏸️ AUTOMAÇÃO PAUSADA");
     }
 }
 
 function startAutomation() {
     automationInterval = setInterval(async () => {
-        if (!isAutomationActive) return;
-        
-        console.log("🤖 Executando análise automática...");
+        if (!isAutomationActive || positions.size > 0) return;
         
         const analysis = await analyzeMarket(true);
         
         if (analysis && analysis.confidence > 70) {
-            console.log(`🎯 Sinal: ${analysis.action} (${analysis.confidence}%)`);
-            
-            const takeProfit = parseFloat(document.getElementById('takeProfitInput').value);
-            const stopLoss = parseFloat(document.getElementById('stopLossInput').value);
-            
-            if (dailyProfitValue >= takeProfit) {
-                toggleAutomation();
-                alert(`🎉 Take Profit!\nLucro: $${dailyProfitValue.toFixed(2)}`);
-                return;
-            }
-            
-            if (dailyProfitValue <= -stopLoss) {
-                toggleAutomation();
-                alert(`⚠️ Stop Loss!\nPerda: $${Math.abs(dailyProfitValue).toFixed(2)}`);
-                return;
-            }
-            
             placeTrade(analysis.action, true);
         }
     }, 30000);
@@ -284,16 +312,15 @@ function stopAutomation() {
 
 // Init Platform
 function initTradingPlatform() {
-    console.log("🚀 Initializing platform...");
+    console.log("🚀 Initializing...");
     updateTradeButtons();
     
     setTimeout(() => {
         initChart();
-        connectDeriv();
+        connectWS();
         
         if (typeof GeminiBrain !== 'undefined') {
             geminiBrain = new GeminiBrain();
-            console.log("🧠 Gemini Brain V3.0 loaded");
         }
     }, 200);
 }
@@ -301,10 +328,7 @@ function initTradingPlatform() {
 // Chart
 function initChart() {
     const container = document.getElementById('tvChart');
-    if (!container) {
-        console.error("❌ Chart container not found!");
-        return;
-    }
+    if (!container) return;
     
     try {
         if (chart) {
@@ -347,92 +371,127 @@ function initChart() {
             }
         });
         
-        console.log("✅ Chart initialized");
+        console.log("✅ Chart OK");
     } catch (error) {
         console.error("❌ Chart error:", error);
     }
 }
 
-// Deriv Connection
-function connectDeriv() {
-    const APP_ID = DERIV_CONFIG.APP_ID;
-    ws = new WebSocket(`wss://ws.derivws.com/websockets/v3?app_id=${APP_ID}`);
+// WebSocket (Igual ao backup)
+function connectWS() {
+    ws = new WebSocket(`wss://ws.binaryws.com/websockets/v3?app_id=${APP_ID}`);
     
     ws.onopen = () => {
         console.log("✅ Connected to Deriv");
         
-        if (derivToken) {
-            console.log("🔐 Authorizing with token...");
-            ws.send(JSON.stringify({
-                authorize: derivToken
-            }));
-        } else {
-            console.log("📊 Connecting without authorization (demo mode)");
-            ws.send(JSON.stringify({ ticks: "R_100", subscribe: 1 }));
+        if (currentToken) {
+            ws.send(JSON.stringify({ authorize: currentToken }));
         }
     };
     
     ws.onmessage = (msg) => {
         const data = JSON.parse(msg.data);
         
-        if (data.authorize) {
+        if (data.error) {
+            console.error("❌ Deriv Error:", data.error.message);
+            if (data.error.code === 'InvalidToken') {
+                alert("Token inválido! Reconectando...");
+                localStorage.removeItem('jarvis_accounts');
+                connectDeriv();
+            }
+            return;
+        }
+        
+        if (data.msg_type === 'authorize') {
             isConnected = true;
-            derivAccountId = data.authorize.loginid;
-            currentBalance = parseFloat(data.authorize.balance);
+            const info = data.authorize;
+            currentBalance = parseFloat(info.balance);
             
             console.log("✅ Authorized!");
-            console.log(`   Account: ${derivAccountId}`);
-            console.log(`   Balance: $${currentBalance.toFixed(2)}`);
-            console.log(`   Currency: ${data.authorize.currency}`);
+            console.log(`   Account: ${info.loginid}`);
+            console.log(`   Balance: ${info.balance} ${info.currency}`);
+            console.log(`   Name: ${info.fullname}`);
             
             updateBalance(currentBalance);
+            updateAccountUI(info);
             
-            // Subscribe to ticks
-            ws.send(JSON.stringify({ ticks: "R_100", subscribe: 1 }));
-            
-            alert(`✅ Conectado com sucesso!\n\nConta: ${derivAccountId}\nSaldo: $${currentBalance.toFixed(2)}`);
+            // Subscribe to data
+            ws.send(JSON.stringify({ balance: 1, subscribe: 1 }));
+            ws.send(JSON.stringify({ 
+                ticks_history: SYMBOL, 
+                adjust_start_time: 1, 
+                count: 500, 
+                end: 'latest', 
+                style: 'candles', 
+                granularity: 60, 
+                subscribe: 1 
+            }));
+            ws.send(JSON.stringify({ proposal_open_contract: 1, subscribe: 1 }));
         }
         
-        if (data.tick) {
-            updateChart(data.tick);
-        }
-        
-        if (data.buy) {
-            console.log("✅ Trade placed:", data.buy.contract_id);
-            monitorContract(data.buy.contract_id);
-        }
-        
-        if (data.proposal_open_contract) {
-            handleContractUpdate(data.proposal_open_contract);
-        }
-        
-        if (data.balance) {
+        if (data.msg_type === 'balance') {
             currentBalance = parseFloat(data.balance.balance);
             updateBalance(currentBalance);
         }
         
-        if (data.error) {
-            console.error("❌ Deriv Error:", data.error.message);
-            
-            if (data.error.code === 'InvalidToken') {
-                alert(`❌ Token inválido!\n\n${data.error.message}\n\nPor favor, insira um novo token.`);
-                localStorage.removeItem(`deriv_token_${currentAccount}`);
-                derivToken = null;
-                isConnected = false;
-            } else {
-                alert(`Erro Deriv: ${data.error.message}`);
+        if (data.msg_type === 'candles') {
+            candles = data.candles.map(c => ({
+                time: c.epoch,
+                open: +c.open,
+                high: +c.high,
+                low: +c.low,
+                close: +c.close
+            }));
+            if (series) series.setData(candles);
+        }
+        
+        if (data.msg_type === 'ohlc') {
+            const c = data.ohlc;
+            updateCandles({
+                time: c.open_time,
+                open: +c.open,
+                high: +c.high,
+                low: +c.low,
+                close: +c.close
+            });
+        }
+        
+        if (data.msg_type === 'proposal') {
+            if (data.proposal.id) {
+                ws.send(JSON.stringify({
+                    buy: data.proposal.id,
+                    price: data.proposal.ask_price
+                }));
             }
+        }
+        
+        if (data.msg_type === 'proposal_open_contract') {
+            handlePosition(data.proposal_open_contract);
         }
     };
     
     ws.onerror = (err) => {
-        console.error("❌ Connection error:", err);
+        console.error("❌ WS error:", err);
     };
     
     ws.onclose = () => {
         console.log("⚠️ Connection closed");
         isConnected = false;
     };
+}
+
+function updateAccountUI(info) {
+    const isDemo = info.fullname.includes('Virtual') || info.loginid.startsWith('VRT');
+    
+    // Update account buttons
+    document.querySelectorAll('.account-btn').forEach(btn => {
+        btn.classList.remove('active');
+        if ((isDemo && btn.classList.contains('demo')) || (!isDemo && btn.classList.contains('real'))) {
+            btn.classList.add('active');
+        }
+    });
+    
+    console.log(`🎯 Account Type: ${isDemo ? 'DEMO' : 'REAL'}`);
 }
 
 function updateBalance(balance) {
@@ -443,37 +502,20 @@ function updateBalance(balance) {
     }
 }
 
-function updateChart(tick) {
+function updateCandles(candle) {
     if (!series) return;
     
     try {
-        const time = Math.floor(tick.epoch / 60) * 60;
-        const price = parseFloat(tick.quote);
-        
-        if (!currentCandle || currentCandle.time !== time) {
-            if (currentCandle) {
-                candles.push(currentCandle);
-                series.update(currentCandle);
-                
-                if (candles.length > 100) {
-                    candles.shift();
-                }
-            }
-            currentCandle = {
-                time: time,
-                open: price,
-                high: price,
-                low: price,
-                close: price
-            };
+        if (candles.length > 0 && candles[candles.length - 1].time === candle.time) {
+            candles[candles.length - 1] = candle;
         } else {
-            currentCandle.high = Math.max(currentCandle.high, price);
-            currentCandle.low = Math.min(currentCandle.low, price);
-            currentCandle.close = price;
-            series.update(currentCandle);
+            candles.push(candle);
+            if (candles.length > 600) candles.shift();
         }
+        
+        series.update(candle);
     } catch (error) {
-        console.error("❌ Chart update error:", error);
+        console.error("❌ Candle update error:", error);
     }
 }
 
@@ -489,16 +531,12 @@ async function analyzeMarket(silent = false) {
         }
     }
     
-    console.log("🧠 Analyzing...");
-    
     if (geminiBrain && candles.length > 20) {
-        const marketData = {
+        const analysis = await geminiBrain.analyze({
             candles: candles,
-            currentPrice: currentCandle ? currentCandle.close : 0,
+            currentPrice: candles[candles.length - 1].close,
             mode: currentMode
-        };
-        
-        const analysis = await geminiBrain.analyze(marketData, currentMode);
+        }, currentMode);
         
         if (!silent) {
             const btn = document.getElementById('btnAnalyze');
@@ -512,8 +550,6 @@ async function analyzeMarket(silent = false) {
             if (analysis.confidence > 60) {
                 document.querySelectorAll('.btn-trade').forEach(btn => btn.disabled = false);
                 alert(`✅ Análise OK!\n\nAção: ${analysis.action}\nConfiança: ${analysis.confidence}%`);
-            } else {
-                alert(`⚠️ Confiança baixa: ${analysis.confidence}%`);
             }
         }
         
@@ -529,115 +565,62 @@ async function analyzeMarket(silent = false) {
             }
             
             document.querySelectorAll('.btn-trade').forEach(btn => btn.disabled = false);
-            alert("✅ Análise OK!");
         }
         
         return null;
     }
 }
 
-// REAL TRADE
-function placeTrade(action, isAuto = false) {
+// Place Trade
+function placeTrade(direction, isAuto = false) {
+    if (!isConnected || !currentToken) {
+        alert("⚠️ Conecte sua conta primeiro!");
+        return;
+    }
+    
     const stake = parseFloat(document.getElementById('stakeInput').value);
     const duration = parseInt(document.getElementById('durationSelect').value);
     
-    if (!isConnected || !derivToken) {
-        alert("⚠️ Conecte sua conta Deriv primeiro!\n\nClique em DEMO ou REAL.");
-        return;
-    }
-    
     if (currentBalance < stake) {
-        alert(`⚠️ Saldo insuficiente!\n\nSaldo: $${currentBalance.toFixed(2)}\nStake: $${stake.toFixed(2)}`);
+        alert(`⚠️ Saldo insuficiente!\nSaldo: $${currentBalance.toFixed(2)}`);
         return;
     }
     
-    console.log(`📊 ${isAuto ? '[AUTO]' : '[MANUAL]'} ${action}: $${stake}`);
+    const req = {
+        proposal: 1,
+        amount: stake,
+        basis: 'stake',
+        contract_type: direction,
+        currency: 'USD',
+        symbol: SYMBOL,
+        duration: duration,
+        duration_unit: 'm'
+    };
     
-    const params = buildContractParams(action, stake, duration);
-    
-    if (!params) {
-        alert("❌ Erro ao construir contrato");
-        return;
-    }
-    
-    ws.send(JSON.stringify({
-        buy: "1",
-        price: stake,
-        parameters: params
-    }));
+    ws.send(JSON.stringify(req));
+    console.log(`📤 Trade: ${direction} | $${stake}`);
     
     if (!isAuto) {
-        alert(`✅ Trade ${action} enviado!\n\nStake: $${stake}\n\nAguardando...`);
+        alert(`✅ Trade ${direction} enviado!\nStake: $${stake}`);
     }
 }
 
-function buildContractParams(action, stake, duration) {
-    const symbol = "R_100";
+function handlePosition(p) {
+    if (!p.contract_id) return;
     
-    switch (currentMode) {
-        case 'RISE_FALL':
-            return {
-                contract_type: action === 'CALL' ? 'CALL' : 'PUT',
-                symbol: symbol,
-                duration: duration,
-                duration_unit: 'm',
-                basis: 'stake',
-                amount: stake
-            };
-            
-        case 'MATCH_DIFFER':
-            return {
-                contract_type: action === 'MATCH' ? 'DIGITMATCH' : 'DIGITDIFF',
-                symbol: symbol,
-                duration: 5,
-                duration_unit: 't',
-                basis: 'stake',
-                amount: stake,
-                barrier: '5'
-            };
-            
-        case 'OVER_UNDER':
-            return {
-                contract_type: action === 'OVER' ? 'DIGITOVER' : 'DIGITUNDER',
-                symbol: symbol,
-                duration: 5,
-                duration_unit: 't',
-                basis: 'stake',
-                amount: stake,
-                barrier: '5'
-            };
-            
-        case 'ACCUMULATORS':
-            return {
-                contract_type: 'ACCU',
-                symbol: symbol,
-                growth_rate: 0.03,
-                basis: 'stake',
-                amount: stake
-            };
-            
-        default:
-            return null;
+    if (!positions.has(p.contract_id)) {
+        positions.set(p.contract_id, p);
+        console.log(`📊 Position opened: ${p.contract_type}`);
     }
-}
-
-function monitorContract(contractId) {
-    ws.send(JSON.stringify({
-        proposal_open_contract: 1,
-        contract_id: contractId,
-        subscribe: 1
-    }));
-}
-
-function handleContractUpdate(contract) {
-    const profit = parseFloat(contract.profit);
-    const status = contract.status;
     
-    if (status === 'sold' || status === 'won' || status === 'lost') {
+    if (p.is_sold) {
+        const profit = parseFloat(p.profit);
+        positions.delete(p.contract_id);
+        
         const trade = {
             time: new Date().toLocaleTimeString(),
-            type: contract.contract_type,
-            stake: parseFloat(contract.buy_price),
+            type: p.contract_type,
+            stake: parseFloat(p.buy_price),
             result: profit > 0 ? 'WIN' : 'LOSS',
             profit: profit,
             isAuto: isAutomationActive
@@ -669,9 +652,6 @@ function updateHistory() {
                     ${trade.profit > 0 ? '+' : ''}$${trade.profit.toFixed(2)}
                 </span>
             </div>
-            <div style="font-size: 0.75rem; color: #8899a6;">
-                Stake: $${trade.stake.toFixed(2)} | ${trade.result}
-            </div>
         </div>
     `).join('');
 }
@@ -701,6 +681,6 @@ function updateDailyProfit(amount) {
 
 // Init
 window.addEventListener('DOMContentLoaded', () => {
-    console.log("🚀 JARVIS TRADER V3.2 Ready");
-    console.log("🔑 API Token System Active");
+    console.log("🚀 JARVIS TRADER V3.3 Ready");
+    console.log("🔐 OAuth Deriv System");
 });
