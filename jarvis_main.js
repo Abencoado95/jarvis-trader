@@ -511,7 +511,7 @@ function updateHistory() {
     list.innerHTML = tradeHistory.slice(0, 20).map(trade => `
         <div class="history-item ${trade.result === 'WIN' ? 'win' : 'loss'}">
             <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
-                <span>${trade.time} - ${trade.type} ${trade.isAuto ? '🤖' : ''}</span>
+                <span>${trade.time} - ${trade.type} ${trade.isAuto ? '[AUTO]' : ''}</span>
                 <span style="color: ${trade.profit > 0 ? 'var(--neon-green)' : 'var(--neon-red)'}">
                     ${trade.profit > 0 ? '+' : ''}$${trade.profit.toFixed(2)}
                 </span>
@@ -542,6 +542,21 @@ function updateDailyProfit(amount) {
         elem.style.color = dailyProfitValue >= 0 ? 'var(--neon-green)' : 'var(--neon-red)';
     }
 }
+
+// Helper para Token Manual (Emergência)
+window.setToken = function(token, isReal = false) {
+    const type = isReal ? 'REAL' : 'DEMO';
+    const id = isReal ? 'MANUAL_REAL' : 'MANUAL_DEMO';
+    const currency = 'USD';
+    
+    const acc = { token, id, currency, type };
+    availableAccounts = [acc];
+    localStorage.setItem('jarvis_accounts', JSON.stringify(availableAccounts));
+    currentToken = token;
+    
+    console.log(`✅ Token MANUAL definido para ${type}. Conectando...`);
+    reconnectDeriv();
+};
 
 // Init
 window.addEventListener('DOMContentLoaded', () => {

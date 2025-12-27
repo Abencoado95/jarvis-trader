@@ -802,13 +802,11 @@
                     <div style="font-size: 0.9rem; margin-top: 5px; color: var(--neon-green);" id="analyzeSubtext">SISTEMA ONLINE</div>
                 </button>
                 
-                <!-- AUTOMATION PANEL (MOVED HERE) -->
-                <div class="automation-panel">
-                    <div class="automation-status" id="automationStatus">SISTEMA MANUAL</div>
-                    <button class="automation-btn" id="automationBtn" onclick="toggleAutomation()">
-                        🤖 LIGAR SISTEMA JARVIS
-                    </button>
-                </div>
+                <!-- AUTOMATION PANEL -->
+                <button class="btn-analyze" id="automationBtn" onclick="toggleAutomation()" style="background: rgba(188, 19, 254, 0.1); border-color: var(--neon-magenta);">
+                    <div>LIGAR SISTEMA JARVIS</div>
+                    <div id="automationStatus" style="font-size: 0.9rem; margin-top: 5px; color: #8899a6;">SISTEMA MANUAL</div>
+                </button>
                 
                 <!-- DYNAMIC TRADE BUTTONS -->
                 <div class="action-buttons" id="tradeButtons">
@@ -843,6 +841,7 @@
                 <div class="stats-label">RESULTADO DO DIA</div>
                 <div class="stats-value" id="dailyProfit">$0.00</div>
             </div>
+
             
             <div class="history-panel">
                 <div class="history-header">
