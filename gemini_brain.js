@@ -382,6 +382,9 @@ class GeminiBrain {
      * CONSTRUIR PROMPT AVANÇADO PARA GEMINI 2.0
      */
     buildAdvancedPrompt(technicalData, mode) {
+        const i = technicalData.indicators;
+        const bb = i.bollinger; // Acesso corrigido ao bollinger
+        
         const basePrompt = `Você é JARVIS, um sistema de IA especializado em trading de opções binárias.
 Sua missão é analisar os dados técnicos do mercado e fornecer uma decisão de trade PRECISA e CONFIÁVEL.
 
@@ -390,29 +393,29 @@ Sua missão é analisar os dados técnicos do mercado e fornecer uma decisão de
 PREÇO ATUAL: ${technicalData.currentPrice}
 
 INDICADORES:
-- RSI (14): ${technicalData.rsi.toFixed(2)} ${technicalData.rsi > 70 ? '⚠️ SOBRECOMPRADO' : technicalData.rsi < 30 ? '⚠️ SOBREVENDIDO' : '✓ NEUTRO'}
+- RSI (14): ${i.rsi.toFixed(2)} ${i.rsi > 70 ? '⚠️ SOBRECOMPRADO' : i.rsi < 30 ? '⚠️ SOBREVENDIDO' : '✓ NEUTRO'}
 - Bollinger Bands:
-  * Superior: ${technicalData.bollingerBands.upper.toFixed(4)}
-  * Média: ${technicalData.bollingerBands.middle.toFixed(4)}
-  * Inferior: ${technicalData.bollingerBands.lower.toFixed(4)}
-  * Posição: ${this.getBBPosition(technicalData.currentPrice, technicalData.bollingerBands)}
+  * Superior: ${bb.upper.toFixed(4)}
+  * Média: ${bb.middle.toFixed(4)}
+  * Inferior: ${bb.lower.toFixed(4)}
+  * Posição: ${this.getBBPosition(technicalData.currentPrice, bb)}
 
 - EMAs:
-  * EMA 9: ${technicalData.ema9.toFixed(4)}
-  * EMA 21: ${technicalData.ema21.toFixed(4)}
-  * EMA 50: ${technicalData.ema50.toFixed(4)}
-  * Alinhamento: ${this.getEMAAlignment(technicalData)}
+  * EMA 9: ${i.ema9.toFixed(4)}
+  * EMA 21: ${i.ema21.toFixed(4)}
+  * EMA 50: ${i.ema50.toFixed(4)}
+  * Alinhamento: ${this.getEMAAlignment(i)}
 
 - MACD:
-  * Linha: ${technicalData.macd.macd.toFixed(4)}
-  * Sinal: ${technicalData.macd.signal.toFixed(4)}
-  * Histograma: ${technicalData.macd.histogram.toFixed(4)}
-  * Status: ${technicalData.macd.histogram > 0 ? 'BULLISH' : 'BEARISH'}
+  * Linha: ${i.macd.macd.toFixed(4)}
+  * Sinal: ${i.macd.signal.toFixed(4)}
+  * Histograma: ${i.macd.histogram.toFixed(4)}
+  * Status: ${i.macd.histogram > 0 ? 'BULLISH' : 'BEARISH'}
 
-- ATR (Volatilidade): ${technicalData.atr.toFixed(4)} ${technicalData.atr > 0.01 ? '⚠️ ALTA' : '✓ BAIXA'}
+- ATR (Volatilidade): ${i.atr.toFixed(4)} ${i.atr > 0.01 ? '⚠️ ALTA' : '✓ BAIXA'}
 
 - Tendência: ${technicalData.trend}
-- Momentum (10): ${technicalData.momentum.toFixed(2)}%
+- Momentum (10): ${i.momentum.toFixed(2)}%
 - Volume: ${technicalData.volumeProfile}
 
 - Padrões de Candlestick: ${technicalData.patterns.length > 0 ? technicalData.patterns.join(', ') : 'Nenhum padrão detectado'}
@@ -516,7 +519,7 @@ ANÁLISE DE RISCO:
 4. Volume: Baixo volume = menor risco de knockout
 
 CONDIÇÕES ATUAIS:
-- ATR: ${technicalData.atr.toFixed(4)} ${technicalData.atr < 0.005 ? '✓ IDEAL' : '⚠️ ALTO RISCO'}
+- ATR: ${i.atr.toFixed(4)} ${i.atr < 0.005 ? '✓ IDEAL' : '⚠️ ALTO RISCO'}
 - Tendência: ${technicalData.trend} ${technicalData.trend === 'SIDEWAYS' ? '✓ IDEAL' : '⚠️ RISCO'}
 - Volume: ${technicalData.volumeProfile}
 
