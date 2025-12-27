@@ -18,6 +18,14 @@ class GeminiBrain {
      * Sistema multi-camadas de análise técnica
      */
     async analyze(marketData, mode = 'RISE_FALL') {
+        const now = Date.now();
+        
+        // RATE LIMIT CACHE: Evita chamadas em menos de 15s
+        if (this.lastAnalysis && (now - this.lastAnalysis.timestamp < 15000)) {
+            console.log("🧠 Usando análise em cache (Rate Limit Protection)");
+            return this.lastAnalysis.analysis;
+        }
+
         if (this.isAnalyzing) {
             return { action: 'WAIT', confidence: 0, reason: 'Análise em andamento...' };
         }
@@ -40,7 +48,7 @@ class GeminiBrain {
                         parts: [{ text: prompt }]
                     }],
                     generationConfig: {
-                        temperature: 0.3, // Baixa temperatura para decisões mais consistentes
+                        temperature: 0.3,
                         topK: 20,
                         topP: 0.8,
                         maxOutputTokens: 2048
@@ -49,39 +57,85 @@ class GeminiBrain {
             });
             
             if (!response.ok) {
-                throw new Error(`API Error: ${response.status}`);
+                // FALLBACK LOCAL SE API FALHAR (ex: 429)
+                console.warn(`⚠️ API Error ${response.status}: Usando Lógica Local de Fallback`);
+                const localResult = this.runLocalAnalysis(technicalData, mode);
+                this.isAnalyzing = false;
+                return localResult;
             }
             
             const data = await response.json();
             const analysis = this.parseResponse(data, mode);
             
             // 4. SALVAR HISTÓRICO
-            this.lastAnalysis = analysis;
-            this.analysisHistory.push({
-                timestamp: Date.now(),
-                mode: mode,
-                analysis: analysis,
-                technicalData: technicalData
-            });
-            
-            // Limitar histórico a 50 análises
-            if (this.analysisHistory.length > 50) {
-                this.analysisHistory.shift();
-            }
+            this.lastAnalysis = {
+                timestamp: now,
+                analysis: analysis
+            };
             
             return analysis;
             
         } catch (error) {
             console.error("❌ Gemini Brain Error:", error);
-            return {
-                action: 'WAIT',
-                confidence: 0,
-                reason: 'Erro na análise: ' + error.message
-            };
+            // FALLBACK LOCAL EM CASO DE ERRO DE REDE
+            console.warn("⚠️ API Failure: Usando Lógica Local de Fallback");
+            const localResult = this.runLocalAnalysis(this.calculateTechnicalIndicators(marketData), mode);
+            return localResult;
         } finally {
             this.isAnalyzing = false;
         }
     }
+
+    /**
+     * LÓGICA LOCAL DE FALLBACK (Se a IA estiver offline/limitada)
+     */
+    runLocalAnalysis(tech, mode) {
+        let action = 'WAIT';
+        let confidence = 0;
+        let reason = 'Análise Técnica Local (Fallback)';
+        
+        const rsi = tech.indicators.rsi;
+        const price = tech.currentPrice;
+        const bb = tech.indicators.bollinger;
+        const barrier = document.getElementById('digitSelect') ? parseInt(document.getElementById('digitSelect').value) : 5;
+
+        // Lógica Simplificada de Fallback
+        if (mode === 'RISE_FALL') {
+            if (rsi < 30 && price < bb.lower) {
+                action = 'CALL';
+                confidence = 85;
+                reason = `Local: RSI Sobrevenda (${rsi.toFixed(1)}) + Preço abaixo da Banda`;
+            } else if (rsi > 70 && price > bb.upper) {
+                action = 'PUT';
+                confidence = 85;
+                reason = `Local: RSI Sobrecompra (${rsi.toFixed(1)}) + Preço acima da Banda`;
+            }
+        } 
+        else if (mode === 'OVER_UNDER') {
+            const lastDigit = Math.floor(price * 100) % 10; // Dígito aproximado
+            // Se barreira é 5, e RSI alto -> Probabilidade de OVER
+            if (barrier === 5) {
+                if (rsi > 60) {
+                    action = 'OVER';
+                    confidence = 75;
+                    reason = `Local: RSI Alto (${rsi.toFixed(1)}) favorece OVER 5`;
+                } else if (rsi < 40) {
+                    action = 'UNDER';
+                    confidence = 75;
+                    reason = `Local: RSI Baixo (${rsi.toFixed(1)}) favorece UNDER 5`;
+                }
+            }
+        }
+        else if (mode === 'MATCH_DIFFER') {
+            // Estatisticamente, DIFFER é mais seguro
+            action = 'DIFFER';
+            confidence = 90;
+            reason = 'Local: Estatística base favorece DIFFER';
+        }
+
+        return { action, confidence, reason };
+    }
+
     
     /**
      * CÁLCULO DE INDICADORES TÉCNICOS
