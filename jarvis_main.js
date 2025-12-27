@@ -219,28 +219,31 @@ function checkAuthAndInit() {
     }
     
     // Check for saved accounts
-    const saved = localStorage.getItem('jarvis_accounts');
-    if (saved) {
-        try {
-            availableAccounts = JSON.parse(saved);
-            if (availableAccounts.length > 0) {
-                currentToken = availableAccounts[0].token;
-                console.log(`✅ Using saved accounts (${availableAccounts.length})`);
+    try {
+        const saved = localStorage.getItem('jarvis_accounts');
+        if (saved) {
+            const parsed = JSON.parse(saved);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+                availableAccounts = parsed;
+                const acc = availableAccounts.find(a => a.type.toUpperCase() === currentAccount.toUpperCase());
+                currentToken = acc ? acc.token : parsed[0].token;
+                
+                console.log(`✅ Contas recuperadas: ${parsed.length}`);
+                console.log(`🔑 Usando token: ${currentToken.substring(0, 5)}...`);
                 
                 // INITIALIZE IMMEDIATELY
                 setTimeout(() => {
-                    initTradingPlatform();
+                    if (!isConnected) initTradingPlatform();
                 }, 500);
                 
                 return true;
             }
-        } catch(e) {
-            console.error("Error loading saved accounts:", e);
-            localStorage.removeItem('jarvis_accounts');
         }
+    } catch(e) {
+        console.error("Error loading saved accounts:", e);
     }
     
-    console.log("⚠️ No accounts found");
+    console.log("⚠️ Nenhuma conta encontrada. Necessário conectar.");
     return false;
 }
 
@@ -248,7 +251,43 @@ function reconnectDeriv() {
     if (ws) {
         ws.close();
     }
-    connectWS();
+    setTimeout(connectWS, 500);
+}
+
+// DERIV OAUTH (Reforçado)
+function switchAccount(accountType) {
+    currentAccount = accountType;
+    
+    // Update UI
+    document.querySelectorAll('.account-btn').forEach(btn => {
+        btn.classList.remove('active');
+        if (btn.classList.contains(accountType)) {
+            btn.classList.add('active');
+        }
+    });
+    
+    // Check memory first
+    let account = availableAccounts.find(a => 
+        accountType === 'demo' ? a.id.startsWith('VRT') : a.id.startsWith('CR')
+    );
+    
+    // Check disk second (Backup logic)
+    if (!account) {
+        try {
+            const saved = JSON.parse(localStorage.getItem('jarvis_accounts') || '[]');
+            account = saved.find(a => accountType === 'demo' ? a.id.startsWith('VRT') : a.id.startsWith('CR'));
+            if (account) availableAccounts = saved; // Refresh memory
+        } catch(e) { console.error(e); }
+    }
+    
+    if (account) {
+        console.log(`🔄 Trocando para ${accountType.toUpperCase()}: ${account.id}`);
+        currentToken = account.token;
+        reconnectDeriv();
+    } else {
+        console.log("⚠️ Conta não encontrada, redirecionando para OAuth...");
+        connectDeriv();
+    }
 }
 
 // Update Trade Buttons
