@@ -5,19 +5,21 @@
 
 class GeminiBrain {
     constructor() {
-        // Chave API (Hardcoded conforme solicitado pelo user)
+        // Chave API
         this.API_KEY = "AIzaSyDHaVHmWGFZfhinr_HUQVEEaY_V2DDE0NM";
         
-        // MODELO ESTÁVEL (1.5 Flash) - Para evitar erro 403/429
-        this.MODEL_ID = "gemini-1.5-flash"; 
+        // MODELO CORRIGIDO - Endpoint v1 com nome completo
+        this.MODEL_ID = "gemini-1.5-flash-latest"; 
         
-        this.baseUrl = `https://generativelanguage.googleapis.com/v1beta/models/${this.MODEL_ID}:generateContent`;
+        // Endpoint correto da API Gemini
+        this.baseUrl = `https://generativelanguage.googleapis.com/v1/models/${this.MODEL_ID}:generateContent`;
         
         this.cache = new Map();
         this.lastAnalysisTime = 0;
         this.isAnalyzing = false;
         
-        console.log(`🧠 Gemini Brain Iniciado. Modelo: ${this.MODEL_ID} (Estável)`);
+        console.log(`🧠 Gemini Brain Iniciado. Modelo: ${this.MODEL_ID}`);
+        console.log(`📡 Endpoint: ${this.baseUrl}`);
     }
     
     /**
@@ -449,109 +451,93 @@ ${this.formatCandles(technicalData.lastCandles)}
 
         const modeStrategies = {
             'RISE_FALL': `
-=== ESTRATÉGIA: RISE/FALL (REVERSÃO DE TENDÊNCIA) ===
+=== MODALIDADE: RISE/FALL (ANÁLISE DE PREÇO) ===
 
-CRITÉRIOS DE ANÁLISE:
-1. RSI: Procure por divergências e zonas extremas (>70 ou <30)
-2. Bollinger Bands: Identifique toques nas bandas superior/inferior
-3. EMAs: Verifique cruzamentos (Golden Cross / Death Cross)
-4. MACD: Analise cruzamentos da linha MACD com a linha de sinal
-5. Padrões: Doji, Hammer, Engulfing indicam reversão
-6. Tendência: Opere a favor da tendência principal
-7. Suporte/Resistência: Aguarde rejeições ou rompimentos
+FOCO: Prever se o PREÇO vai SUBIR ou DESCER.
 
-REGRAS DE DECISÃO:
-- CALL (Compra): RSI < 30 + Toque na banda inferior + Padrão bullish + MACD virando positivo
-- PUT (Venda): RSI > 70 + Toque na banda superior + Padrão bearish + MACD virando negativo
-- WAIT: Sinais conflitantes ou baixa volatilidade
+DADOS ATUAIS:
+- Preço: ${technicalData.currentPrice}
+- RSI: ${i.rsi.toFixed(1)} ${i.rsi > 70 ? '(SOBRECOMPRA)' : i.rsi < 30 ? '(SOBREVENDA)' : '(NEUTRO)'}
+- Tendência: ${technicalData.trend}
+- MACD: ${i.macd.histogram > 0 ? 'POSITIVO (Alta)' : 'NEGATIVO (Baixa)'}
 
-RESPONDA EM JSON:
+DECISÃO:
+- CALL: Se RSI < 35 E preço tocou suporte E MACD virando positivo
+- PUT: Se RSI > 65 E preço tocou resistência E MACD virando negativo
+- WAIT: Se sinais conflitantes
+
+RESPONDA APENAS EM JSON:
 {
-    "action": "CALL" | "PUT" | "WAIT",
+    "action": "CALL" ou "PUT" ou "WAIT",
     "confidence": 0-100,
-    "reason": "explicação detalhada da decisão",
-    "entry_price": preço sugerido,
-    "stop_loss": nível de stop,
-    "take_profit": nível de lucro,
-    "risk_level": "LOW" | "MEDIUM" | "HIGH"
+    "reason": "explicação curta"
 }`,
 
             'MATCH_DIFFER': `
-=== ESTRATÉGIA: MATCH/DIFFER (ANÁLISE DE DÍGITOS) ===
+=== MODALIDADE: MATCH/DIFFER (ANÁLISE DE DÍGITOS) ===
 
-ANÁLISE DE PADRÕES:
-1. Extraia o último dígito dos últimos 10 preços
-2. Identifique sequências repetidas (MATCH) ou alternadas (DIFFER)
-3. Calcule a probabilidade estatística de repetição
-4. Considere a volatilidade (ATR) para prever mudanças
+FOCO: Prever se o ÚLTIMO DÍGITO do próximo tick vai REPETIR (MATCH) ou MUDAR (DIFFER).
 
-ÚLTIMOS DÍGITOS:
+ÚLTIMOS DÍGITOS OBSERVADOS:
 ${this.extractDigits(technicalData.lastCandles)}
 
-REGRAS:
-- MATCH: Sequência de 3+ dígitos diferentes sugere próxima repetição
-- DIFFER: Sequência de 2+ dígitos iguais sugere próxima diferença
-- Volatilidade ALTA aumenta chance de DIFFER
+ANÁLISE:
+1. Se há 3+ dígitos DIFERENTES seguidos → Próximo tende a MATCH
+2. Se há 2+ dígitos IGUAIS seguidos → Próximo tende a DIFFER
+3. Volatilidade ALTA (ATR > 0.005) → Favorece DIFFER
 
-RESPONDA EM JSON:
+DECISÃO:
+- MATCH: Se padrão indica repetição provável
+- DIFFER: Se padrão indica mudança provável (MAIS SEGURO estatisticamente)
+
+RESPONDA APENAS EM JSON:
 {
-    "action": "MATCH" | "DIFFER" | "WAIT",
+    "action": "MATCH" ou "DIFFER",
     "confidence": 0-100,
-    "reason": "análise estatística dos dígitos",
-    "predicted_digit": dígito previsto,
-    "pattern": "padrão identificado"
+    "reason": "padrão identificado"
 }`,
 
             'OVER_UNDER': `
-=== ESTRATÉGIA: OVER/UNDER (THRESHOLD 5) ===
+=== MODALIDADE: OVER/UNDER (ANÁLISE DE DÍGITOS) ===
 
-ANÁLISE ESTATÍSTICA:
-1. Calcule a distribuição de dígitos nos últimos 20 ticks
-2. Identifique tendências de dígitos altos (6-9) vs baixos (0-4)
-3. Considere momentum e volatilidade
+FOCO: Prever se o ÚLTIMO DÍGITO do próximo tick será MAIOR (OVER) ou MENOR (UNDER) que 5.
 
-DISTRIBUIÇÃO DE DÍGITOS:
+DISTRIBUIÇÃO DOS ÚLTIMOS DÍGITOS:
 ${this.analyzeDigitDistribution(technicalData.lastCandles)}
 
-REGRAS:
-- OVER 5: Momentum positivo + Maioria de dígitos baixos recentemente
-- UNDER 5: Momentum negativo + Maioria de dígitos altos recentemente
-- Volatilidade influencia dispersão
+MOMENTUM ATUAL:
+- RSI: ${i.rsi.toFixed(1)} ${i.rsi > 55 ? '(ALTA - Favorece dígitos altos)' : i.rsi < 45 ? '(BAIXA - Favorece dígitos baixos)' : '(NEUTRO)'}
 
-RESPONDA EM JSON:
+DECISÃO:
+- OVER: Se RSI > 55 E maioria dos últimos dígitos foram baixos (0-4)
+- UNDER: Se RSI < 45 E maioria dos últimos dígitos foram altos (6-9)
+
+RESPONDA APENAS EM JSON:
 {
-    "action": "OVER" | "UNDER" | "WAIT",
+    "action": "OVER" ou "UNDER",
     "confidence": 0-100,
-    "reason": "análise estatística completa",
-    "threshold": 5,
-    "predicted_range": "faixa prevista"
+    "reason": "análise de distribuição"
 }`,
 
             'ACCUMULATORS': `
-=== ESTRATÉGIA: ACCUMULATORS (BAIXA VOLATILIDADE) ===
+=== MODALIDADE: ACCUMULATORS (ANÁLISE DE PREÇO - BAIXA VOLATILIDADE) ===
 
-ANÁLISE DE RISCO:
-1. ATR: Quanto menor, melhor para acumuladores
-2. Bollinger Bands: Bandas estreitas = baixa volatilidade
-3. Tendência: Sideways é ideal
-4. Volume: Baixo volume = menor risco de knockout
+FOCO: Identificar se o mercado está CALMO o suficiente para acumular lucro sem knockout.
 
-CONDIÇÕES ATUAIS:
-- ATR: ${i.atr.toFixed(4)} ${i.atr < 0.005 ? '✓ IDEAL' : '⚠️ ALTO RISCO'}
-- Tendência: ${technicalData.trend} ${technicalData.trend === 'SIDEWAYS' ? '✓ IDEAL' : '⚠️ RISCO'}
-- Volume: ${technicalData.volumeProfile}
+VOLATILIDADE ATUAL:
+- ATR: ${i.atr.toFixed(4)} ${i.atr < 0.005 ? '(BAIXA - IDEAL)' : '(ALTA - RISCO)'}
+- Tendência: ${technicalData.trend} ${technicalData.trend === 'SIDEWAYS' ? '(IDEAL)' : '(RISCO)'}
+- Largura Bollinger: ${(bb.upper - bb.lower).toFixed(4)}
 
-REGRAS:
-- ACCUMULATE: ATR < 0.005 + Tendência SIDEWAYS + Volume LOW
-- WAIT: Qualquer sinal de alta volatilidade
+DECISÃO:
+- ACCUMULATE: Se ATR < 0.005 E tendência SIDEWAYS E baixo volume
+- WAIT: Se volatilidade alta ou tendência forte
 
-RESPONDA EM JSON:
+RESPONDA APENAS EM JSON:
 {
-    "action": "ACCUMULATE" | "WAIT",
+    "action": "ACCUMULATE" ou "WAIT",
     "confidence": 0-100,
-    "reason": "análise de volatilidade",
-    "growth_rate": taxa esperada,
-    "knockout_risk": "LOW" | "MEDIUM" | "HIGH"
+    "reason": "análise de volatilidade"
 }`
         };
 
