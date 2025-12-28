@@ -5,12 +5,19 @@
 
 class GeminiBrain {
     constructor() {
-        this.apiKey = "AIzaSyDHaVHmWGFZfhinr_HUQVEEaY_V2DDE0NM";
-        this.model = "gemini-2.0-flash-exp";
-        this.endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:generateContent`;
-        this.analysisHistory = [];
-        this.lastAnalysis = null;
+        // Chave API (Hardcoded conforme solicitado pelo user)
+        this.API_KEY = "AIzaSyDHaVHmWGFZfhinr_HUQVEEaY_V2DDE0NM";
+        
+        // MODELO CONFIGURADO PELO USUÁRIO (Rigorosamente 2.5 Flash ou superior)
+        this.MODEL_ID = "gemini-2.5-flash"; 
+        
+        this.baseUrl = `https://generativelanguage.googleapis.com/v1beta/models/${this.MODEL_ID}:generateContent`;
+        
+        this.cache = new Map();
+        this.lastAnalysisTime = 0;
         this.isAnalyzing = false;
+        
+        console.log(`🧠 Gemini Brain Iniciado. Modelo: ${this.MODEL_ID}`);
     }
     
     /**
@@ -39,8 +46,8 @@ class GeminiBrain {
             // 2. CONSTRUIR PROMPT AVANÇADO
             const prompt = this.buildAdvancedPrompt(technicalData, mode);
             
-            // 3. CHAMAR GEMINI 2.0 FLASH
-            const response = await fetch(`${this.endpoint}?key=${this.apiKey}`, {
+            // 3. CHAMAR GEMINI (MODELO SELECIONADO PELO USER)
+            const response = await fetch(`${this.baseUrl}?key=${this.API_KEY}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
