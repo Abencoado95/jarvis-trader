@@ -101,36 +101,47 @@ class GeminiBrain {
 
         // Lógica Simplificada de Fallback
         if (mode === 'RISE_FALL') {
-            if (rsi < 30 && price < bb.lower) {
+            if (rsi < 35 && price < bb.lower) {
                 action = 'CALL';
                 confidence = 85;
                 reason = `Local: RSI Sobrevenda (${rsi.toFixed(1)}) + Preço abaixo da Banda`;
-            } else if (rsi > 70 && price > bb.upper) {
+            } else if (rsi > 65 && price > bb.upper) {
                 action = 'PUT';
                 confidence = 85;
                 reason = `Local: RSI Sobrecompra (${rsi.toFixed(1)}) + Preço acima da Banda`;
             }
         } 
         else if (mode === 'OVER_UNDER') {
-            const lastDigit = Math.floor(price * 100) % 10; // Dígito aproximado
-            // Se barreira é 5, e RSI alto -> Probabilidade de OVER
-            if (barrier === 5) {
-                if (rsi > 60) {
+            // Lógica Genérica para Digit Over/Under baseada em Momentum
+            // Se RSI está subindo, tende a ter dígitos maiores
+            if (barrier >= 5) {
+                if (rsi > 55) {
                     action = 'OVER';
                     confidence = 75;
-                    reason = `Local: RSI Alto (${rsi.toFixed(1)}) favorece OVER 5`;
-                } else if (rsi < 40) {
+                    reason = `Local: RSI em alta (${rsi.toFixed(1)}) favorece dígitos altos`;
+                }
+            } else {
+                if (rsi < 45) {
                     action = 'UNDER';
                     confidence = 75;
-                    reason = `Local: RSI Baixo (${rsi.toFixed(1)}) favorece UNDER 5`;
+                    reason = `Local: RSI em baixa (${rsi.toFixed(1)}) favorece dígitos baixos`;
                 }
             }
         }
         else if (mode === 'MATCH_DIFFER') {
-            // Estatisticamente, DIFFER é mais seguro
+            // Estatisticamente, DIFFER é muito mais seguro
             action = 'DIFFER';
-            confidence = 90;
-            reason = 'Local: Estatística base favorece DIFFER';
+            confidence = 88;
+            reason = 'Local: Probabilidade estatística favorece DIFFER';
+        }
+        else if (mode === 'ACCUMULATORS') {
+            // Se volatilidade baixa, acumular
+            const isLowVol = tech.indicators.atr < 0.005 || (bb.upper - bb.lower) < 0.005;
+            if (isLowVol) {
+                action = 'ACCUMULATE';
+                confidence = 80;
+                reason = 'Local: Baixa volatilidade detectada (ATR/BB)';
+            }
         }
 
         return { action, confidence, reason };

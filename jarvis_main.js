@@ -387,6 +387,15 @@ function startAutomation() {
     }, 45000); // Increased to 45s to avoid 429 errors
 }
 
+function stopAutomation() {
+    if (automationInterval) {
+        clearInterval(automationInterval);
+        automationInterval = null;
+    }
+    isAutomationActive = false;
+    console.log("🛑 Sistema Jarvis Pausado");
+}
+
 // ... (rest of code)
 
 function buildContractParams(action, stake, duration) {
