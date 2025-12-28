@@ -8,8 +8,8 @@ class GeminiBrain {
         // Chave API (Hardcoded conforme solicitado pelo user)
         this.API_KEY = "AIzaSyDHaVHmWGFZfhinr_HUQVEEaY_V2DDE0NM";
         
-        // MODELO CONFIGURADO PELO USUÁRIO (Rigorosamente 2.5 Flash ou superior)
-        this.MODEL_ID = "gemini-2.5-flash"; 
+        // MODELO ESTÁVEL (1.5 Flash) - Para evitar erro 403/429
+        this.MODEL_ID = "gemini-1.5-flash"; 
         
         this.baseUrl = `https://generativelanguage.googleapis.com/v1beta/models/${this.MODEL_ID}:generateContent`;
         
@@ -17,7 +17,7 @@ class GeminiBrain {
         this.lastAnalysisTime = 0;
         this.isAnalyzing = false;
         
-        console.log(`🧠 Gemini Brain Iniciado. Modelo: ${this.MODEL_ID}`);
+        console.log(`🧠 Gemini Brain Iniciado. Modelo: ${this.MODEL_ID} (Estável)`);
     }
     
     /**

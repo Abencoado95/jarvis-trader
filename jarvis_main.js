@@ -713,6 +713,8 @@ async function analyzeMarket(silent = false) {
 
 // Place Trade
 function placeTrade(direction, isAuto = false) {
+    console.log(`🔘 Botão Clicado/Trigger: ${direction} (Auto: ${isAuto})`);
+    
     if (!isConnected || !currentToken) {
         alert("⚠️ Conecte sua conta primeiro!");
         return;
