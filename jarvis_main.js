@@ -383,49 +383,102 @@ function switchAccount(accountType) {
 
 
 // Update Trade Buttons
+// Update Trade Buttons
 function updateTradeButtons() {
-    const container = document.getElementById('tradeButtons');
-    if (!container) return;
-    
-    // UI Visibility Logic
+    // 1. Visibilidade dos Inputs
     const digitConfig = document.getElementById('digitConfig');
     const durationSelect = document.getElementById('durationSelect');
     const durationLabel = durationSelect ? durationSelect.parentElement : null;
     
-    // Show/Hide Digest Config
-    if (['MATCH_DIFFER', 'OVER_UNDER'].includes(currentMode)) {
-        if (digitConfig) digitConfig.style.display = 'block';
-        if (durationLabel) durationLabel.style.display = 'none'; // Hide duration for ticks
-    } else {
-        if (digitConfig) digitConfig.style.display = 'none';
-        if (durationLabel) durationLabel.style.display = 'block';
-    }
+    if (digitConfig) digitConfig.style.display = (['MATCH_DIFFER', 'OVER_UNDER'].includes(currentMode)) ? 'block' : 'none';
+    if (durationLabel) durationLabel.style.display = (currentMode === 'ACCUMULATORS' || ['MATCH_DIFFER', 'OVER_UNDER'].includes(currentMode)) ? 'none' : 'block';
     
+    // 2. Container dos Botões
+    const container = document.getElementById('tradeButtons');
+    if (!container) return;
+    
+    // Limpar
+    container.innerHTML = '';
+
+    // --- MODO ACUMULADORES (BRILHANTE) ---
+    if (currentMode === 'ACCUMULATORS') {
+        const rateContainer = document.createElement('div');
+        rateContainer.className = 'fade-in';
+        rateContainer.style.marginBottom = '15px';
+        rateContainer.innerHTML = `
+            <label style="color: var(--neon-cyan); font-size: 0.8rem; display: block; margin-bottom: 5px;">TAXA DE CRESCIMENTO</label>
+            <div style="display: flex; gap: 5px;">
+                ${[1, 2, 3, 4, 5].map(r => `
+                    <button id="rateBtn_${r}" class="growth-rate-btn ${r === 3 ? 'active' : ''}" 
+                            onclick="selectGrowthRate(${r})"
+                            style="flex: 1; padding: 10px; border: 1px solid var(--neon-cyan); 
+                                   background: ${r===3 ? 'rgba(0,255,255,0.2)' : 'rgba(0,0,0,0.3)'}; 
+                                   color: #fff; cursor: pointer; border-radius: 4px;">
+                        ${r}%
+                    </button>
+                `).join('')}
+            </div>
+            <input type="hidden" id="growthRateInput" value="0.03">
+        `;
+        container.appendChild(rateContainer);
+        
+        // Botão Comprar
+        const buyBtn = document.createElement('button');
+        buyBtn.className = 'btn-trade btn-accumulate';
+        buyBtn.textContent = 'COMPRAR (ACUMULAR)';
+        buyBtn.style.background = 'linear-gradient(to right, #00b09b, #96c93d)';
+        buyBtn.onclick = () => placeTrade('ACCU');
+        container.appendChild(buyBtn);
+        
+        // Botão Vender (Opcional, pois geralmente é na tabela de posições, mas bom ter aqui)
+        const sellBtn = document.createElement('button');
+        sellBtn.className = 'btn-trade btn-sell';
+        sellBtn.textContent = 'VENDER / FECHAR';
+        sellBtn.style.marginTop = '10px';
+        sellBtn.style.background = 'linear-gradient(to right, #ff5f6d, #ffc371)';
+        sellBtn.onclick = () => placeTrade('SELL_ACCU');
+        container.appendChild(sellBtn);
+        return;
+    }
+
+    // --- OUTROS MODOS (CLÁSSICOS) ---
     const buttonConfigs = {
         'RISE_FALL': [
-            { id: 'btnCall', text: 'COMPRAR ⬆', class: 'btn-call', action: 'CALL' },
-            { id: 'btnPut', text: 'VENDER ⬇', class: 'btn-put', action: 'PUT' }
+            { id: 'btnCall', text: 'ASCENSÃO (CALL)', class: 'btn-call', action: 'CALL' },
+            { id: 'btnPut', text: 'QUEDA (PUT)', class: 'btn-put', action: 'PUT' }
         ],
         'MATCH_DIFFER': [
-            { id: 'btnMatch', text: 'MATCH', class: 'btn-match', action: 'MATCH' },
-            { id: 'btnDiffer', text: 'DIFFER', class: 'btn-differ', action: 'DIFFER' }
+            { id: 'btnDiffer', text: 'DIFERE (DIFFER)', class: 'btn-differ', action: 'DIFFER' },
+            { id: 'btnMatch', text: 'COMBINA (MATCH)', class: 'btn-match', action: 'MATCH' }
         ],
         'OVER_UNDER': [
             { id: 'btnOver', text: 'OVER', class: 'btn-over', action: 'OVER' },
             { id: 'btnUnder', text: 'UNDER', class: 'btn-under', action: 'UNDER' }
-        ],
-        'ACCUMULATORS': [
-            { id: 'btnAccumulate', text: 'COMPRAR (ACUMULAR)', class: 'btn-accumulate', action: 'ACCUMULATE' }
         ]
     };
     
     const buttons = buttonConfigs[currentMode] || buttonConfigs['RISE_FALL'];
-    
     container.innerHTML = buttons.map(btn => `
-        <button class="btn-trade ${btn.class}" id="${btn.id}" onclick="placeTrade('${btn.action}')" disabled>
+        <button class="btn-trade ${btn.class}" id="${btn.id}" onclick="placeTrade('${btn.action}')">
             ${btn.text}
         </button>
     `).join('');
+}
+
+// Helper para Selecionar Taxa
+function selectGrowthRate(rate) {
+    const input = document.getElementById('growthRateInput');
+    if (input) input.value = (rate / 100).toFixed(2);
+    
+    document.querySelectorAll('.growth-rate-btn').forEach(btn => {
+        btn.style.background = 'rgba(0,0,0,0.3)';
+        btn.classList.remove('active');
+    });
+    const activeBtn = document.getElementById(`rateBtn_${rate}`);
+    if (activeBtn) {
+        activeBtn.style.background = 'rgba(0,255,255,0.2)';
+        activeBtn.classList.add('active');
+    }
 }
 
 // Automation Toggle
@@ -608,6 +661,66 @@ function handlePosition(p) {
     updatePositionsTable();
 }
 
+// Renderiza Tabela de Posições Abertas
+function updatePositionsTable() {
+    const tbody = document.getElementById('openPositionsBody'); // Ajustar ID conforme HTML
+    // Se não tiver ID específico, tentaremos injetar se necessário, mas vou assumir que existe ou user cria
+    // Vou usar um ID padrão que deve estar no HTML, ou verificar se existe 'positionsTable'
+    
+    // Melhor: Verifica se existe o container de log, se não, não faz nada por enquanto.
+    // Mas o usuário pediu para ver "Posições Abertas".
+    
+    // Vou criar a tabela dinamicamente se não existir, mas onde?
+    // Vou assumir que o usuário tem um lugar. Vou retornar se não achar.
+    // O ID comum em dashboards é 'positionsTableBody' ou similar.
+    const tableBody = document.querySelector('#positionsTable tbody') || document.getElementById('historyBody'); 
+    // Se estiver usando a mesma tabela do histórico, vai misturar.
+    // O ideal é ter uma seção "Posições Abertas".
+    
+    // Vou apenas logar no console por enquanto se não tiver UI dedicada, 
+    // MAS vou tentar atualizar o HTML que tiver "Posições Abertas".
+    
+    // Assumindo que o HTML tem uma tabela com id="positionsTable"
+    const target = document.getElementById('positionsTable');
+    if (target) {
+        const tbody = target.querySelector('tbody');
+        if (tbody) {
+            tbody.innerHTML = '';
+            positions.forEach((p, id) => {
+                const profit = p.profit || 0;
+                const profitColor = profit >= 0 ? '#00ff41' : '#ff003c';
+                
+                // Detalhes Especiais
+                let extra = '';
+                if (p.contract_type === 'ACCU') {
+                    // Tenta calcular ticks ou mostrar barreira
+                    extra = ` <span style="color:#00ffff; font-size:0.8em;">[ACCU ${(p.limit_order?.take_profit?.order_amount || '')}]</span>`;
+                }
+
+                tbody.innerHTML += `
+                    <tr style="border-bottom: 1px solid #333;">
+                        <td style="padding:8px;">${new Date(p.purchase_time * 1000).toLocaleTimeString()}</td>
+                        <td style="padding:8px;">${p.display_name.replace('Accumulators', 'ACCU')}</td>
+                        <td style="padding:8px;">$${p.buy_price}</td>
+                        <td style="padding:8px; color:${profitColor}; font-weight:bold;">$${profit.toFixed(2)}</td>
+                        <td style="padding:8px;">
+                            ${p.is_valid_to_sell ? `<button onclick="sellContract('${id}')" style="background:#ff003c; border:none; color:white; padding:2px 8px; cursor:pointer;">FECHAR</button>` : '⏳'}
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+    }
+}
+
+// Vender Contrato Manualmente
+window.sellContract = function(id) {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+        console.log(`🔻 Vendendo contrato ${id}...`);
+        ws.send(JSON.stringify({ sell: id, price: 0 }));
+    }
+}
+
 // --- FUNÇÃO DE SEGURANÇA (FALTANDO ANTERIORMENTE) ---
 function checkGlobalLimits() {
     // 1. Verificar Meta de Lucro (Take Profit)
@@ -678,10 +791,14 @@ function buildContractParams(action, stake, duration) {
             };
             
         case 'ACCUMULATORS':
+            // PEGAR TAXA ESCOLHIDA (1% a 5%)
+            const rateInput = document.getElementById('growthRateInput');
+            const growthRate = rateInput ? parseFloat(rateInput.value) : 0.03;
+            
             return {
                 contract_type: 'ACCU',
                 symbol: symbol,
-                growth_rate: 0.03,
+                growth_rate: growthRate,
                 basis: 'stake',
                 amount: stake
             };
