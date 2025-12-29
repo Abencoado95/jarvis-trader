@@ -121,15 +121,53 @@ class GeminiBrain {
             }
         
         } else if (mode === 'MATCH_DIFFER') {
-            // ESTRATÉGIA DIFERENÇA
-            // Se repetiu o último dígito, a chance de mudar agora é ALTA
-            const last1 = digits[digits.length - 1];
-            const last2 = digits[digits.length - 2];
+            // ESTRATÉGIA SMART DIFFER (Estatística de Frequência)
+            // Analisa os últimos 25 dígitos para encontrar o "Mais Frio" (Seguro para Differ)
+            const lookback = digits.slice(-25);
+            const counts = {};
+            [0,1,2,3,4,5,6,7,8,9].forEach(d => counts[d] = 0);
+            lookback.forEach(d => counts[d]++);
             
-            if (last1 === last2) {
-                action = 'DIFFER'; // Se deu 7, 7 -> Entra DIFFER 7 (ou prevê mudança)
-                confidence = 92;
-                reason = `Repetição detectada (${last1}, ${last2}) -> Estatística favorece DIFFER`;
+            // Encontrar dígito com MENOR frequência (Cold Digit)
+            let bestDigit = 0;
+            let minCount = 100;
+            
+            // Encontrar dígito com MAIOR frequência (Hot Digit - Perigoso para Differ)
+            let hotDigit = 0;
+            let maxCount = -1;
+            
+            for (let d = 0; d <= 9; d++) {
+                if (counts[d] < minCount) {
+                    minCount = counts[d];
+                    bestDigit = d;
+                }
+                if (counts[d] > maxCount) {
+                    maxCount = counts[d];
+                    hotDigit = d;
+                }
+            }
+            
+            // Lógica de Entrada Normal:
+            // Só entra se o dígito atual (analisado pelo último tick) for DIFERENTE do Hot Digit (Evitar o que sai muito)
+            // OU se detectamos uma repetição (ainda válido para quebrar sequencias curtas)
+            
+            const last1 = digits[digits.length - 1];
+            
+            // Retornamos o Best Digit como sugestão para a UI usar na recuperação
+            // Se o último repetiu, é um gatilho extra
+            const isRepeat = digits[digits.length-1] === digits[digits.length-2];
+            
+            if (isRepeat || minCount === 0) {
+                // Se repetiu o último, ou se temos um dígito "desaparecido" (count 0)
+                // Se temos um dígito desaparecido, é ÓTIMO para apostar DIFFER nele (BestDigit)
+                // Mas a ação aqui depende do dígito selecionado na UI? 
+                // O brain sugere o MELHOR. A UI decide se usa.
+                
+                action = 'DIFFER';
+                confidence = isRepeat ? 93 : 88;
+                reason = `Análise de Frequência: Dígito ${bestDigit} é o mais seguro (Saiu ${minCount} vezes). Evitar ${hotDigit}.`;
+                
+                return { action, confidence, reason, best_differ_digit: bestDigit };
             }
         }
 

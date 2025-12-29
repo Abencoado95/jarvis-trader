@@ -578,6 +578,25 @@ async function runAutoCycle() {
     console.log("🔄 Ciclo de Automação: Analisando...");
     const analysis = await analyzeMarket(true); // true = silent mode
     
+    // --- SMART RECOVERY INTERCEPTOR ---
+    // Se acabamos de sofrer um Loss no Differ, o Brain sugere o melhor alvo para recuperar.
+    if (window.needsSmartRecovery && analysis && typeof analysis.best_differ_digit !== 'undefined') {
+        const newTarget = analysis.best_differ_digit;
+        console.warn(`🧠 SMART RECOVERY: Trocando alvo de Differ para ${newTarget} (Estatisticamente Mais Seguro)`);
+        
+        const digitSel = document.getElementById('digitSelect');
+        if (digitSel) {
+            digitSel.value = newTarget;
+            // Atualiza visualmente se necessário
+        }
+        
+        window.needsSmartRecovery = false; // Reset flag
+        
+        // Forçar ação imediata de recuperação
+        analysis.action = 'DIFFER'; // Garantir que trade execute
+        analysis.confidence = 99;   // Prioridade máxima
+    }
+    
     // 3. Executar Trade se confiança alta
     if (analysis && analysis.action !== 'WAIT' && analysis.confidence >= 75) {
         console.log(`🎯 Oportunidade Identificada: ${analysis.action} (${analysis.confidence}%)`);
@@ -642,12 +661,45 @@ function handlePosition(p) {
         positions.delete(p.contract_id);
         
         // REINICIAR CICLO AUTOMÁTICO SE NECESSÁRIO
-        // Usa a variável correta "isAutoTrading"
-        if (isAutoTrading && profit < 0) {
-            // Lógica de Martin Gale ou Nova Entrada pode vir aqui
-            // Por enquanto apenas garante que o loop continua
-            console.log("🔄 Automação continua após Loss...");
-            // O setInterval já cuida do próximo ciclo
+        if (isAutoTrading) {
+            if (profit < 0) {
+                // --- LOGICA DE MARTINGALE ---
+                lossStreak++;
+                
+                const stakeInput = document.getElementById('stakeInput');
+                let currentStake = parseFloat(stakeInput.value);
+                
+                // Multiplicador agressivo para Differ (baixa prob de perda, alto custo de recuperação)
+                let multiplier = 2.4; // Padrão
+                if (currentMode === 'MATCH_DIFFER') {
+                    multiplier = 11.5; // Differ paga ~9-10%. Precisa de ~11x para cobrir.
+                    
+                    // ATIVAR RECUPERAÇÃO INTELIGENTE (Trocar dígito)
+                    window.needsSmartRecovery = true; 
+                    console.warn(`⚠️ DIFFER LOSS DETECTED. Ativando Troca Inteligente de Dígito.`);
+                }
+                
+                const newStake = (currentStake * multiplier).toFixed(2);
+                
+                // Trava de Segurança (Max Stake)
+                if (newStake > 50.00 && currentMode === 'MATCH_DIFFER') {
+                    console.error("🛑 Martingale excedeu limite de segurança ($50). Resetando.");
+                    stakeInput.value = baseStake.toFixed(2);
+                    lossStreak = 0;
+                } else {
+                    console.log(`🔄 Martingale: Stake aumentado para $${newStake} (x${multiplier})`);
+                    stakeInput.value = newStake;
+                }
+
+            } else {
+                // WIN - RESET
+                if (lossStreak > 0) {
+                    console.log("✅ Recuperação Concluída. Resetando Stake.");
+                    const stakeInput = document.getElementById('stakeInput');
+                    stakeInput.value = baseStake.toFixed(2);
+                    lossStreak = 0;
+                }
+            }
         }
     } else {
         // Atualizar status da posição aberta
