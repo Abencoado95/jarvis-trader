@@ -325,6 +325,24 @@ function reconnectDeriv() {
     setTimeout(connectWS, 500);
 }
 
+function connectDeriv() {
+    // Check for custom App ID
+    const customIdInput = document.getElementById('customAppId');
+    let useAppId = APP_ID;
+    
+    if (customIdInput && customIdInput.value.trim() !== "") {
+        useAppId = customIdInput.value.trim();
+        localStorage.setItem('jarvis_custom_app_id', useAppId);
+    } else {
+        // Try load saved
+        const saved = localStorage.getItem('jarvis_custom_app_id');
+        if (saved) useAppId = saved;
+    }
+    
+    console.log(`🔐 Redirecting to Deriv OAuth (App ID: ${useAppId})...`);
+    window.location.href = `https://oauth.deriv.com/oauth2/authorize?app_id=${useAppId}&l=PT&brand=deriv`;
+}
+
 // DERIV OAUTH (Reforçado)
 function switchAccount(accountType) {
     currentAccount = accountType;
@@ -360,6 +378,8 @@ function switchAccount(accountType) {
         connectDeriv();
     }
 }
+    
+
 
 // Update Trade Buttons
 function updateTradeButtons() {
@@ -621,7 +641,20 @@ function initTradingPlatform() {
     
     setTimeout(() => {
         initChart();
-        connectWS();
+       // Load saved API Key
+    const savedKey = localStorage.getItem('jarvis_gemini_key');
+    const keyInput = document.getElementById('apiKeyInput');
+    if (keyInput) {
+        if (savedKey) keyInput.value = savedKey;
+        
+        // Auto-save on change
+        keyInput.addEventListener('input', (e) => {
+            localStorage.setItem('jarvis_gemini_key', e.target.value.trim());
+        });
+    }
+
+    // Connect WebSocket
+    connectWS();
         
         if (typeof GeminiBrain !== 'undefined') {
             geminiBrain = new GeminiBrain();

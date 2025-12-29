@@ -659,18 +659,25 @@
 </head>
 <body>
 
-    <!-- LOGIN -->
+    <!-- A - LOGIN VIEW -->
     <div id="view-login" class="view active">
-        <div class="login-container">
-            <img src="JARVIS ROSTO.jpg" class="login-avatar" alt="JARVIS">
-            <h1 class="login-title">JARVIS</h1>
-            <p class="login-subtitle">Plataforma Profissional V3.0</p>
+        <div class="login-card">
+            <div class="jarvis-logo-large">JARVIS</div>
+            <div class="login-subtitle">TRADING INTELLIGENCE V3.3</div>
+            <div class="energy-wave"></div>
             
-            <input type="email" id="loginEmail" class="login-input" placeholder="EMAIL DE ACESSO">
-            <input type="password" id="loginPass" class="login-input" placeholder="SENHA">
-            
-            <button class="login-btn" onclick="handleLogin()">ENTRAR NO SISTEMA</button>
-            <button class="login-btn login-btn-secondary" onclick="handleRegister()">CRIAR CONTA GRÁTIS</button>
+            <div style="margin: 20px 0;">
+                <button class="btn-login-deriv" onclick="connectDeriv()">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/2/22/Deriv_Logo.png" style="height: 20px; vertical-align: middle; margin-right: 10px; filter: brightness(0) invert(1);"> 
+                    CONECTAR COM A DERIV
+                </button>
+                
+                <div style="margin-top: 15px; text-align: left;">
+                     <label style="color: #5f7e97; font-size: 0.8rem; display: block; margin-bottom: 5px;">DERIV APP ID (Opcional)</label>
+                     <input type="number" id="customAppId" placeholder="Padrão: 114062" class="config-input" style="width: 100%; border: 1px solid #2a3b55;">
+                     <div style="font-size: 0.7rem; color: #5f7e97; margin-top: 3px;">Use se estiver rodando em Localhost (Crie em api.deriv.com com redirect para http://localhost:8000)</div>
+                </div>
+            </div>
             
             <div id="loginMessage" class="login-message"></div>
         </div>
