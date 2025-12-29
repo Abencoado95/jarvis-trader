@@ -569,6 +569,37 @@ function handlePosition(p) {
     updatePositionsTable();
 }
 
+// --- FUNÇÃO DE SEGURANÇA (FALTANDO ANTERIORMENTE) ---
+function checkGlobalLimits() {
+    // 1. Verificar Meta de Lucro (Take Profit)
+    const tpInput = document.getElementById('takeProfitInput');
+    const tp = tpInput ? parseFloat(tpInput.value) : 9999;
+    
+    if (dailyProfitValue >= tp) {
+        console.log("🎉 META DIÁRIA BATIDA!");
+        alert(`🎉 PARABÉNS! Meta de $${tp.toFixed(2)} atingida. Automação pausada.`);
+        stopAutomation();
+        return false;
+    }
+    
+    // 2. Verificar Limite de Perda (Stop Loss)
+    const slInput = document.getElementById('stopLossInput');
+    const sl = slInput ? parseFloat(slInput.value) : 9999;
+    
+    // dailyProfitValue é negativo quando perdemos (ex: -10)
+    // Se dailyProfitValue (-10) for menor ou igual a -stopLoss (-50), ok.
+    // Mas se o usuário colocar Stop Loss 50, queremos parar se for <= -50.
+    
+    if (dailyProfitValue <= -sl) {
+        console.log("🛑 STOP LOSS ATINGIDO!");
+        alert(`🛑 ATENÇÃO! Limite de perda $${sl.toFixed(2)} atingido. Automação pausada.`);
+        stopAutomation();
+        return false;
+    }
+    
+    return true; // Pode continuar operando
+}
+
 function buildContractParams(action, stake, duration) {
     const symbol = "R_100";
     // Get barrier for digits
