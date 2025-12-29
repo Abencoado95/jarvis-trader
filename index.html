@@ -739,11 +739,18 @@
             <div class="config-group">
                 <label class="config-label">SALDO DA CONTA</label>
                 <div id="accountBalance" style="font-size: 2rem; color: var(--neon-cyan); text-align: center; font-weight: 900;">$0.00</div>
+                <label class="config-label">VALOR DA ENTRADA ($)</label>
+                <div class="input-wrapper">
+                    <span class="currency-symbol">$</span>
+                    <input type="number" id="stakeInput" class="config-input" value="1.00" step="0.50" min="0.35">
+                </div>
             </div>
-            
-            <div class="config-group">
-                <label class="config-label">STAKE ($)</label>
-                <input type="number" id="stakeInput" class="config-input" value="1.00" step="0.50" min="0.35">
+
+            <!-- NOVA SEÇÃO: API KEY -->
+            <div class="config-group" style="border: 1px solid var(--neon-magenta); padding: 10px; border-radius: 5px; background: rgba(188, 19, 254, 0.05);">
+                <label class="config-label" style="color: var(--neon-magenta);">GOOGLE GEMINI API KEY</label>
+                <input type="password" id="apiKeyInput" class="config-input" placeholder="Cole sua nova chave aqui..." style="border-color: var(--neon-magenta);">
+                <div style="font-size: 0.7em; color: #8899a6; margin-top: 5px;">Chave atual bloqueada. Gere uma nova no Google AI Studio.</div>
             </div>
             
             <!-- DIGIT CONFIG (Shown via JS for digit modes) -->

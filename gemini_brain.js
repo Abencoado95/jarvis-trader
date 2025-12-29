@@ -5,14 +5,13 @@
 
 class GeminiBrain {
     constructor() {
-        // Chave API
-        this.API_KEY = "AIzaSyDHaVHmWGFZfhinr_HUQVEEaY_V2DDE0NM";
+        // Tenta ler chave do input ou usa vazia
+        // A chave hardcoded antiga estava vazada e foi removida por segurança
+        this.API_KEY = ""; 
         
-        // MODELO EXIGIDO PELO USUÁRIO
+        // MODELO E ENDPOINT
         this.MODEL_ID = "gemini-2.5-flash"; 
-        
-        // Endpoint da API Gemini
-        this.baseUrl = `https://generativelanguage.googleapis.com/v1/models/${this.MODEL_ID}:generateContent`;
+        this.baseUrl = `https://generativelanguage.googleapis.com/v1beta/models/${this.MODEL_ID}:generateContent`;
         
         this.cache = new Map();
         this.lastAnalysisTime = 0;
@@ -21,16 +20,24 @@ class GeminiBrain {
         console.log(`🧠 Gemini Brain Iniciado. Modelo: ${this.MODEL_ID}`);
     }
     
+    getApiKey() {
+        const input = document.getElementById('apiKeyInput');
+        if (input && input.value.trim().length > 10) {
+            return input.value.trim();
+        }
+        return this.API_KEY;
+    }
+    
     // Decisor Central
     async analyze(marketData, mode) {
         // SEPARAÇÃO DE ESTRATÉGIAS
-        // 1. DÍGITOS (Alta Frequência) -> ANÁLISE LOCAL (Sem delay de API)
+        // 1. DÍGITOS (Alta Frequência) -> ANÁLISE LOCAL (Sem delay de API, não precisa de chave)
         if (mode === 'OVER_UNDER' || mode === 'MATCH_DIFFER') {
-            const tech = this.calculateTechnicalIndicators(marketData); // Calculate indicators once
+            const tech = this.calculateTechnicalIndicators(marketData);
             return this.analyzeDigitsLocal(tech, mode);
         }
         
-        // 2. PREÇO (Tendência) -> ANÁLISE GEMINI AI
+        // 2. PREÇO (Tendência) -> ANÁLISE GEMINI AI (Precisa de chave)
         return await this.analyzePriceWithAI(marketData, mode);
     }
 
@@ -79,79 +86,62 @@ class GeminiBrain {
     // --- ESTRATÉGIAS DE PREÇO (GEMINI AI) ---
     async analyzePriceWithAI(marketData, mode) {
         const now = Date.now();
-        
-        // RATE LIMIT CACHE: Evita chamadas em menos de 15s
         if (this.lastAnalysis && (now - this.lastAnalysis.timestamp < 15000)) {
             console.log("🧠 Usando análise em cache (Rate Limit Protection)");
             return this.lastAnalysis.analysis;
         }
 
-        if (this.isAnalyzing) {
-            return { action: 'WAIT', confidence: 0, reason: 'Análise em andamento...' };
+        const apiKey = this.getApiKey();
+        if (!apiKey) {
+            console.warn("⚠️ API Key não configurada");
+            return { action: 'WAIT', confidence: 0, reason: 'Cole sua API Key do Google Gemini no painel!' };
         }
-        
-        this.isAnalyzing = true;
+
+        if (this.isAnalyzing) return { action: 'WAIT', confidence: 0, reason: 'Análise em andamento...' };
         
         try {
-            // 1. PREPARAR DADOS TÉCNICOS
-            const technicalData = this.calculateTechnicalIndicators(marketData);
+            this.isAnalyzing = true;
+            const tech = this.calculateTechnicalIndicators(marketData);
+            const prompt = this.buildAdvancedPrompt(tech, mode);
             
-            // 2. CONSTRUIR PROMPT AVANÇADO
-            const prompt = this.buildAdvancedPrompt(technicalData, mode);
+            // CHAMADA API
+            const response = await fetch(`${this.baseUrl}?key=${apiKey}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: prompt }] }],
+                    generationConfig: {
+                        temperature: 0.3,
+                        maxOutputTokens: 1024
+                    }
+                })
+            });
             
-            // 3. CHAMAR GEMINI (MODELO SELECIONADO PELO USER)
-            let response;
-            try {
-                // Tenta 2.5 Flash Primeiro
-                response = await fetch(`${this.baseUrl}?key=${this.API_KEY}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        contents: [{
-                            parts: [{ text: prompt }]
-                        }],
-                        generationConfig: {
-                            temperature: 0.3,
-                            topK: 20,
-                            topP: 0.8,
-                            maxOutputTokens: 2048
-                        }
-                    })
-                });
-                
-                if (response.status === 403 || response.status === 404) {
-                    throw new Error("Modelo 2.5 não disponível, trocando...");
-                }
-            } catch (e) {
-                console.warn("⚠️ Gemini 2.5 Indisponível, usando 1.5 Flash (Fallback)");
-                // Endpoint v1beta é mais estável para o modelo 1.5 em chaves gratuitas
-                const fallbackUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent`;
-                response = await fetch(`${fallbackUrl}?key=${this.API_KEY}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
-                });
+            if (response.status === 403) {
+                // Se der 403 mesmo com chave nova, informa erro
+                const err = await response.json();
+                console.error("API 403:", err);
+                throw new Error("Chave API inválida ou sem permissão para Gemini 2.5 (Use AI Studio para gerar)");
             }
-            
+
             if (!response.ok) {
                 // FALLBACK LOCAL SE API FALHAR (ex: 429)
                 console.warn(`⚠️ API Error ${response.status}: Usando Lógica Local de Fallback`);
-                const localResult = this.runLocalAnalysis(technicalData, mode);
-                this.isAnalyzing = false;
+                const localResult = this.runLocalAnalysis(tech, mode);
                 return localResult;
             }
-            
+
             const data = await response.json();
-            const analysis = this.parseResponse(data, mode);
             
-            // 4. SALVAR HISTÓRICO
-            this.lastAnalysis = {
-                timestamp: now,
-                analysis: analysis
-            };
+            if (!data.candidates) {
+                console.log("No candidates:", data);
+                return { action: 'WAIT', confidence: 0, reason: 'Sem resposta da IA' };
+            }
             
-            return analysis;
-            
+            const result = this.parseResponse(data, mode);
+            this.lastAnalysis = { timestamp: now, analysis: result };
+            return result;
+
         } catch (error) {
             console.error("❌ Gemini Brain Error:", error);
             // FALLBACK LOCAL EM CASO DE ERRO DE REDE
