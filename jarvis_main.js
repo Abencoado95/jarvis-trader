@@ -343,57 +343,78 @@ function toggleAutomation() {
         return;
     }
     
-    isAutomationActive = !isAutomationActive;
-    const btn = document.getElementById('automationBtn');
+    isAutoTrading = !isAutoTrading;
+    const btn = document.getElementById('btnAutomation');
+    const status = document.getElementById('autoStatus');
     
-    if (isAutomationActive) {
-        btn.classList.add('active');
-        btn.style.borderColor = 'var(--neon-magenta)';
-        btn.style.background = 'rgba(188, 19, 254, 0.2)';
-        
-        btn.innerHTML = `
-            <div>PAUSAR SISTEMA JARVIS</div>
-            <div id="automationStatus" style="font-size: 0.9rem; margin-top: 5px; color: var(--neon-magenta);">SISTEMA AUTOMÁTICO ATIVO</div>
-        `;
-        
+    if (isAutoTrading) {
+        // LIGAR
+        btn.innerHTML = 'PAUSAR SISTEMA JARVIS<br><span id="autoStatus" style="font-size: 0.8em; color: var(--neon-green)">SISTEMA AUTOMÁTICO ATIVO</span>';
+        btn.style.boxShadow = "0 0 20px rgba(0, 255, 65, 0.4)";
         startAutomation();
+        console.log("🚀 LIGANDO AUTOMAÇÃO");
     } else {
-        btn.classList.remove('active');
-        btn.style.borderColor = 'var(--neon-magenta)';
-        btn.style.background = 'rgba(188, 19, 254, 0.1)';
-        
-        btn.innerHTML = `
-            <div>LIGAR SISTEMA JARVIS</div>
-            <div id="automationStatus" style="font-size: 0.9rem; margin-top: 5px; color: #8899a6;">SISTEMA MANUAL</div>
-        `;
-        
+        // DESLIGAR
         stopAutomation();
+        btn.innerHTML = 'LIGAR SISTEMA JARVIS<br><span id="autoStatus" style="font-size: 0.8em; color: #888">AGUARDANDO INÍCIO</span>';
+        btn.style.boxShadow = "none";
+        console.log("🛑 PARANDO AUTOMAÇÃO");
     }
 }
 
 function startAutomation() {
-    // Avoid spamming API
     if (automationInterval) clearInterval(automationInterval);
     
-    automationInterval = setInterval(async () => {
-        if (!isAutomationActive || positions.size > 0) return;
-        
-        // Only analyze if not recently analyzed (rate limit avoid)
-        const analysis = await analyzeMarket(true);
-        
-        if (analysis && analysis.confidence > 70) {
-            placeTrade(analysis.action, true);
-        }
-    }, 45000); // Increased to 45s to avoid 429 errors
+    // Determinar velocidade do loop baseado no modo
+    // Dígitos precisam de velocidade (2s), Preço precisa de tempo (45s)
+    let intervalTime = 45000; 
+    
+    if (currentMode === 'OVER_UNDER' || currentMode === 'MATCH_DIFFER') {
+        intervalTime = 2000; // Alta frequencia para dígitos
+        console.log("⚡ Modo Alta Frequência Ativado (2s)");
+    } else {
+        console.log("🐢 Modo Tendência Ativado (45s)");
+    }
+
+    // Executa imediatamente a primeira vez
+    runAutoCycle();
+
+    automationInterval = setInterval(runAutoCycle, intervalTime);
+}
+
+async function runAutoCycle() {
+    if (!isAutoTrading) return;
+
+    // 1. Verificar Limites de Segurança (TP/SL)
+    if (!checkGlobalLimits()) {
+        stopAutomation();
+        return;
+    }
+
+    // 2. Analisar Mercado
+    console.log("🔄 Ciclo de Automação: Analisando...");
+    const analysis = await analyzeMarket(true); // true = silent mode
+    
+    // 3. Executar Trade se confiança alta
+    if (analysis && analysis.action !== 'WAIT' && analysis.confidence >= 75) {
+        console.log(`🎯 Oportunidade Identificada: ${analysis.action} (${analysis.confidence}%)`);
+        placeTrade(analysis.action, true); // true = isAuto
+    } else {
+        console.log("⏳ Aguardando melhor oportunidade...");
+    }
 }
 
 function stopAutomation() {
+    isAutoTrading = false;
     if (automationInterval) {
         clearInterval(automationInterval);
         automationInterval = null;
     }
-    isAutomationActive = false;
-    console.log("🛑 Sistema Jarvis Pausado");
+    const btn = document.getElementById('btnAutomation');
+    if (btn) {
+         btn.innerHTML = 'LIGAR SISTEMA JARVIS<br><span id="autoStatus" style="font-size: 0.8em; color: #888">AGUARDANDO INÍCIO</span>';
+         btn.style.boxShadow = "none";
+    }
 }
 
 // ... (rest of code)

@@ -8,8 +8,8 @@ class GeminiBrain {
         // Chave API
         this.API_KEY = "AIzaSyDHaVHmWGFZfhinr_HUQVEEaY_V2DDE0NM";
         
-        // MODELO ATUALIZADO (2.0 Flash é o mais estável para chaves novas no momento)
-        this.MODEL_ID = "gemini-2.0-flash"; 
+        // MODELO EXIGIDO PELO USUÁRIO
+        this.MODEL_ID = "gemini-2.5-flash"; 
         
         // Endpoint da API Gemini
         this.baseUrl = `https://generativelanguage.googleapis.com/v1/models/${this.MODEL_ID}:generateContent`;
@@ -19,14 +19,65 @@ class GeminiBrain {
         this.isAnalyzing = false;
         
         console.log(`🧠 Gemini Brain Iniciado. Modelo: ${this.MODEL_ID}`);
-        console.log(`📡 Endpoint: ${this.baseUrl}`);
     }
     
-    /**
-     * ANÁLISE PROFUNDA DE MERCADO
-     * Sistema multi-camadas de análise técnica
-     */
-    async analyze(marketData, mode = 'RISE_FALL') {
+    // Decisor Central
+    async analyze(marketData, mode) {
+        // SEPARAÇÃO DE ESTRATÉGIAS
+        // 1. DÍGITOS (Alta Frequência) -> ANÁLISE LOCAL (Sem delay de API)
+        if (mode === 'OVER_UNDER' || mode === 'MATCH_DIFFER') {
+            const tech = this.calculateTechnicalIndicators(marketData); // Calculate indicators once
+            return this.analyzeDigitsLocal(tech, mode);
+        }
+        
+        // 2. PREÇO (Tendência) -> ANÁLISE GEMINI AI
+        return await this.analyzePriceWithAI(marketData, mode);
+    }
+
+    // --- ESTRATÉGIAS DE DÍGITOS (ZERO LATENCY) ---
+    analyzeDigitsLocal(tech, mode) {
+        const lastDigit = tech.lastCandles.length > 0 ? Math.floor(tech.currentPrice * 100 % 10) : null;
+        const digits = tech.lastCandles.map(c => Math.floor(c.close * 100 % 10)); // Dígitos dos candles
+        const last5Digits = digits.slice(-5);
+        
+        let action = 'WAIT';
+        let confidence = 0;
+        let reason = 'Analisando fluxo de dígitos...';
+
+        if (mode === 'OVER_UNDER') {
+            // ESTRATÉGIA DE SEGMENTAÇÃO (Conforme pedido)
+            // Espera sequência de dígitos BAIXOS (0,1,2,3,4) -> Entra OVER 5
+            const sequenceLow = digits.slice(-3).every(d => d < 5); // Últimos 3 foram < 5
+            const sequenceHigh = digits.slice(-3).every(d => d > 5); // Últimos 3 foram > 5
+            
+            if (sequenceLow) {
+                action = 'OVER';
+                confidence = 85;
+                reason = `Padrão Detectado: 3 dígitos baixos seguidos (${digits.slice(-3).join(',')}) -> Probabilidade de OVER`;
+            } else if (sequenceHigh) {
+                action = 'UNDER'; // Opcional: Contra-tendência ou segue fluxo
+                confidence = 75;
+                reason = `Padrão Detectado: 3 dígitos altos seguidos (${digits.slice(-3).join(',')}) -> Probabilidade de UNDER`;
+            }
+        
+        } else if (mode === 'MATCH_DIFFER') {
+            // ESTRATÉGIA DIFERENÇA
+            // Se repetiu o último dígito, a chance de mudar agora é ALTA
+            const last1 = digits[digits.length - 1];
+            const last2 = digits[digits.length - 2];
+            
+            if (last1 === last2) {
+                action = 'DIFFER'; // Se deu 7, 7 -> Entra DIFFER 7 (ou prevê mudança)
+                confidence = 92;
+                reason = `Repetição detectada (${last1}, ${last2}) -> Estatística favorece DIFFER`;
+            }
+        }
+
+        return { action, confidence, reason };
+    }
+
+    // --- ESTRATÉGIAS DE PREÇO (GEMINI AI) ---
+    async analyzePriceWithAI(marketData, mode) {
         const now = Date.now();
         
         // RATE LIMIT CACHE: Evita chamadas em menos de 15s
@@ -49,21 +100,47 @@ class GeminiBrain {
             const prompt = this.buildAdvancedPrompt(technicalData, mode);
             
             // 3. CHAMAR GEMINI (MODELO SELECIONADO PELO USER)
-            const response = await fetch(`${this.baseUrl}?key=${this.API_KEY}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    contents: [{
-                        parts: [{ text: prompt }]
-                    }],
-                    generationConfig: {
-                        temperature: 0.3,
-                        topK: 20,
-                        topP: 0.8,
-                        maxOutputTokens: 2048
-                    }
-                })
-            });
+            let response;
+            try {
+                // Tenta 2.5 Flash Primeiro
+                response = await fetch(`${this.baseUrl}?key=${this.API_KEY}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{
+                            parts: [{ text: prompt }]
+                        }],
+                        generationConfig: {
+                            temperature: 0.3,
+                            topK: 20,
+                            topP: 0.8,
+                            maxOutputTokens: 2048
+                        }
+                    })
+                });
+                
+                if (response.status === 403 || response.status === 404) {
+                    throw new Error("Modelo 2.5 não disponível, trocando...");
+                }
+            } catch (e) {
+                console.warn("⚠️ Gemini 2.5 Indisponível, usando 1.5 Flash (Fallback)");
+                const fallbackUrl = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent`;
+                response = await fetch(`${fallbackUrl}?key=${this.API_KEY}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{
+                            parts: [{ text: prompt }]
+                        }],
+                        generationConfig: {
+                            temperature: 0.3,
+                            topK: 20,
+                            topP: 0.8,
+                            maxOutputTokens: 2048
+                        }
+                    })
+                });
+            }
             
             if (!response.ok) {
                 // FALLBACK LOCAL SE API FALHAR (ex: 429)
