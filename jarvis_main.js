@@ -454,21 +454,42 @@ function toggleAutomation() {
     }
 }
 
-function startAutomation() {
-    if (automationInterval) clearInterval(automationInterval);
-    
-    // Determinar velocidade do loop baseado no modo
-    // Dígitos precisam de velocidade (2s), Preço precisa de tempo (45s)
-    let intervalTime = 45000; 
-    
-    if (currentMode === 'OVER_UNDER' || currentMode === 'MATCH_DIFFER') {
-        intervalTime = 2000; // Alta frequencia para dígitos
-        console.log("⚡ Modo Alta Frequência Ativado (2s)");
-    } else {
-        console.log("🐢 Modo Tendência Ativado (45s)");
-    }
+// --- VARIÁVEIS GLOBAIS EXTRAS ---
+let baseStake = 1.0; // Salva a entrada inicial
+let lossStreak = 0;   // Contador de perdas consecutivas
 
-    // Executa imediatamente a primeira vez
+function startAutomation() {
+    if (isAutoTrading) return;
+    
+    // CHECK GLOBAL LIMITS (Meta/Stop)
+    if (!checkGlobalLimits()) return;
+    
+    // SAVE BASE STAKE
+    const stakeInput = document.getElementById('stakeInput');
+    baseStake = parseFloat(stakeInput.value);
+    lossStreak = 0;
+    
+    isAutoTrading = true;
+    // Assuming toggleAutomationUI exists or is handled by toggleAutomation
+    // For now, we'll just ensure the UI is updated via toggleAutomation's logic
+    // The original toggleAutomation already sets isAutoTrading and updates UI.
+    // So, we might not need an explicit toggleAutomationUI(true) here if toggleAutomation is called to start.
+    // However, the instruction implies this is a separate start function.
+    // Let's assume toggleAutomationUI is a helper that updates the button state.
+    // Since it's not defined, I'll omit it for now to avoid errors, but keep the comment.
+    // toggleAutomationUI(true); 
+    console.log(`🚀 LIGANDO AUTOMAÇÃO (Base Stake: $${baseStake})`);
+    
+    // Define intervalo baseado no modo
+    // Over/Under/Match/Differ = Rápido (4s para dar tempo do tick)
+    // Rise/Fall = Lento (45s)
+    
+    let intervalTime = 4000; 
+    if (currentMode === 'RISE_FALL' || currentMode === 'ACCUMULATORS') {
+        intervalTime = 45000;
+    }
+    
+    // Primeiro ciclo imediato
     runAutoCycle();
 
     automationInterval = setInterval(runAutoCycle, intervalTime);
@@ -956,6 +977,42 @@ function handlePosition(p) {
         updateDailyProfit(profit);
         
         console.log(`${profit > 0 ? '✅ WIN' : '❌ LOSS'}: $${profit.toFixed(2)}`);
+        
+        // --- MARTINGALE INTELIGENTE V3 ---
+        if (isAutoTrading) {
+            const stakeInput = document.getElementById('stakeInput');
+            let currentStake = parseFloat(stakeInput.value);
+            
+            if (profit > 0) {
+                // WIN: Reseta para mão inicial
+                if (Math.abs(currentStake - baseStake) > 0.01) {
+                    console.log(`♻️ WIN! Resetando stake para base: $${baseStake}`);
+                    stakeInput.value = baseStake.toFixed(2);
+                }
+                lossStreak = 0;
+            } else {
+                // LOSS: Calcula recuperação
+                lossStreak++;
+                let multiplier = 2.1; // Padrão (Rise/Fall, Over/Under)
+                
+                // Ajuste para DIGIT DIFFER (Payout muito baixo, exige gale alto)
+                if (currentMode === 'MATCH_DIFFER') {
+                     // Se for DIFFER (geralmente ganha pouco), gale é agressivo.
+                     multiplier = 11.0; 
+                }
+                
+                // Proteção: Limite de Gales (ex: 8)
+                if (lossStreak > 8) {
+                    console.warn("⚠️ Máximo de Gales atingido. Resetando.");
+                    stakeInput.value = baseStake.toFixed(2);
+                    lossStreak = 0;
+                } else {
+                    const newStake = (currentStake * multiplier).toFixed(2);
+                    console.log(`📉 LOSS (Streak: ${lossStreak}). Martingale ${multiplier}x: $${currentStake} -> $${newStake}`);
+                    stakeInput.value = newStake;
+                }
+            }
+        }
     }
 }
 
