@@ -8,10 +8,10 @@ class GeminiBrain {
         // Chave API
         this.API_KEY = "AIzaSyDHaVHmWGFZfhinr_HUQVEEaY_V2DDE0NM";
         
-        // MODELO CONFIRMADO DISPONÍVEL NA API
-        this.MODEL_ID = "gemini-2.5-flash"; 
+        // MODELO ATUALIZADO (2.0 Flash é o mais estável para chaves novas no momento)
+        this.MODEL_ID = "gemini-2.0-flash"; 
         
-        // Endpoint correto da API Gemini
+        // Endpoint da API Gemini
         this.baseUrl = `https://generativelanguage.googleapis.com/v1/models/${this.MODEL_ID}:generateContent`;
         
         this.cache = new Map();

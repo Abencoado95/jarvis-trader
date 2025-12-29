@@ -546,10 +546,11 @@ function connectWS() {
             isConnected = true;
             const info = data.authorize;
             currentBalance = parseFloat(info.balance);
+            currentCurrency = info.currency || 'USD'; // Captura a moeda da conta
             
             console.log("✅ Authorized!");
             console.log(`   Account: ${info.loginid}`);
-            console.log(`   Balance: ${info.balance} ${info.currency}`);
+            console.log(`   Balance: ${info.balance} ${currentCurrency}`);
             console.log(`   Name: ${info.fullname}`);
             
             updateBalance(currentBalance);
@@ -741,6 +742,7 @@ function placeTrade(direction, isAuto = false) {
     // Primeiro solicita a proposta
     ws.send(JSON.stringify({
         proposal: 1,
+        currency: currentCurrency || 'USD', // Campo obrigatório corrigido
         ...params
     }));
     
