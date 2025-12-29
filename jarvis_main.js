@@ -27,24 +27,95 @@ try {
 const APP_ID = 114062;
 const SYMBOL = "R_100";
 
-// Global State
+// --- STATE VARIABLES ---
 let currentMode = 'RISE_FALL';
 let currentAccount = 'demo';
-let availableAccounts = [];
+let isConnected = false;
 let currentToken = "";
+let availableAccounts = [];
+let ws = null;
+let currentBalance = 0;
+let currentCurrency = 'USD';
+let isAutoTrading = false; 
+let activeAccumulators = []; 
+
 let chart = null;
 let series = null;
-let ws = null;
 let positions = new Map();
 let dailyProfitValue = 0;
 let tradeHistory = [];
 let geminiBrain = null;
-let isAutomationActive = false;
 let automationInterval = null;
 let candles = [];
 let currentCandle = null;
-let currentBalance = 0;
-let isConnected = false;
+// Removed duplicate declarations directly
+
+// ...
+
+// Place Trade or Sell Action
+function placeTrade(direction, isAuto = false) {
+    // Lógica Especial para Vender Acumuladores
+    if (direction === 'SELL_ACCU') {
+        console.log("🛑 Fechando posições de Acumuladores...");
+        if (positions.size === 0) {
+            alert("⚠️ Nenhuma posição aberta para fechar.");
+            return;
+        }
+        
+        positions.forEach((pos, id) => {
+            // Tenta vender contrato
+            ws.send(JSON.stringify({
+                sell: id,
+                price: 0 // Vender a preço de mercado atual
+            }));
+            console.log(`📤 Vendendo posição: ${id}`);
+        });
+        return;
+    }
+
+    // Trade Normal de Compra/Entrada
+    console.log(`🔘 Botão Clicado/Trigger: ${direction} (Auto: ${isAuto})`);
+    
+    // Feedback visual imediato para Manual
+    if (!isAuto) {
+        document.body.style.cursor = 'wait';
+        setTimeout(() => document.body.style.cursor = 'default', 1000);
+    }
+
+    if (!isConnected || !currentToken) {
+        alert("⚠️ Conecte sua conta primeiro!");
+        return;
+    }
+    
+    const stake = parseFloat(document.getElementById('stakeInput').value);
+    const duration = parseInt(document.getElementById('durationSelect').value);
+    
+    // ... Validações ...
+    if (currentBalance < stake) {
+        alert(`⚠️ Saldo insuficiente!\nSaldo: ${currentBalance.toFixed(2)}`);
+        return;
+    }
+    
+    const params = buildContractParams(direction, stake, duration);
+    
+    if (!params) {
+        alert("❌ Erro ao construir contrato");
+        return;
+    }
+    
+    console.log(`📤 Solicitando proposta: ${direction} | $${stake}`);
+    
+    // Primeiro solicita a proposta
+    ws.send(JSON.stringify({
+        proposal: 1,
+        currency: currentCurrency || 'USD',
+        ...params
+    }));
+    
+    if (!isAuto) {
+        console.log(`✅ Trade ${direction} solicitado`);
+    }
+}
 
 // View Management
 function showView(viewId) {
@@ -734,46 +805,7 @@ async function analyzeMarket(silent = false) {
     }
 }
 
-// Place Trade
-function placeTrade(direction, isAuto = false) {
-    console.log(`🔘 Botão Clicado/Trigger: ${direction} (Auto: ${isAuto})`);
-    
-    if (!isConnected || !currentToken) {
-        alert("⚠️ Conecte sua conta primeiro!");
-        return;
-    }
-    
-    const stake = parseFloat(document.getElementById('stakeInput').value);
-    const duration = parseInt(document.getElementById('durationSelect').value);
-    
-    if (currentBalance < stake) {
-        alert(`⚠️ Saldo insuficiente!\nSaldo: $${currentBalance.toFixed(2)}`);
-        return;
-    }
-    
-    const params = buildContractParams(direction, stake, duration);
-    
-    if (!params) {
-        alert("❌ Erro ao construir contrato");
-        return;
-    }
-    
-    console.log(`📤 Solicitando proposta: ${direction} | $${stake}`);
-    
-    // Primeiro solicita a proposta
-    ws.send(JSON.stringify({
-        proposal: 1,
-        currency: currentCurrency || 'USD', // Campo obrigatório corrigido
-        ...params
-    }));
-    
-    // A compra será feita quando receber a resposta da proposta
-    // (já está implementado no handler do WebSocket)
-    
-    if (!isAuto) {
-        console.log(`✅ Trade ${direction} solicitado`);
-    }
-}
+// Função placeTrade antiga removida (já definida no topo)
 
 function handlePosition(p) {
     if (!p.contract_id) return;
