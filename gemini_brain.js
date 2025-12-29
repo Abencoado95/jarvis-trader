@@ -65,6 +65,8 @@ class GeminiBrain {
                 action = 'UNDER'; // Opcional: Contra-tendência ou segue fluxo
                 confidence = 75;
                 reason = `Padrão Detectado: 3 dígitos altos seguidos (${digits.slice(-3).join(',')}) -> Probabilidade de UNDER`;
+            } else {
+                reason = `Aguardando padrão... Últimos: [${digits.slice(-5).join(', ')}]`;
             }
         
         } else if (mode === 'MATCH_DIFFER') {

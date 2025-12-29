@@ -513,7 +513,8 @@ async function runAutoCycle() {
         console.log(`🎯 Oportunidade Identificada: ${analysis.action} (${analysis.confidence}%)`);
         placeTrade(analysis.action, true); // true = isAuto
     } else {
-        console.log("⏳ Aguardando melhor oportunidade...");
+        const reason = analysis ? analysis.reason : 'Sem sinal';
+        console.log(`⏳ Aguardando... ${reason}`);
     }
 }
 
