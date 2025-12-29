@@ -654,11 +654,27 @@ function handlePosition(p) {
         positions.set(p.contract_id, p);
         
         // Se for acumulador e tiver lucro, e estivermos no manual ou auto com meta batida...
-        // IMPLEMENTAR LOGICA DE TRAILING STOP OU TAKE PROFIT AQUI FUTURAMENTE
+        if (p.contract_type === 'ACCU' && p.is_valid_to_sell && p.profit > 0) {
+            // Lógica de SAÍDA INTELIGENTE (Scalping)
+            // Se lucro > 5% do stake (aprox 2-3 ticks), garante o lucro!
+            // Acumuladores são perigosos se segurar muito tempo.
+            const stake = p.buy_price;
+            const targetProfit = stake * 0.05; // 5%
+            
+            if (p.profit >= targetProfit) {
+                console.log(`💰 Auto-Closing ACCU Acc: $${p.profit.toFixed(2)} (> 5%)`);
+                sellContract(p.contract_id);
+            }
+        }
     }
     
     // Atualizar tabela de posições
     updatePositionsTable();
+}
+
+// Helper para tick handler (Backup, por enquanto vazia pois handlePosition cuida disso via proposal)
+function checkAccumulatorExit(currentPrice) {
+    // Pode ser usada para Stop Loss baseado em preço spot
 }
 
 // Renderiza Tabela de Posições Abertas
@@ -1108,16 +1124,28 @@ function connectWS() {
             const price = data.tick.quote;
             const time = data.tick.epoch;
             
-            // Atualiza Digit Worm
+            // Atualiza Digit Worm VISUALMENTE (Prioridade)
             const quoteStr = price.toFixed(data.tick.pip_size || 2); 
             const lastDigit = parseInt(quoteStr.slice(-1));
-            if (!isNaN(lastDigit)) renderDigitWorm(lastDigit);
+            
+            if (!isNaN(lastDigit)) {
+                // Atualiza Worm apenas se tivermos renderDigitWorm
+                if (typeof renderDigitWorm === 'function') {
+                    renderDigitWorm(lastDigit);
+                }
+            }
 
-            // Atualiza Gráfico (Tick a Tick)
-            if (series) series.update({ time: time, value: price });
+            // NÃO ATUALIZAR GRÁFICO AQUI! 
+            // O gráfico é de CANDLES. Atualizar com tick quebra a lib (Erro: Cannot update oldest data).
+            // Deixe o stream de 'ohlc' cuidar do gráfico.
             
             // Salva dígitos para estratégia local (Gemini Brain)
             if (window.updateDigits) window.updateDigits(lastDigit); 
+            
+            // Se estiver em Acumuladores, monitorar saída (Scalping)
+            if (currentMode === 'ACCUMULATORS') {
+                checkAccumulatorExit(price);
+            }
         }
 
         if (data.msg_type === 'balance') {
