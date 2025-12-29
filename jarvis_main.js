@@ -176,7 +176,7 @@ function handleRegister() {
 
 function logout() {
     if (auth) auth.signOut();
-    if (isAutomationActive) toggleAutomation();
+    if (isAutoTrading) toggleAutomation();
     if (ws) ws.close();
     localStorage.removeItem('jarvis_accounts');
     availableAccounts = [];
