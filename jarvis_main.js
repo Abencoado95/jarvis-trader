@@ -473,10 +473,13 @@ let baseStake = 1.0; // Salva a entrada inicial
 let lossStreak = 0;   // Contador de perdas consecutivas
 
 function startAutomation() {
-    if (isAutoTrading) return;
+    // A checagem if (isAutoTrading) return foi removida pois toggleAutomation ja seta como true antes de chamar
     
     // CHECK GLOBAL LIMITS (Meta/Stop)
-    if (!checkGlobalLimits()) return;
+    if (!checkGlobalLimits()) {
+        stopAutomation();
+        return;
+    }
     
     // SAVE BASE STAKE
     const stakeInput = document.getElementById('stakeInput');
