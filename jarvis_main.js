@@ -326,21 +326,8 @@ function reconnectDeriv() {
 }
 
 function connectDeriv() {
-    // Check for custom App ID
-    const customIdInput = document.getElementById('customAppId');
-    let useAppId = APP_ID;
-    
-    if (customIdInput && customIdInput.value.trim() !== "") {
-        useAppId = customIdInput.value.trim();
-        localStorage.setItem('jarvis_custom_app_id', useAppId);
-    } else {
-        // Try load saved
-        const saved = localStorage.getItem('jarvis_custom_app_id');
-        if (saved) useAppId = saved;
-    }
-    
-    console.log(`🔐 Redirecting to Deriv OAuth (App ID: ${useAppId})...`);
-    window.location.href = `https://oauth.deriv.com/oauth2/authorize?app_id=${useAppId}&l=PT&brand=deriv`;
+    console.log(`🔐 Redirecting to Deriv OAuth (App ID: ${APP_ID})...`);
+    window.location.href = `https://oauth.deriv.com/oauth2/authorize?app_id=${APP_ID}&l=PT&brand=deriv`;
 }
 
 // DERIV OAUTH (Reforçado)
