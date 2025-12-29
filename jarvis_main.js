@@ -948,7 +948,7 @@ function handlePosition(p) {
             stake: parseFloat(p.buy_price),
             result: profit > 0 ? 'WIN' : 'LOSS',
             profit: profit,
-            isAuto: isAutomationActive
+            isAuto: isAutoTrading
         };
         
         tradeHistory.unshift(trade);
