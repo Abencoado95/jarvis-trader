@@ -1067,31 +1067,29 @@ function handlePosition(p) {
             let currentStake = parseFloat(stakeInput.value);
             
             if (profit > 0) {
-                // WIN: Reseta para mão inicial
-                if (Math.abs(currentStake - baseStake) > 0.01) {
-                    console.log(`♻️ WIN! Resetando stake para base: $${baseStake}`);
-                    stakeInput.value = baseStake.toFixed(2);
-                }
+                // WIN: Verifica se recuperou
+                // Com multiplicador alto, 1 win geralmente recupera tudo.
+                console.log(`♻️ WIN! Lucro: +$${profit.toFixed(2)}. Resetando sistema.`);
+                stakeInput.value = baseStake.toFixed(2);
                 lossStreak = 0;
             } else {
-                // LOSS: Calcula recuperação
+                // LOSS: Calcula recuperação agressiva
                 lossStreak++;
-                let multiplier = 2.1; // Padrão (Rise/Fall, Over/Under)
+                let multiplier = 2.4; // Aumentado de 2.1 para 2.4 para cobrir taxas/payouts menores
                 
-                // Ajuste para DIGIT DIFFER (Payout muito baixo, exige gale alto)
+                // Ajuste para DIGIT DIFFER (Payout muito baixo ~9%)
                 if (currentMode === 'MATCH_DIFFER') {
-                     // Se for DIFFER (geralmente ganha pouco), gale é agressivo.
-                     multiplier = 11.0; 
+                     multiplier = 11.5; 
                 }
                 
                 // Proteção: Limite de Gales (ex: 8)
                 if (lossStreak > 8) {
-                    console.warn("⚠️ Máximo de Gales atingido. Resetando.");
+                    console.warn("⚠️ Máximo de Gales atingido (8). Resetando por segurança.");
                     stakeInput.value = baseStake.toFixed(2);
                     lossStreak = 0;
                 } else {
                     const newStake = (currentStake * multiplier).toFixed(2);
-                    console.log(`📉 LOSS (Streak: ${lossStreak}). Martingale ${multiplier}x: $${currentStake} -> $${newStake}`);
+                    console.log(`📉 LOSS (Streak: ${lossStreak}). Martingale Agressivo ${multiplier}x: $${currentStake} -> $${newStake}`);
                     stakeInput.value = newStake;
                 }
             }
