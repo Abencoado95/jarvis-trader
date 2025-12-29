@@ -124,21 +124,12 @@ class GeminiBrain {
                 }
             } catch (e) {
                 console.warn("⚠️ Gemini 2.5 Indisponível, usando 1.5 Flash (Fallback)");
-                const fallbackUrl = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent`;
+                // Endpoint v1beta é mais estável para o modelo 1.5 em chaves gratuitas
+                const fallbackUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent`;
                 response = await fetch(`${fallbackUrl}?key=${this.API_KEY}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        contents: [{
-                            parts: [{ text: prompt }]
-                        }],
-                        generationConfig: {
-                            temperature: 0.3,
-                            topK: 20,
-                            topP: 0.8,
-                            maxOutputTokens: 2048
-                        }
-                    })
+                    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
                 });
             }
             

@@ -407,7 +407,7 @@ function updateTradeButtons() {
     `).join('');
 }
 
-// Automation
+// Automation Toggle
 function toggleAutomation() {
     if (!isConnected) {
         alert("⚠️ Conecte sua conta Deriv primeiro!");
@@ -415,20 +415,34 @@ function toggleAutomation() {
     }
     
     isAutoTrading = !isAutoTrading;
-    const btn = document.getElementById('btnAutomation');
-    const status = document.getElementById('autoStatus');
+    const btn = document.getElementById('automationBtn'); // ID corrigido conforme HTML
+    const status = document.getElementById('automationStatus'); // ID corrigido conforme HTML
     
+    if (!btn || !status) {
+        console.error("❌ ERRO CRÍTICO: Elemento do botão de automação não encontrado no DOM");
+        return;
+    }
+
     if (isAutoTrading) {
         // LIGAR
-        btn.innerHTML = 'PAUSAR SISTEMA JARVIS<br><span id="autoStatus" style="font-size: 0.8em; color: var(--neon-green)">SISTEMA AUTOMÁTICO ATIVO</span>';
+        btn.style.borderColor = 'var(--neon-green)';
         btn.style.boxShadow = "0 0 20px rgba(0, 255, 65, 0.4)";
+        btn.innerHTML = `
+            <div>PAUSAR SISTEMA JARVIS</div>
+            <div id="automationStatus" style="font-size: 0.9rem; margin-top: 5px; color: var(--neon-green);">SISTEMA AUTOMÁTICO ATIVO</div>
+        `;
         startAutomation();
         console.log("🚀 LIGANDO AUTOMAÇÃO");
     } else {
         // DESLIGAR
         stopAutomation();
-        btn.innerHTML = 'LIGAR SISTEMA JARVIS<br><span id="autoStatus" style="font-size: 0.8em; color: #888">AGUARDANDO INÍCIO</span>';
+        btn.style.borderColor = 'var(--neon-magenta)';
         btn.style.boxShadow = "none";
+        btn.style.background = 'rgba(188, 19, 254, 0.1)';
+        btn.innerHTML = `
+            <div>LIGAR SISTEMA JARVIS</div>
+            <div id="automationStatus" style="font-size: 0.9rem; margin-top: 5px; color: #8899a6;">SISTEMA MANUAL</div>
+        `;
         console.log("🛑 PARANDO AUTOMAÇÃO");
     }
 }
@@ -481,14 +495,72 @@ function stopAutomation() {
         clearInterval(automationInterval);
         automationInterval = null;
     }
-    const btn = document.getElementById('btnAutomation');
+    const btn = document.getElementById('automationBtn');
     if (btn) {
-         btn.innerHTML = 'LIGAR SISTEMA JARVIS<br><span id="autoStatus" style="font-size: 0.8em; color: #888">AGUARDANDO INÍCIO</span>';
+         btn.style.borderColor = 'var(--neon-magenta)';
          btn.style.boxShadow = "none";
+         btn.style.background = 'rgba(188, 19, 254, 0.1)';
+         btn.innerHTML = `
+            <div>LIGAR SISTEMA JARVIS</div>
+            <div id="automationStatus" style="font-size: 0.9rem; margin-top: 5px; color: #8899a6;">SISTEMA MANUAL</div>
+        `;
     }
 }
 
 // ... (rest of code)
+
+function handlePosition(p) {
+    if (!p.contract_id) return;
+    
+    // Atualizar UI de posições etc...
+    // ...
+
+    // Se a posição foi fechada (sold)
+    if (p.is_sold) {
+        const profit = parseFloat(p.profit);
+        
+        // Atualizar histórico
+        const entry = {
+            id: p.contract_id,
+            type: p.contract_type,
+            profit: profit,
+            time: new Date().toLocaleTimeString()
+        };
+        tradeHistory.unshift(entry);
+        if (tradeHistory.length > 50) tradeHistory.pop();
+        updateHistory();
+        
+        updateDailyProfit(profit);
+        
+        // Log de resultado
+        if (profit > 0) {
+            console.log(`✅ WIN: $${profit.toFixed(2)}`);
+            // Tocar som se quiser
+        } else {
+            console.log(`❌ LOSS: $${profit.toFixed(2)}`);
+        }
+        
+        positions.delete(p.contract_id);
+        
+        // REINICIAR CICLO AUTOMÁTICO SE NECESSÁRIO
+        // Usa a variável correta "isAutoTrading"
+        if (isAutoTrading && profit < 0) {
+            // Lógica de Martin Gale ou Nova Entrada pode vir aqui
+            // Por enquanto apenas garante que o loop continua
+            console.log("🔄 Automação continua após Loss...");
+            // O setInterval já cuida do próximo ciclo
+        }
+    } else {
+        // Atualizar status da posição aberta
+        positions.set(p.contract_id, p);
+        
+        // Se for acumulador e tiver lucro, e estivermos no manual ou auto com meta batida...
+        // IMPLEMENTAR LOGICA DE TRAILING STOP OU TAKE PROFIT AQUI FUTURAMENTE
+    }
+    
+    // Atualizar tabela de posições
+    updatePositionsTable();
+}
 
 function buildContractParams(action, stake, duration) {
     const symbol = "R_100";
