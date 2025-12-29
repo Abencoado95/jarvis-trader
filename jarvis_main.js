@@ -679,53 +679,53 @@ function checkAccumulatorExit(currentPrice) {
 
 // Renderiza Tabela de Posições Abertas
 function updatePositionsTable() {
-    const tbody = document.getElementById('openPositionsBody'); // Ajustar ID conforme HTML
-    // Se não tiver ID específico, tentaremos injetar se necessário, mas vou assumir que existe ou user cria
-    // Vou usar um ID padrão que deve estar no HTML, ou verificar se existe 'positionsTable'
+    const tbody = document.getElementById('openPositionsBody');
+    const totalPLSpan = document.getElementById('totalOpenPL');
     
-    // Melhor: Verifica se existe o container de log, se não, não faz nada por enquanto.
-    // Mas o usuário pediu para ver "Posições Abertas".
+    if (!tbody) return;
     
-    // Vou criar a tabela dinamicamente se não existir, mas onde?
-    // Vou assumir que o usuário tem um lugar. Vou retornar se não achar.
-    // O ID comum em dashboards é 'positionsTableBody' ou similar.
-    const tableBody = document.querySelector('#positionsTable tbody') || document.getElementById('historyBody'); 
-    // Se estiver usando a mesma tabela do histórico, vai misturar.
-    // O ideal é ter uma seção "Posições Abertas".
+    tbody.innerHTML = '';
     
-    // Vou apenas logar no console por enquanto se não tiver UI dedicada, 
-    // MAS vou tentar atualizar o HTML que tiver "Posições Abertas".
+    let totalPL = 0;
+    const sortedPositions = Array.from(positions.values()).sort((a,b) => b.buy_time - a.buy_time);
     
-    // Assumindo que o HTML tem uma tabela com id="positionsTable"
-    const target = document.getElementById('positionsTable');
-    if (target) {
-        const tbody = target.querySelector('tbody');
-        if (tbody) {
-            tbody.innerHTML = '';
-            positions.forEach((p, id) => {
-                const profit = p.profit || 0;
-                const profitColor = profit >= 0 ? '#00ff41' : '#ff003c';
-                
-                // Detalhes Especiais
-                let extra = '';
-                if (p.contract_type === 'ACCU') {
-                    // Tenta calcular ticks ou mostrar barreira
-                    extra = ` <span style="color:#00ffff; font-size:0.8em;">[ACCU ${(p.limit_order?.take_profit?.order_amount || '')}]</span>`;
-                }
-
-                tbody.innerHTML += `
-                    <tr style="border-bottom: 1px solid #333;">
-                        <td style="padding:8px;">${new Date(p.purchase_time * 1000).toLocaleTimeString()}</td>
-                        <td style="padding:8px;">${p.display_name.replace('Accumulators', 'ACCU')}</td>
-                        <td style="padding:8px;">$${p.buy_price}</td>
-                        <td style="padding:8px; color:${profitColor}; font-weight:bold;">$${profit.toFixed(2)}</td>
-                        <td style="padding:8px;">
-                            ${p.is_valid_to_sell ? `<button onclick="sellContract('${id}')" style="background:#ff003c; border:none; color:white; padding:2px 8px; cursor:pointer;">FECHAR</button>` : '⏳'}
-                        </td>
-                    </tr>
-                `;
-            });
-        }
+    sortedPositions.forEach(p => {
+        const profit = parseFloat(p.profit) || 0;
+        const profitColor = profit >= 0 ? '#00ff41' : '#ff003c';
+        
+        totalPL += profit;
+        
+        const tr = document.createElement('tr');
+        tr.style.borderBottom = '1px solid #333';
+        
+        // Data formatada
+        const timeStr = p.purchase_time ? new Date(p.purchase_time * 1000).toLocaleTimeString() : '--:--:--';
+        
+        tr.innerHTML = `
+            <td style="padding: 12px 8px; color: #888;">${timeStr}</td>
+            <td style="padding: 12px 8px; color: #ccc;">${p.contract_type}</td>
+            <td style="padding: 12px 8px; color: ${profitColor}; font-weight: bold; font-size: 1.1em;">
+                ${profit >= 0 ? '+' : ''}${profit.toFixed(2)} USD
+            </td>
+            <td style="padding: 12px 8px;">
+                ${p.is_valid_to_sell ? `
+                    <button onclick="sellContract('${p.contract_id}')" style="
+                        background: #ff9800; color: #000; border: none; 
+                        padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: bold;
+                        font-size: 0.8em; text-transform: uppercase;
+                        box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+                    ">FECHAR</button>
+                ` : '<span style="color:#666">...</span>'}
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+    
+    // Atualiza Lucro Total no Header
+    if (totalPLSpan) {
+        const totalColor = totalPL >= 0 ? '#00ff41' : '#ff003c';
+        totalPLSpan.style.color = totalColor;
+        totalPLSpan.innerText = `${totalPL >= 0 ? '+' : ''}$${totalPL.toFixed(2)}`;
     }
 }
 
@@ -965,37 +965,56 @@ function initChart() {
         
         console.log("✅ Chart OK");
         
-        // --- INJEÇÃO DA UI VISUAL (DIGIT WORM & TABLE) ---
+        // --- INJEÇÃO DA UI VISUAL (DIGIT SELECTOR ESTÁTICO 0-9) ---
         const tradeContainer = document.getElementById('tradeButtons')?.parentElement;
         
         if (tradeContainer) {
-            // 1. DIGIT VISUALIZER (Worm)
-            if (!document.getElementById('digitVisualizer')) {
-                const viz = document.createElement('div');
+            // 1. DIGIT VISUALIZER (Static 0-9)
+            let viz = document.getElementById('digitVisualizer');
+            if (!viz) {
+                viz = document.createElement('div');
                 viz.id = 'digitVisualizer';
-                viz.style.cssText = "display: flex; gap: 5px; justify-content: center; margin: 15px 0; padding: 10px; background: rgba(0,0,0,0.5); border-radius: 8px;";
+                viz.style.cssText = "display: flex; gap: 8px; justify-content: center; margin: 15px 0; padding: 15px; background: rgba(0,0,0,0.6); border-radius: 12px; border: 1px solid #333;";
                 tradeContainer.insertBefore(viz, document.getElementById('tradeButtons'));
+                
+                // Renderizar 0 a 9 fixos
+                viz.innerHTML = [0,1,2,3,4,5,6,7,8,9].map(d => `
+                    <div id="dig_ball_${d}" class="digit-ball" style="
+                        width: 30px; height: 30px; 
+                        border-radius: 50%; 
+                        background: #333; 
+                        color: #777; 
+                        font-weight: bold; 
+                        display: flex; 
+                        align-items: center; 
+                        justify-content: center;
+                        font-size: 1rem;
+                        transition: all 0.2s ease;
+                        border: 2px solid transparent;
+                    ">${d}</div>
+                `).join('');
             }
             
             // 2. POSITIONS TABLE CONTAINER
+            // (Mantém a lógica da tabela, se já não existir)
             if (!document.getElementById('positionsTable')) {
+                // ... (código existente da tabela) ...
                 const posDiv = document.createElement('div');
                 posDiv.style.cssText = "margin-top: 20px; border-top: 1px solid #333; padding-top: 10px;";
                 posDiv.innerHTML = `
-                    <h4 style="color: #ccc; margin-bottom: 10px;">POSIÇÕES ABERTAS</h4>
+                    <h4 style="color: #ccc; margin-bottom: 10px; display:flex; justify-content:space-between;">
+                        POSIÇÕES ABERTAS <span id="totalOpenPL" style="color:#fff;">$0.00</span>
+                    </h4>
                     <table id="positionsTable" style="width: 100%; text-align: left; font-size: 0.9em; border-collapse: collapse;">
                         <thead style="color: #666; border-bottom: 1px solid #333;">
                             <tr>
-                                <th style="padding: 5px;">HORA</th>
+                                <th style="padding: 5px;">TIME</th>
                                 <th style="padding: 5px;">TIPO</th>
-                                <th style="padding: 5px;">ENTRADA</th>
                                 <th style="padding: 5px;">LUCRO</th>
                                 <th style="padding: 5px;">AÇÃO</th>
                             </tr>
                         </thead>
-                        <tbody id="openPositionsBody">
-                            <!-- Injetado via JS -->
-                        </tbody>
+                        <tbody id="openPositionsBody"></tbody>
                     </table>
                 `;
                 tradeContainer.appendChild(posDiv);
@@ -1007,59 +1026,55 @@ function initChart() {
     }
 }
 
-// --- VISUALIZADOR DE DÍGITOS (WORM) ---
-let lastDigits = [];
-function renderDigitWorm(digit) {
-    lastDigits.push(digit);
-    if (lastDigits.length > 15) lastDigits.shift(); // Manter últimos 15
+// --- VISUALIZADOR DE DÍGITOS 2.0 (ESTÁTICO + REGRA) ---
+function renderDigitWorm(lastDigit) { // Mantendo nome para compatibilidade
+    const target = parseInt(document.getElementById('digitSelect')?.value || 5);
+    const mode = currentMode;
     
-    const container = document.getElementById('digitVisualizer');
-    if (!container) return;
-    
-    // Regra de Cores (Baseada no Modo Atual)
-    // Ex: Over 5 -> >5 Verde, <=5 Vermelho.
-    const targetDigit = parseInt(document.getElementById('digitSelect')?.value || 5);
-    const mode = currentMode; 
-    
-    container.innerHTML = lastDigits.map((d, i) => {
-        let color = '#555'; // Neutro
-        let glow = '';
+    // 1. Atualizar Cores Baseadas na Regra (Win/Loss)
+    for (let i = 0; i <= 9; i++) {
+        const el = document.getElementById(`dig_ball_${i}`);
+        if (!el) continue;
+        
+        // Reset básico
+        el.style.transform = 'scale(1)';
+        el.style.boxShadow = 'none';
+        el.style.borderColor = 'transparent';
+        el.style.color = '#fff';
+        
+        let isWinZone = false;
         
         if (mode === 'OVER_UNDER') {
-            // Se Over (assume Over padrão, mas se usuário clicou Under... precisamos saber a intenção. 
-            // Por padrão mostra Over Target)
-            if (d > targetDigit) { color = '#00ff41'; glow = 'box-shadow: 0 0 5px #00ff41;'; }
-            else { color = '#ff003c'; }
+            // Padrão visual: Over
+            // Se target = 5. Over 5 ganha em 6,7,8,9.
+            if (i > target) isWinZone = true;
         } else if (mode === 'MATCH_DIFFER') {
-             if (d === targetDigit) { color = '#00ff41'; glow = 'box-shadow: 0 0 10px #00ff41;'; } // Match é raro e verde
-             else { color = '#ff003c'; } // Differ é vermelho? Não, Differ ganha na diferença.
-             // Na verdade Differ ganha quase sempre (Verde), Match perde (Vermelho).
-             // Vamos simplificar: Azul neutro, Destaque no atual.
-             color = d === targetDigit ? '#00e5ff' : '#333';
+            // Se target = 5. Match ganha em 5.
+            if (i === target) isWinZone = true;
         } else {
-             // Even/Odd etc
-             color = d % 2 === 0 ? '#4caf50' : '#ff9800'; // Par Verde, Ímpar Laranja
+            // Outros modos, neutro ou Par/Impar
+            if (i % 2 === 0) isWinZone = true; // Exemplo
         }
         
-        // Destaque no último
-        const isLast = i === lastDigits.length - 1;
-        const scale = isLast ? 'transform: scale(1.3); border: 2px solid #fff;' : '';
+        // Cor do Fundo
+        if (isWinZone) {
+            el.style.background = 'rgba(0, 255, 65, 0.2)'; // Verde suave
+            el.style.color = '#00ff41';
+        } else {
+            el.style.background = 'rgba(255, 0, 60, 0.2)'; // Vermelho suave
+            el.style.color = '#ff003c';
+        }
         
-        return `
-            <div style="
-                width: 25px; height: 25px; 
-                border-radius: 50%; 
-                background: ${color}; 
-                color: white; 
-                font-weight: bold; 
-                display: flex; 
-                align-items: center; 
-                justify-content: center;
-                font-size: 0.8em;
-                ${glow} ${scale}
-            ">${d}</div>
-        `;
-    }).join('');
+        // 2. Destaque do Dígito ATUAL (O Anel de LED)
+        if (i === lastDigit) {
+            el.style.transform = 'scale(1.3)';
+            el.style.background = isWinZone ? '#00ff41' : '#ff003c';
+            el.style.color = '#000'; // Contraste
+            el.style.boxShadow = `0 0 15px ${isWinZone ? '#00ff41' : '#ff003c'}`;
+            el.style.borderColor = '#fff';
+            el.style.zIndex = '10';
+        }
+    }
 }
 
 // WebSocket (Igual ao backup)
