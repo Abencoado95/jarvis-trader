@@ -948,9 +948,102 @@ function initChart() {
         });
         
         console.log("✅ Chart OK");
+        
+        // --- INJEÇÃO DA UI VISUAL (DIGIT WORM & TABLE) ---
+        const tradeContainer = document.getElementById('tradeButtons')?.parentElement;
+        
+        if (tradeContainer) {
+            // 1. DIGIT VISUALIZER (Worm)
+            if (!document.getElementById('digitVisualizer')) {
+                const viz = document.createElement('div');
+                viz.id = 'digitVisualizer';
+                viz.style.cssText = "display: flex; gap: 5px; justify-content: center; margin: 15px 0; padding: 10px; background: rgba(0,0,0,0.5); border-radius: 8px;";
+                tradeContainer.insertBefore(viz, document.getElementById('tradeButtons'));
+            }
+            
+            // 2. POSITIONS TABLE CONTAINER
+            if (!document.getElementById('positionsTable')) {
+                const posDiv = document.createElement('div');
+                posDiv.style.cssText = "margin-top: 20px; border-top: 1px solid #333; padding-top: 10px;";
+                posDiv.innerHTML = `
+                    <h4 style="color: #ccc; margin-bottom: 10px;">POSIÇÕES ABERTAS</h4>
+                    <table id="positionsTable" style="width: 100%; text-align: left; font-size: 0.9em; border-collapse: collapse;">
+                        <thead style="color: #666; border-bottom: 1px solid #333;">
+                            <tr>
+                                <th style="padding: 5px;">HORA</th>
+                                <th style="padding: 5px;">TIPO</th>
+                                <th style="padding: 5px;">ENTRADA</th>
+                                <th style="padding: 5px;">LUCRO</th>
+                                <th style="padding: 5px;">AÇÃO</th>
+                            </tr>
+                        </thead>
+                        <tbody id="openPositionsBody">
+                            <!-- Injetado via JS -->
+                        </tbody>
+                    </table>
+                `;
+                tradeContainer.appendChild(posDiv);
+            }
+        }
+
     } catch (error) {
         console.error("❌ Chart error:", error);
     }
+}
+
+// --- VISUALIZADOR DE DÍGITOS (WORM) ---
+let lastDigits = [];
+function renderDigitWorm(digit) {
+    lastDigits.push(digit);
+    if (lastDigits.length > 15) lastDigits.shift(); // Manter últimos 15
+    
+    const container = document.getElementById('digitVisualizer');
+    if (!container) return;
+    
+    // Regra de Cores (Baseada no Modo Atual)
+    // Ex: Over 5 -> >5 Verde, <=5 Vermelho.
+    const targetDigit = parseInt(document.getElementById('digitSelect')?.value || 5);
+    const mode = currentMode; 
+    
+    container.innerHTML = lastDigits.map((d, i) => {
+        let color = '#555'; // Neutro
+        let glow = '';
+        
+        if (mode === 'OVER_UNDER') {
+            // Se Over (assume Over padrão, mas se usuário clicou Under... precisamos saber a intenção. 
+            // Por padrão mostra Over Target)
+            if (d > targetDigit) { color = '#00ff41'; glow = 'box-shadow: 0 0 5px #00ff41;'; }
+            else { color = '#ff003c'; }
+        } else if (mode === 'MATCH_DIFFER') {
+             if (d === targetDigit) { color = '#00ff41'; glow = 'box-shadow: 0 0 10px #00ff41;'; } // Match é raro e verde
+             else { color = '#ff003c'; } // Differ é vermelho? Não, Differ ganha na diferença.
+             // Na verdade Differ ganha quase sempre (Verde), Match perde (Vermelho).
+             // Vamos simplificar: Azul neutro, Destaque no atual.
+             color = d === targetDigit ? '#00e5ff' : '#333';
+        } else {
+             // Even/Odd etc
+             color = d % 2 === 0 ? '#4caf50' : '#ff9800'; // Par Verde, Ímpar Laranja
+        }
+        
+        // Destaque no último
+        const isLast = i === lastDigits.length - 1;
+        const scale = isLast ? 'transform: scale(1.3); border: 2px solid #fff;' : '';
+        
+        return `
+            <div style="
+                width: 25px; height: 25px; 
+                border-radius: 50%; 
+                background: ${color}; 
+                color: white; 
+                font-weight: bold; 
+                display: flex; 
+                align-items: center; 
+                justify-content: center;
+                font-size: 0.8em;
+                ${glow} ${scale}
+            ">${d}</div>
+        `;
+    }).join('');
 }
 
 // WebSocket (Igual ao backup)
@@ -994,6 +1087,7 @@ function connectWS() {
             
             // Subscribe to data
             ws.send(JSON.stringify({ balance: 1, subscribe: 1 }));
+            // Candles
             ws.send(JSON.stringify({ 
                 ticks_history: SYMBOL, 
                 adjust_start_time: 1, 
@@ -1003,9 +1097,29 @@ function connectWS() {
                 granularity: 60, 
                 subscribe: 1 
             }));
+            // TICKS REAIS (Para Digit Worm e precisão)
+            ws.send(JSON.stringify({ ticks: SYMBOL, subscribe: 1 }));
+            
             ws.send(JSON.stringify({ proposal_open_contract: 1, subscribe: 1 }));
         }
         
+        // --- TICK HANDLER (NOVO) ---
+        if (data.msg_type === 'tick') {
+            const price = data.tick.quote;
+            const time = data.tick.epoch;
+            
+            // Atualiza Digit Worm
+            const quoteStr = price.toFixed(data.tick.pip_size || 2); 
+            const lastDigit = parseInt(quoteStr.slice(-1));
+            if (!isNaN(lastDigit)) renderDigitWorm(lastDigit);
+
+            // Atualiza Gráfico (Tick a Tick)
+            if (series) series.update({ time: time, value: price });
+            
+            // Salva dígitos para estratégia local (Gemini Brain)
+            if (window.updateDigits) window.updateDigits(lastDigit); 
+        }
+
         if (data.msg_type === 'balance') {
             currentBalance = parseFloat(data.balance.balance);
             updateBalance(currentBalance);

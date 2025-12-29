@@ -37,8 +37,59 @@ class GeminiBrain {
             return this.analyzeDigitsLocal(tech, mode);
         }
         
+        // 1.1. ACUMULADORES (HFT de Tendência) -> ANÁLISE LOCAL
+        if (mode === 'ACCUMULATORS') {
+            const tech = this.calculateTechnicalIndicators(marketData);
+            return this.analyzeAccumulatorsLocal(tech);
+        }
+        
         // 2. PREÇO (Tendência) -> ANÁLISE GEMINI AI (Precisa de chave)
         return await this.analyzePriceWithAI(marketData, mode);
+    }
+    
+    // --- ESTRATÉGIA LOCAL: ACCUMULADORES ---
+    analyzeAccumulatorsLocal(tech) {
+        // Regra de Ouro Acumuladores: Volatilidade Baixa + Tendência Contínua
+        const candles = tech.lastCandles;
+        if (candles.length < 20) return { action: 'WAIT', confidence: 0, reason: 'Coletando dados...' };
+        
+        const lastClose = candles[candles.length - 1].close;
+        const emaFast = this.calculateEMA(candles, 9);
+        const emaSlow = this.calculateEMA(candles, 21);
+        
+        // Volatilidade (Range médio das últimas 5 velas)
+        const avgRange = candles.slice(-5).reduce((acc, c) => acc + (c.high - c.low), 0) / 5;
+        const currentRange = candles[candles.length-1].high - candles[candles.length-1].low;
+        
+        // Se a vela atual for muito explosiva (> 2x média), perigo de spike
+        const isVolatile = currentRange > (avgRange * 2.0);
+        
+        // Tendência de Alta
+        const isUptrend = emaFast > emaSlow && lastClose > emaFast;
+        
+        if (!isVolatile && isUptrend) {
+            return {
+                action: 'ACCU', // Ação interna
+                confidence: 90,
+                reason: 'Tendência Estável e Baixa Volatilidade (Ideal para Acumular)'
+            };
+        }
+        
+        return {
+            action: 'WAIT',
+            confidence: 0,
+            reason: isVolatile ? 'Volatilidade Alta (Perigo)' : 'Sem Tendência Definida'
+        };
+    }
+
+    calculateEMA(candles, period) {
+        // Implementação simplificada de EMA
+        const k = 2 / (period + 1);
+        let ema = candles[0].close;
+        for (let i = 1; i < candles.length; i++) {
+            ema = (candles[i].close * k) + (ema * (1 - k));
+        }
+        return ema;
     }
 
     // --- ESTRATÉGIAS DE DÍGITOS (ZERO LATENCY) ---
