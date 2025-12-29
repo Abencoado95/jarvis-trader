@@ -52,21 +52,21 @@ class GeminiBrain {
         let reason = 'Analisando fluxo de dígitos...';
 
         if (mode === 'OVER_UNDER') {
-            // ESTRATÉGIA DE SEGMENTAÇÃO (Conforme pedido)
-            // Espera sequência de dígitos BAIXOS (0,1,2,3,4) -> Entra OVER 5
-            const sequenceLow = digits.slice(-3).every(d => d < 5); // Últimos 3 foram < 5
-            const sequenceHigh = digits.slice(-3).every(d => d > 5); // Últimos 3 foram > 5
+            // ESTRATÉGIA MAIS AGRESSIVA (2 Seguidos)
+            // Espera sequência de 2 dígitos BAIXOS (0,1,2,3,4) -> Entra OVER 5
+            const sequenceLow = digits.slice(-2).every(d => d < 5); // Últimos 2 foram < 5
+            const sequenceHigh = digits.slice(-2).every(d => d > 5); // Últimos 2 foram > 5
             
             if (sequenceLow) {
                 action = 'OVER';
                 confidence = 85;
-                reason = `Padrão Detectado: 3 dígitos baixos seguidos (${digits.slice(-3).join(',')}) -> Probabilidade de OVER`;
+                reason = `Padrão Detectado: 2 dígitos baixos seguidos (${digits.slice(-2).join(',')}) -> Probabilidade de OVER`;
             } else if (sequenceHigh) {
-                action = 'UNDER'; // Opcional: Contra-tendência ou segue fluxo
+                action = 'UNDER'; 
                 confidence = 75;
-                reason = `Padrão Detectado: 3 dígitos altos seguidos (${digits.slice(-3).join(',')}) -> Probabilidade de UNDER`;
+                reason = `Padrão Detectado: 2 dígitos altos seguidos (${digits.slice(-2).join(',')}) -> Probabilidade de UNDER`;
             } else {
-                reason = `Aguardando padrão... Últimos: [${digits.slice(-5).join(', ')}]`;
+                reason = `Aguardando padrão (2 seguidos)... Últimos: [${digits.slice(-5).join(', ')}]`;
             }
         
         } else if (mode === 'MATCH_DIFFER') {
