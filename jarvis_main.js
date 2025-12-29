@@ -687,10 +687,11 @@ async function analyzeMarket(silent = false) {
                 subtext.style.color = 'var(--neon-green)';
             }
             
-            if (analysis.confidence > 60) {
-                document.querySelectorAll('.btn-trade').forEach(btn => btn.disabled = false);
-                alert(`✅ Análise OK!\n\nAção: ${analysis.action}\nConfiança: ${analysis.confidence}%`);
-            }
+            // Sempre habilitar botões após análise
+            document.querySelectorAll('.btn-trade').forEach(btn => btn.disabled = false);
+            
+            // Log da análise no console (sem popup)
+            console.log(`📊 Análise: ${analysis.action} | Confiança: ${analysis.confidence}% | ${analysis.reason}`);
         }
         
         return analysis;
@@ -735,17 +736,19 @@ function placeTrade(direction, isAuto = false) {
         return;
     }
     
+    console.log(`📤 Solicitando proposta: ${direction} | $${stake}`);
+    
+    // Primeiro solicita a proposta
     ws.send(JSON.stringify({
-        buy: "1",
-        price: stake,
-        parameters: params
+        proposal: 1,
+        ...params
     }));
     
-    console.log(`📤 Trade: ${direction} | $${stake} | Barrier: ${params.barrier || 'N/A'}`);
+    // A compra será feita quando receber a resposta da proposta
+    // (já está implementado no handler do WebSocket)
     
     if (!isAuto) {
-        // Only alert if manual
-        // alert(`✅ Trade ${direction} enviado!\nStake: $${stake}`);
+        console.log(`✅ Trade ${direction} solicitado`);
     }
 }
 
