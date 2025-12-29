@@ -207,9 +207,23 @@ function selectMode(mode) {
 
 function changeMode(mode) {
     currentMode = mode;
+    
+    // Update UI Buttons
     document.querySelectorAll('.mode-btn').forEach(btn => btn.classList.remove('active'));
-    event.target.classList.add('active');
+    
+    // Tenta achar o botão pelo modo (se event não existir)
+    // Mapeamento Modo -> ID Botão (se necessário) ou texto
+    // Simples: removemos active de todos e adicionamos ao clicado SE houver evento
+    if (typeof event !== 'undefined' && event.target) {
+        event.target.classList.add('active');
+    } else {
+        // Fallback: Acha o botão pelo onclick
+        const btn = Array.from(document.querySelectorAll('.mode-btn')).find(b => b.getAttribute('onclick').includes(mode));
+        if (btn) btn.classList.add('active');
+    }
+
     updateTradeButtons();
+    saveConfig(); // Persiste a escolha
     console.log("🔄 Modo alterado para:", mode);
 }
 
@@ -677,6 +691,13 @@ function buildContractParams(action, stake, duration) {
 // Init Platform
 function initTradingPlatform() {
     console.log("🚀 Initializing...");
+    
+    // 1. CarregarConfigs
+    loadConfig();
+    
+    // 2. Setup Auto-Save
+    setupConfigSavers();
+
     updateTradeButtons();
     
     setTimeout(() => {
@@ -700,6 +721,64 @@ function initTradingPlatform() {
             geminiBrain = new GeminiBrain();
         }
     }, 200);
+}
+
+// --- SISTEMA DE CACHE DE CONFIGURAÇÕES ---
+function saveConfig() {
+    const config = {
+        mode: currentMode,
+        stake: document.getElementById('stakeInput')?.value || "1.00",
+        digit: document.getElementById('digitSelect')?.value || "5",
+        duration: document.getElementById('durationSelect')?.value || "1",
+        tp: document.getElementById('takeProfitInput')?.value || "",
+        sl: document.getElementById('stopLossInput')?.value || ""
+    };
+    localStorage.setItem('jarvis_user_config', JSON.stringify(config));
+}
+
+function loadConfig() {
+    const saved = localStorage.getItem('jarvis_user_config');
+    if (saved) {
+        try {
+            const config = JSON.parse(saved);
+            
+            // Restaurar Modo
+            if (config.mode && config.mode !== currentMode) changeMode(config.mode);
+            
+            // Restaurar Inputs
+            if (config.stake && document.getElementById('stakeInput')) 
+                document.getElementById('stakeInput').value = config.stake;
+                
+            if (config.digit && document.getElementById('digitSelect')) 
+                document.getElementById('digitSelect').value = config.digit;
+                
+            if (config.duration && document.getElementById('durationSelect')) 
+                document.getElementById('durationSelect').value = config.duration;
+                
+            if (config.tp && document.getElementById('takeProfitInput')) 
+                document.getElementById('takeProfitInput').value = config.tp;
+                
+            if (config.sl && document.getElementById('stopLossInput')) 
+                document.getElementById('stopLossInput').value = config.sl;
+                
+            console.log("📂 Configurações carregadas.");
+        } catch (e) { console.error(e); }
+    }
+}
+
+function setupConfigSavers() {
+    const inputs = [
+        'stakeInput', 'digitSelect', 'durationSelect', 
+        'takeProfitInput', 'stopLossInput'
+    ];
+    
+    inputs.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.addEventListener('change', saveConfig);
+            el.addEventListener('input', saveConfig); 
+        }
+    });
 }
 
 // Chart
