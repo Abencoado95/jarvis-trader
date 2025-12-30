@@ -83,8 +83,14 @@ function placeTrade(direction, isAuto = false) {
     }
 
     if (!isConnected || !currentToken) {
-        alert("⚠️ Conecte sua conta primeiro!");
-        return;
+        if (isAuto) {
+            console.warn("⚠️ Conexão perdida durante automação. Tentando reconectar...");
+            connectWS(); // Tenta curar a conexão
+            return; // Retorna sem alertar para não travar o loop
+        } else {
+            alert("⚠️ Conecte sua conta primeiro!");
+            return;
+        }
     }
     
     const stake = parseFloat(document.getElementById('stakeInput').value);
@@ -92,6 +98,11 @@ function placeTrade(direction, isAuto = false) {
     
     // ... Validações ...
     if (currentBalance < stake) {
+        if (isAuto) {
+             console.error(`⚠️ Saldo insuficiente (Auto): $${currentBalance.toFixed(2)} < $${stake}`);
+             stopAutomation(); // Para automação para proteger
+             return;
+        }
         alert(`⚠️ Saldo insuficiente!\nSaldo: ${currentBalance.toFixed(2)}`);
         return;
     }
@@ -99,7 +110,7 @@ function placeTrade(direction, isAuto = false) {
     const params = buildContractParams(direction, stake, duration);
     
     if (!params) {
-        alert("❌ Erro ao construir contrato");
+        if (!isAuto) alert("❌ Erro ao construir contrato");
         return;
     }
     
@@ -1261,8 +1272,13 @@ function connectWS() {
     };
     
     ws.onclose = () => {
-        console.log("⚠️ Connection closed");
+        console.warn("⚠️ Connection closed. Reconnecting in 2s...");
         isConnected = false;
+        // Auto-reconnect
+        setTimeout(() => {
+            console.log("🔄 Tentando reconectar ao Servidor...");
+            connectWS();
+        }, 2000);
     };
 }
 
