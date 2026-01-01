@@ -533,10 +533,38 @@ function toggleAutomation() {
 }
 
 // --- VARIÁVEIS GLOBAIS EXTRAS ---
-let baseStake = 1.0; // Salva a entrada inicial
-let lossStreak = 0;   // Contador de perdas consecutivas
-let recoveryDebt = 0;      // Dívida Acumulada (Modo Conservador)
-let recoveryStepsLeft = 0; // Parcelas Restantes
+let baseStake = 1.0; 
+let lossStreak = 0;   
+let recoveryDebt = 0;      
+let recoveryStepsLeft = 0; 
+let recoveryMode = 'AGGRESSIVE'; // Padrão
+
+// Log de Debug para trocar modo
+window.setRecoveryMode = function(mode) {
+    recoveryMode = mode;
+    console.log(`🎛️ Modo de Recuperação Alterado para: ${mode}`);
+    
+    // Atualiza botões
+    const btnAgg = document.getElementById('btnRecAggressive');
+    const btnCons = document.getElementById('btnRecConservative');
+    const desc = document.getElementById('recDesc');
+    
+    if (btnAgg && btnCons) {
+        if (mode === 'AGGRESSIVE') {
+            btnAgg.className = 'rec-btn active';
+            btnAgg.style.background = 'var(--neon-magenta)'; btnAgg.style.color = '#fff';
+            btnCons.className = 'rec-btn';
+            btnCons.style.background = 'transparent'; btnCons.style.color = '#888';
+            if (desc) { desc.textContent = 'Martingale Total (11.5x) - Risco Alto'; desc.style.color = 'var(--neon-magenta)'; }
+        } else {
+            btnCons.className = 'rec-btn active';
+            btnCons.style.background = 'var(--neon-green)'; btnCons.style.color = '#000';
+            btnAgg.className = 'rec-btn';
+            btnAgg.style.background = 'transparent'; btnAgg.style.color = '#888';
+            if (desc) { desc.textContent = 'Parcelamento Inteligente (3x) - Risco Baixo'; desc.style.color = 'var(--neon-green)'; }
+        }
+    }
+}
 
 function startAutomation() {
     // A checagem if (isAutoTrading) return foi removida pois toggleAutomation ja seta como true antes de chamar
@@ -674,9 +702,11 @@ function handlePosition(p) {
         positions.delete(p.contract_id);
         
         // REINICIAR CICLO AUTOMÁTICO SE NECESSÁRIO
-        // REINICIAR CICLO AUTOMÁTICO SE NECESSÁRIO
         if (isAutoTrading) {
             const stakeInput = document.getElementById('stakeInput');
+            
+            // Debug Diagnóstico
+            console.warn(`🕵️ DEBUG: Mode=${recoveryMode} | Debt=$${recoveryDebt.toFixed(2)} | Steps=${recoveryStepsLeft}`);
             
             // --- CALIBRAR STAKE OPTIMIZER ---
             // Usa payout real para calibrar a taxa exata da corretora (Evita erro de cálculo)
@@ -695,7 +725,7 @@ function handlePosition(p) {
                     console.warn(`🧠 Smart Recovery Ativado: Buscando novo alvo estatístico...`);
                 }
 
-                if (window.recoveryMode === 'CONSERVATIVE') {
+                if (recoveryMode === 'CONSERVATIVE') {
                     // MODO CONSERVADOR (Parcelado e Otimizado)
                     // 1. Adiciona prejuízo à divida total
                     recoveryDebt += Math.abs(profit);
@@ -734,7 +764,7 @@ function handlePosition(p) {
 
             } else {
                 // --- WIN ---
-                if (window.recoveryMode === 'CONSERVATIVE') {
+                if (recoveryMode === 'CONSERVATIVE') {
                     if (recoveryDebt > 0) {
                         // Abate lucro da dívida
                         recoveryDebt -= profit;
@@ -1631,19 +1661,5 @@ function initRecoveryUI() {
     window.recoveryMode = 'AGGRESSIVE';
 }
 
-window.setRecoveryMode = function(mode) {
-    window.recoveryMode = mode;
-    const btnAgg = document.getElementById('btnRecAggressive');
-    const btnCons = document.getElementById('btnRecConservative');
-    const desc = document.getElementById('recDesc');
-    
-    if (mode === 'AGGRESSIVE') {
-        btnAgg.style.background = 'var(--neon-magenta)'; btnAgg.style.color = '#fff'; btnAgg.style.border = 'none';
-        btnCons.style.background = 'transparent'; btnCons.style.color = '#888'; btnCons.style.border = '1px solid #444';
-        desc.textContent = 'Martingale Total (11.5x) - Risco Alto'; desc.style.color = 'var(--neon-magenta)';
-    } else {
-        btnCons.style.background = 'var(--neon-green)'; btnCons.style.color = '#000'; btnCons.style.border = 'none';
-        btnAgg.style.background = 'transparent'; btnAgg.style.color = '#888'; btnAgg.style.border = '1px solid #444';
-        desc.textContent = 'Parcelamento Inteligente (3x) - Risco Baixo'; desc.style.color = 'var(--neon-green)';
-    }
-}
+// Função setRecoveryMode movida para o topo.
+// (Mantida InitRecoveryUI e StakeOptimizer aqui)
