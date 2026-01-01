@@ -535,6 +535,8 @@ function toggleAutomation() {
 // --- VARIÁVEIS GLOBAIS EXTRAS ---
 let baseStake = 1.0; // Salva a entrada inicial
 let lossStreak = 0;   // Contador de perdas consecutivas
+let recoveryDebt = 0;      // Dívida Acumulada (Modo Conservador)
+let recoveryStepsLeft = 0; // Parcelas Restantes
 
 function startAutomation() {
     // A checagem if (isAutoTrading) return foi removida pois toggleAutomation ja seta como true antes de chamar
@@ -672,43 +674,98 @@ function handlePosition(p) {
         positions.delete(p.contract_id);
         
         // REINICIAR CICLO AUTOMÁTICO SE NECESSÁRIO
+        // REINICIAR CICLO AUTOMÁTICO SE NECESSÁRIO
         if (isAutoTrading) {
+            const stakeInput = document.getElementById('stakeInput');
+            
+            // --- CALIBRAR STAKE OPTIMIZER ---
+            // Usa payout real para calibrar a taxa exata da corretora (Evita erro de cálculo)
+            if (p.payout && p.buy_price) {
+                const rate = (p.payout - p.buy_price) / p.buy_price; 
+                if (window.stakeOptimizer) window.stakeOptimizer.calibrate(rate);
+            }
+
             if (profit < 0) {
-                // --- LOGICA DE MARTINGALE ---
+                // --- LOSS ---
                 lossStreak++;
                 
-                const stakeInput = document.getElementById('stakeInput');
-                let currentStake = parseFloat(stakeInput.value);
-                
-                // Multiplicador agressivo para Differ (baixa prob de perda, alto custo de recuperação)
-                let multiplier = 2.4; // Padrão
+                // Smart Recovery Trigger (Differ)
                 if (currentMode === 'MATCH_DIFFER') {
-                    multiplier = 11.5; // Differ paga ~9-10%. Precisa de ~11x para cobrir.
-                    
-                    // ATIVAR RECUPERAÇÃO INTELIGENTE (Trocar dígito)
                     window.needsSmartRecovery = true; 
-                    console.warn(`⚠️ DIFFER LOSS DETECTED. Ativando Troca Inteligente de Dígito.`);
+                    console.warn(`🧠 Smart Recovery Ativado: Buscando novo alvo estatístico...`);
                 }
-                
-                const newStake = (currentStake * multiplier).toFixed(2);
-                
-                // Trava de Segurança (Max Stake)
-                if (newStake > 50.00 && currentMode === 'MATCH_DIFFER') {
-                    console.error("🛑 Martingale excedeu limite de segurança ($50). Resetando.");
-                    stakeInput.value = baseStake.toFixed(2);
-                    lossStreak = 0;
+
+                if (window.recoveryMode === 'CONSERVATIVE') {
+                    // MODO CONSERVADOR (Parcelado e Otimizado)
+                    // 1. Adiciona prejuízo à divida total
+                    recoveryDebt += Math.abs(profit);
+                    
+                    // 2. Se é o primeiro loss da sequência, define parcelamento em 3x
+                    if (recoveryStepsLeft <= 0) recoveryStepsLeft = 3;
+                    
+                    // 3. Calcula quanto precisamos lucrar NESTE trade para pagar 1/3 da dívida
+                    // Dividimos a dívida restante pelas parcelas restantes
+                    const targetPerStep = recoveryDebt / Math.max(1, recoveryStepsLeft);
+                    
+                    // 4. Pergunta ao Otimizador: Qual a stake MÍNIMA para ganhar isso?
+                    const optimizedStake = window.stakeOptimizer.getOptimalStake(targetPerStep);
+                    
+                    console.log(`🛡️ CONSERVADOR: Dívida $${recoveryDebt.toFixed(2)} | Meta Parc.: $${targetPerStep.toFixed(2)} | Stake Otimizada: $${optimizedStake}`);
+                    stakeInput.value = optimizedStake;
+
                 } else {
-                    console.log(`🔄 Martingale: Stake aumentado para $${newStake} (x${multiplier})`);
-                    stakeInput.value = newStake;
+                    // MODO AGRESSIVO (Original - 11.5x All In)
+                    let currentStake = parseFloat(stakeInput.value);
+                    let multiplier = 2.4; 
+                    if (currentMode === 'MATCH_DIFFER') multiplier = 11.5; 
+                    
+                    const newStake = (currentStake * multiplier).toFixed(2);
+                    
+                    // Trava de Segurança Global ($100)
+                    if (newStake > 100.00) {
+                        console.error("🛑 Martingale Agressivo excedeu limite ($100). Resetando por segurança.");
+                        stakeInput.value = baseStake.toFixed(2);
+                        lossStreak = 0;
+                    } else {
+                        console.log(`� AGRESSIVO: Martingale ${multiplier}x -> Stake $${newStake}`);
+                        stakeInput.value = newStake;
+                    }
                 }
 
             } else {
-                // WIN - RESET
-                if (lossStreak > 0) {
-                    console.log("✅ Recuperação Concluída. Resetando Stake.");
-                    const stakeInput = document.getElementById('stakeInput');
-                    stakeInput.value = baseStake.toFixed(2);
-                    lossStreak = 0;
+                // --- WIN ---
+                if (window.recoveryMode === 'CONSERVATIVE') {
+                    if (recoveryDebt > 0) {
+                        // Abate lucro da dívida
+                        recoveryDebt -= profit;
+                        recoveryStepsLeft--; // Uma parcela paga!
+                        
+                        // Margem de erro de $0.05 para considerar pago
+                        if (recoveryDebt <= 0.05 || recoveryStepsLeft <= 0) { 
+                            console.log("✅ Dívida CONSERVADORA Paga! Resetando para Base Stake.");
+                            recoveryDebt = 0;
+                            recoveryStepsLeft = 0;
+                            stakeInput.value = baseStake.toFixed(2);
+                            lossStreak = 0;
+                        } else {
+                            // Continua pagando restante
+                            const targetPerStep = recoveryDebt / Math.max(1, recoveryStepsLeft);
+                            const optimizedStake = window.stakeOptimizer.getOptimalStake(targetPerStep);
+                            console.log(`🛡️ Pagando Dívida... Resta: $${recoveryDebt.toFixed(2)} (${recoveryStepsLeft}x) -> Próx Stake: $${optimizedStake}`);
+                            stakeInput.value = optimizedStake;
+                        }
+                    } else {
+                        // Lucro puro (sem dívida)
+                        stakeInput.value = baseStake.toFixed(2);
+                        lossStreak = 0;
+                    }
+                } else {
+                    // AGRESSIVO (Win = Reset Total)
+                    if (lossStreak > 0) {
+                        console.log("✅ Recuperação AGRESSIVA Concluída. Resetando.");
+                        stakeInput.value = baseStake.toFixed(2);
+                        lossStreak = 0;
+                    }
                 }
             }
         }
@@ -1507,5 +1564,86 @@ window.addEventListener('DOMContentLoaded', () => {
     // Check for OAuth callback or saved accounts immediately
     setTimeout(() => {
         checkAuthAndInit();
+        // Injetar UI de Recuperação
+        initRecoveryUI();
     }, 500);
 });
+
+// --- STAKE OPTIMIZER & RECOVERY SYSTEM ---
+class StakeOptimizer {
+    constructor() {
+        this.basePayoutRate = null; // Ex: 0.098 (9.8%)
+        console.log("📐 StakeOptimizer Initialized");
+    }
+    
+    // Calibra usando a última taxa conhecida (vinda de proposal)
+    calibrate(rate) {
+        if (rate > 0) {
+            this.basePayoutRate = rate;
+            // console.log(`📐 Calibrado com taxa externa: ${(rate*100).toFixed(2)}%`);
+        }
+    }
+    
+    // Calcula a stake PERFEITA evitar "Ponto Cego"
+    getOptimalStake(targetProfit) {
+        // Fallback default ~9% (Differ)
+        const rate = this.basePayoutRate || 0.09; 
+        
+        // Stake = Profit / Rate.
+        let rawStake = targetProfit / rate;
+        
+        // Arredonda para cima (Safety)
+        let candidate = Math.ceil(rawStake * 100) / 100;
+        
+        // Se a stake calculada for muito baixa, respeita o mínimo da Deriv
+        if (candidate < 0.35) candidate = 0.35;
+        
+        return candidate.toFixed(2);
+    }
+}
+window.stakeOptimizer = new StakeOptimizer();
+
+// UI Injection logic
+function initRecoveryUI() {
+    if (document.getElementById('recoveryModeContainer')) return;
+    const stakeInput = document.getElementById('stakeInput');
+    if (!stakeInput) return;
+    
+    const container = stakeInput.closest('.input-group') || stakeInput.parentElement;
+    if (!container) return;
+    
+    const div = document.createElement('div');
+    div.id = 'recoveryModeContainer';
+    div.style.marginTop = '10px';
+    div.innerHTML = `
+        <div style="background:rgba(0,0,0,0.4); padding:8px; border-radius:8px; border:1px solid #333;">
+            <label style="font-size:0.7em; color:#888; display:block; margin-bottom:4px;">MODO DE RECUPERAÇÃO</label>
+            <div style="display:flex; gap:5px;">
+                <button id="btnRecAggressive" onclick="window.setRecoveryMode('AGGRESSIVE')" class="rec-btn active" style="flex:1; padding:6px; background:var(--neon-magenta); border:none; color:white; border-radius:4px; font-weight:bold; cursor:pointer; font-size:0.8em; transition:all 0.2s;">AGRESSIVA 🚀</button>
+                <button id="btnRecConservative" onclick="window.setRecoveryMode('CONSERVATIVE')" class="rec-btn" style="flex:1; padding:6px; background:transparent; border:1px solid #444; color:#888; border-radius:4px; font-weight:bold; cursor:pointer; font-size:0.8em; transition:all 0.2s;">CONSERVADORA 🛡️</button>
+            </div>
+            <div id="recDesc" style="font-size:0.7em; color:var(--neon-magenta); margin-top:4px; text-align:center;">Martingale Total (11.5x)</div>
+        </div>
+    `;
+    container.parentNode.insertBefore(div, container.nextSibling);
+    
+    // Initialize state
+    window.recoveryMode = 'AGGRESSIVE';
+}
+
+window.setRecoveryMode = function(mode) {
+    window.recoveryMode = mode;
+    const btnAgg = document.getElementById('btnRecAggressive');
+    const btnCons = document.getElementById('btnRecConservative');
+    const desc = document.getElementById('recDesc');
+    
+    if (mode === 'AGGRESSIVE') {
+        btnAgg.style.background = 'var(--neon-magenta)'; btnAgg.style.color = '#fff'; btnAgg.style.border = 'none';
+        btnCons.style.background = 'transparent'; btnCons.style.color = '#888'; btnCons.style.border = '1px solid #444';
+        desc.textContent = 'Martingale Total (11.5x) - Risco Alto'; desc.style.color = 'var(--neon-magenta)';
+    } else {
+        btnCons.style.background = 'var(--neon-green)'; btnCons.style.color = '#000'; btnCons.style.border = 'none';
+        btnAgg.style.background = 'transparent'; btnAgg.style.color = '#888'; btnAgg.style.border = '1px solid #444';
+        desc.textContent = 'Parcelamento Inteligente (3x) - Risco Baixo'; desc.style.color = 'var(--neon-green)';
+    }
+}

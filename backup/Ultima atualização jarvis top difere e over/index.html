@@ -1,0 +1,870 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <title>JARVIS TRADER - PLATAFORMA PROFISSIONAL V3.0</title>
+    <link rel="icon" type="image/jpeg" href="JARVIS ROSTO.jpg">
+    
+    <!-- FONTS -->
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- LIBRARIES -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+    <script src="https://unpkg.com/lightweight-charts@3.8.0/dist/lightweight-charts.standalone.production.js"></script>
+    
+    <!-- FIREBASE -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+    
+    <!-- GEMINI BRAIN V3.0 -->
+    <script src="gemini_brain.js"></script>
+    
+    <style>
+        :root {
+            --bg-deep: #020408;
+            --bg-navy: #0b1629;
+            --neon-cyan: #00f3ff;
+            --neon-green: #00ff41;
+            --neon-gold: #ffd700;
+            --neon-red: #ff003c;
+            --neon-magenta: #bc13fe;
+            --font-display: 'Orbitron', monospace;
+            --font-ui: 'Rajdhani', sans-serif;
+            --glass-bg: rgba(11, 18, 33, 0.7);
+            --glass-border: rgba(0, 243, 255, 0.15);
+            --glow-cyan: 0 0 20px rgba(0, 243, 255, 0.4);
+        }
+        
+        * { margin: 0; padding: 0; box-sizing: border-box; outline: none; }
+        
+        body {
+            font-family: var(--font-ui);
+            background: radial-gradient(circle at 50% 50%, var(--bg-navy) 0%, var(--bg-deep) 100%);
+            color: #e0e6ed;
+            overflow: hidden;
+            width: 100vw;
+            height: 100vh;
+        }
+        
+        /* VIEW MANAGER */
+        .view { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; }
+        .view.active { display: flex; animation: fadeIn 0.4s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        
+        /* LOGIN */
+        #view-login {
+            background: radial-gradient(circle at 50% 50%, #0b1629 0%, #020408 100%);
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .login-container {
+            text-align: center;
+            padding: 60px 40px;
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 8px;
+            backdrop-filter: blur(20px);
+            box-shadow: 0 0 50px rgba(0, 243, 255, 0.1);
+            max-width: 450px;
+            width: 90%;
+        }
+        
+        .login-avatar {
+            width: 140px;
+            height: 140px;
+            border-radius: 50%;
+            border: 3px solid var(--neon-cyan);
+            box-shadow: var(--glow-cyan);
+            margin: 0 auto 30px;
+            object-fit: cover;
+        }
+        
+        .login-title {
+            font-family: var(--font-display);
+            font-size: 3rem;
+            color: var(--neon-cyan);
+            text-shadow: var(--glow-cyan);
+            margin-bottom: 10px;
+            letter-spacing: 4px;
+        }
+        
+        .login-subtitle {
+            color: #8899a6;
+            font-size: 0.9rem;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            margin-bottom: 40px;
+        }
+        
+        .login-input {
+            width: 100%;
+            padding: 15px 20px;
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+            color: white;
+            font-family: var(--font-ui);
+            font-size: 1rem;
+            margin-bottom: 15px;
+            transition: 0.3s;
+        }
+        
+        .login-input:focus {
+            border-color: var(--neon-cyan);
+            box-shadow: 0 0 15px rgba(0, 243, 255, 0.2);
+        }
+        
+        .login-btn {
+            width: 100%;
+            padding: 15px;
+            background: transparent;
+            border: 2px solid var(--neon-cyan);
+            color: var(--neon-cyan);
+            font-family: var(--font-display);
+            font-size: 1.1rem;
+            font-weight: 700;
+            letter-spacing: 3px;
+            cursor: pointer;
+            transition: 0.3s;
+            text-transform: uppercase;
+            margin-bottom: 10px;
+        }
+        
+        .login-btn:hover {
+            background: var(--neon-cyan);
+            color: #000;
+            box-shadow: var(--glow-cyan);
+        }
+        
+        .login-btn-secondary {
+            background: transparent;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #8899a6;
+            font-size: 0.9rem;
+        }
+        
+        .login-message {
+            margin-top: 20px;
+            font-size: 0.85rem;
+            color: var(--neon-red);
+            min-height: 20px;
+        }
+        
+        /* DASHBOARD */
+        #view-dashboard {
+            background: radial-gradient(circle at 50% 50%, #050a14 0%, #000 100%);
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 40px;
+        }
+        
+        .dashboard-header {
+            text-align: center;
+            margin-bottom: 60px;
+        }
+        
+        .dashboard-title {
+            font-family: var(--font-display);
+            font-size: 2.5rem;
+            color: var(--neon-cyan);
+            text-shadow: var(--glow-cyan);
+            letter-spacing: 6px;
+            margin-bottom: 10px;
+        }
+        
+        .mode-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 30px;
+            max-width: 1200px;
+            width: 100%;
+        }
+        
+        .mode-card {
+            background: linear-gradient(180deg, rgba(0, 243, 255, 0.05) 0%, rgba(0, 0, 0, 0.5) 100%);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            padding: 40px 30px;
+            cursor: pointer;
+            transition: 0.3s;
+            text-align: center;
+        }
+        
+        .mode-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 0 40px rgba(0, 243, 255, 0.3);
+            border-color: var(--neon-cyan);
+        }
+        
+        .mode-icon { font-size: 4rem; margin-bottom: 20px; }
+        .mode-title { font-family: var(--font-display); font-size: 1.5rem; color: white; margin-bottom: 10px; letter-spacing: 2px; }
+        
+        /* TRADING PLATFORM */
+        #view-platform {
+            display: grid;
+            grid-template-columns: 320px 1fr 320px;
+            grid-template-rows: 100vh;
+            background: var(--bg-deep);
+        }
+        
+        .sidebar-left, .sidebar-right {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        .sidebar-left { border-right: 1px solid var(--glass-border); }
+        .sidebar-right { border-left: 1px solid var(--glass-border); }
+        
+        .brand-logo {
+            font-family: var(--font-display);
+            font-size: 2rem;
+            color: var(--neon-cyan);
+            text-align: center;
+            padding-bottom: 15px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            margin-bottom: 10px;
+            text-shadow: var(--glow-cyan);
+            letter-spacing: 4px;
+        }
+        
+        /* ACCOUNT SWITCHER */
+        .account-switcher {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .account-btn {
+            flex: 1;
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #8899a6;
+            font-family: var(--font-ui);
+            font-size: 0.85rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: 0.3s;
+            text-align: center;
+        }
+        
+        .account-btn.active {
+            background: rgba(0, 243, 255, 0.1);
+            border-color: var(--neon-cyan);
+            color: var(--neon-cyan);
+            box-shadow: 0 0 15px rgba(0, 243, 255, 0.2);
+        }
+        
+        .account-btn.demo.active {
+            border-color: var(--neon-gold);
+            color: var(--neon-gold);
+            background: rgba(255, 215, 0, 0.1);
+        }
+        
+        .account-btn.real.active {
+            border-color: var(--neon-green);
+            color: var(--neon-green);
+            background: rgba(0, 255, 65, 0.1);
+        }
+        
+        .mode-selector {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+        
+        .mode-btn {
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #8899a6;
+            font-family: var(--font-ui);
+            font-size: 0.85rem;
+            font-weight: 700;
+            letter-spacing: 1px;
+            cursor: pointer;
+            transition: 0.3s;
+            text-align: center;
+        }
+        
+        .mode-btn:hover {
+            border-color: var(--neon-cyan);
+            color: var(--neon-cyan);
+        }
+        
+        .mode-btn.active {
+            background: rgba(0, 243, 255, 0.1);
+            border-color: var(--neon-cyan);
+            color: var(--neon-cyan);
+            box-shadow: 0 0 15px rgba(0, 243, 255, 0.2);
+        }
+        
+        .config-group {
+            background: rgba(255, 255, 255, 0.02);
+            padding: 15px;
+            border-radius: 4px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        
+        .config-label {
+            font-size: 0.75rem;
+            color: #5f7e97;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+            display: block;
+            font-weight: 700;
+        }
+        
+        .config-input {
+            width: 100%;
+            padding: 10px;
+            background: #080c14;
+            border: 1px solid #2a3b55;
+            border-radius: 2px;
+            color: white;
+            font-family: var(--font-ui);
+            font-size: 1.1rem;
+            font-weight: 700;
+            text-align: center;
+        }
+        
+        /* AUTOMATION TOGGLE */
+        .automation-panel {
+            background: linear-gradient(135deg, rgba(188, 19, 254, 0.1) 0%, rgba(0, 0, 0, 0.3) 100%);
+            border: 1px solid var(--neon-magenta);
+            padding: 15px;
+            border-radius: 4px;
+            text-align: center;
+        }
+        
+        .automation-status {
+            font-size: 0.75rem;
+            color: var(--neon-magenta);
+            letter-spacing: 2px;
+            margin-bottom: 10px;
+        }
+        
+        .automation-btn {
+            width: 100%;
+            padding: 15px;
+            background: transparent;
+            border: 2px solid var(--neon-magenta);
+            color: var(--neon-magenta);
+            font-family: var(--font-display);
+            font-size: 1rem;
+            font-weight: 700;
+            letter-spacing: 2px;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+        
+        .automation-btn:hover {
+            background: rgba(188, 19, 254, 0.2);
+            box-shadow: 0 0 20px rgba(188, 19, 254, 0.4);
+        }
+        
+        .automation-btn.active {
+            background: var(--neon-magenta);
+            color: #000;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { box-shadow: 0 0 20px rgba(188, 19, 254, 0.4); }
+            50% { box-shadow: 0 0 40px rgba(188, 19, 254, 0.8); }
+        }
+        
+        /* MAIN STAGE */
+        .main-stage {
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        .chart-container {
+            height: 450px;
+            background: #050a14;
+            border: 1px solid #1a2639;
+            border-radius: 4px;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        #tvChart {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+        
+        /* JARVIS ANIMATION */
+        .jarvis-container {
+            position: absolute;
+            top: 50%;
+            left: 20px;
+            transform: translateY(-50%);
+            width: 400px;
+            height: 400px;
+            z-index: 0;
+            pointer-events: none;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .jarvis-img {
+            width: 400px;
+            height: 400px;
+            object-fit: cover;
+            border-radius: 50%;
+            opacity: 0.6;
+            -webkit-mask-image: radial-gradient(closest-side, rgba(0,0,0,1) 60%, rgba(0,0,0,0) 100%);
+            mask-image: radial-gradient(closest-side, rgba(0,0,0,1) 60%, rgba(0,0,0,0) 100%);
+        }
+        
+        .energy-wave {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 400px;
+            height: 400px;
+            border-radius: 50%;
+            z-index: -1;
+        }
+        
+        .energy-wave::before, .energy-wave::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            border-radius: 50%;
+            border: 3px solid rgba(0, 243, 255, 0.6);
+            background: transparent;
+            width: 100%;
+            height: 100%;
+            animation: shockwave 2s infinite ease-out;
+        }
+        
+        .energy-wave::after {
+            animation-delay: 1s;
+        }
+        
+        @keyframes shockwave {
+            0% { width: 100%; height: 100%; opacity: 0.9; }
+            100% { width: 130%; height: 130%; opacity: 0; }
+        }
+        
+        .btn-analyze {
+            width: 100%;
+            padding: 20px;
+            background: linear-gradient(90deg, rgba(0,0,0,0.8), rgba(0, 243, 255, 0.1), rgba(0,0,0,0.8));
+            border: 1px solid var(--neon-cyan);
+            color: var(--neon-cyan);
+            font-family: var(--font-display);
+            font-size: 1.5rem;
+            font-weight: 900;
+            letter-spacing: 4px;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+        
+        .btn-analyze:hover {
+            background: rgba(0, 243, 255, 0.15);
+            box-shadow: var(--glow-cyan);
+        }
+        
+        .btn-analyze:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .action-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        
+        .btn-trade {
+            padding: 20px;
+            font-size: 1.5rem;
+            font-weight: 900;
+            font-family: var(--font-display);
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: 0.3s;
+            letter-spacing: 2px;
+        }
+        
+        .btn-call {
+            background: linear-gradient(180deg, #00ff85, #004d26);
+            color: white;
+        }
+        
+        .btn-put {
+            background: linear-gradient(180deg, #ff3b6a, #5e0018);
+            color: white;
+        }
+        
+        .btn-over {
+            background: linear-gradient(180deg, #00f3ff, #004d5a);
+            color: white;
+        }
+        
+        .btn-under {
+            background: linear-gradient(180deg, #ffd700, #5a4d00);
+            color: #000;
+        }
+        
+        .btn-match {
+            background: linear-gradient(180deg, #bc13fe, #4d005a);
+            color: white;
+        }
+        
+        .btn-differ {
+            background: linear-gradient(180deg, #ff6b00, #5a2d00);
+            color: white;
+        }
+        
+        .btn-accumulate {
+            background: linear-gradient(180deg, #00ff41, #004d1a);
+            color: white;
+            grid-column: 1 / -1;
+        }
+        
+        .btn-trade:hover {
+            transform: translateY(-2px);
+            filter: brightness(1.2);
+        }
+        
+        .btn-trade:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+        
+        .stats-panel {
+            background: rgba(255, 255, 255, 0.02);
+            padding: 20px;
+            border-radius: 4px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            text-align: center;
+        }
+        
+        .stats-label {
+            font-size: 0.8rem;
+            color: #8899a6;
+            letter-spacing: 3px;
+            margin-bottom: 10px;
+        }
+        
+        .stats-value {
+            font-size: 3rem;
+            font-weight: 900;
+            color: white;
+            text-shadow: 0 0 30px rgba(255, 255, 255, 0.2);
+        }
+        
+        .history-panel {
+            flex: 1;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 4px;
+            padding: 15px;
+            overflow-y: auto;
+        }
+        
+        .history-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .history-title {
+            font-size: 0.75rem;
+            color: #5f7e97;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            font-weight: 700;
+        }
+        
+        .btn-clear-history {
+            background: transparent;
+            border: 1px solid rgba(255, 0, 60, 0.3);
+            color: var(--neon-red);
+            padding: 5px 10px;
+            font-size: 0.7rem;
+            cursor: pointer;
+            transition: 0.3s;
+            border-radius: 2px;
+        }
+        
+        .btn-clear-history:hover {
+            background: rgba(255, 0, 60, 0.1);
+            border-color: var(--neon-red);
+        }
+        
+        .history-item {
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.02);
+            border-left: 3px solid;
+            margin-bottom: 8px;
+            font-size: 0.85rem;
+        }
+        
+        .history-item.win { border-color: var(--neon-green); }
+        .history-item.loss { border-color: var(--neon-red); }
+        
+        .positions-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+        }
+        
+        .positions-table th {
+            text-align: left;
+            padding: 10px;
+            color: #5f7e97;
+            font-weight: 700;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            background: var(--bg-navy);
+        }
+        
+        .positions-table td {
+            padding: 10px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #050a14; }
+        ::-webkit-scrollbar-thumb { background: #2a3b55; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--neon-cyan); }
+    </style>
+</head>
+<body>
+
+    <!-- A - LOGIN VIEW -->
+    <div id="view-login" class="view active">
+        <div class="login-card">
+            <div class="jarvis-logo-large">JARVIS</div>
+            <div class="login-subtitle">TRADING INTELLIGENCE V3.3</div>
+            <div class="energy-wave"></div>
+            
+            <div style="margin: 20px 0;">
+                <button class="btn-login-deriv" onclick="connectDeriv()">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/2/22/Deriv_Logo.png" style="height: 20px; vertical-align: middle; margin-right: 10px; filter: brightness(0) invert(1);"> 
+                    CONECTAR COM A DERIV
+                </button>
+                
+                <!-- Campo Localhost removido -->
+            </div>
+            
+            <div id="loginMessage" class="login-message"></div>
+        </div>
+    </div>
+
+    <!-- DASHBOARD -->
+    <div id="view-dashboard" class="view">
+        <div class="dashboard-header">
+            <h1 class="dashboard-title">CENTRAL DE COMANDO</h1>
+            <p style="color: #8899a6; font-size: 0.9rem; letter-spacing: 2px;">Selecione o Modo de Operação</p>
+        </div>
+        
+        <div class="mode-grid">
+            <div class="mode-card" onclick="selectMode('RISE_FALL')">
+                <div class="mode-icon">📈</div>
+                <h2 class="mode-title">RISE / FALL</h2>
+                <p style="color: #8899a6; font-size: 0.85rem;">Operação clássica de alta/baixa</p>
+            </div>
+            
+            <div class="mode-card" onclick="selectMode('MATCH_DIFFER')">
+                <div class="mode-icon">🎯</div>
+                <h2 class="mode-title">MATCH / DIFFER</h2>
+                <p style="color: #8899a6; font-size: 0.85rem;">Análise de dígitos com padrões</p>
+            </div>
+            
+            <div class="mode-card" onclick="selectMode('OVER_UNDER')">
+                <div class="mode-icon">⚖️</div>
+                <h2 class="mode-title">OVER / UNDER</h2>
+                <p style="color: #8899a6; font-size: 0.85rem;">Previsão de threshold</p>
+            </div>
+            
+            <div class="mode-card" onclick="selectMode('ACCUMULATORS')">
+                <div class="mode-icon">💰</div>
+                <h2 class="mode-title">ACCUMULATORS</h2>
+                <p style="color: #8899a6; font-size: 0.85rem;">Acumulação progressiva</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- TRADING PLATFORM -->
+    <div id="view-platform" class="view">
+        <!-- Left Sidebar -->
+        <div class="sidebar-left">
+            <div class="brand-logo">JARVIS</div>
+            
+            <!-- ACCOUNT SWITCHER -->
+            <div class="config-group">
+                <label class="config-label">TIPO DE CONTA</label>
+                <div class="account-switcher">
+                    <button class="account-btn demo active" onclick="switchAccount('demo')">DEMO</button>
+                    <button class="account-btn real" onclick="switchAccount('real')">REAL</button>
+                </div>
+            </div>
+            
+            <!-- MODE SELECTOR -->
+            <div class="config-group">
+                <label class="config-label">MODO DE OPERAÇÃO</label>
+                <div class="mode-selector">
+                    <button class="mode-btn active" onclick="changeMode('RISE_FALL')">RISE / FALL</button>
+                    <button class="mode-btn" onclick="changeMode('MATCH_DIFFER')">MATCH / DIFFER</button>
+                    <button class="mode-btn" onclick="changeMode('OVER_UNDER')">OVER / UNDER</button>
+                    <button class="mode-btn" onclick="changeMode('ACCUMULATORS')">ACCUMULATORS</button>
+                </div>
+            </div>
+            
+            <div class="config-group">
+                <label class="config-label">SALDO DA CONTA</label>
+                <div id="accountBalance" style="font-size: 2rem; color: var(--neon-cyan); text-align: center; font-weight: 900;">$0.00</div>
+                <label class="config-label">VALOR DA ENTRADA ($)</label>
+                <div class="input-wrapper">
+                    <span class="currency-symbol">$</span>
+                    <input type="number" id="stakeInput" class="config-input" value="1.00" step="0.50" min="0.35">
+                </div>
+            </div>
+
+            <!-- NOVA SEÇÃO: API KEY -->
+            <div class="config-group" style="border: 1px solid var(--neon-magenta); padding: 10px; border-radius: 5px; background: rgba(188, 19, 254, 0.05);">
+                <label class="config-label" style="color: var(--neon-magenta);">GOOGLE GEMINI API KEY</label>
+                <input type="password" id="apiKeyInput" class="config-input" placeholder="Cole sua nova chave aqui..." style="border-color: var(--neon-magenta);">
+                <div style="font-size: 0.7em; color: #8899a6; margin-top: 5px;">Chave atual bloqueada. Gere uma nova no Google AI Studio.</div>
+            </div>
+            
+            <!-- DIGIT CONFIG (Shown via JS for digit modes) -->
+            <div class="config-group" id="digitConfig" style="display:none;">
+                <label class="config-label">DÍGITO ALVO (0-9)</label>
+                <select id="digitSelect" class="config-input">
+                    <option value="0">0</option>
+                    <option value="1">1</option>
+                    <option value="2">2</option>
+                    <option value="3">3</option>
+                    <option value="4">4</option>
+                    <option value="5" selected>5 (Padrão)</option>
+                    <option value="6">6</option>
+                    <option value="7">7</option>
+                    <option value="8">8</option>
+                    <option value="9">9</option>
+                </select>
+            </div>
+            
+            <div class="config-group">
+                <label class="config-label">DURAÇÃO</label>
+                <select id="durationSelect" class="config-input">
+                    <option value="1">1 Minuto</option>
+                    <option value="2">2 Minutos</option>
+                    <option value="3">3 Minutos</option>
+                    <option value="5">5 Minutos</option>
+                </select>
+            </div>
+            
+            <div class="config-group">
+                <label class="config-label">TAKE PROFIT DIÁRIO ($)</label>
+                <input type="number" id="takeProfitInput" class="config-input" value="50.00" step="5">
+            </div>
+            
+            <div class="config-group">
+                <label class="config-label">STOP LOSS DIÁRIO ($)</label>
+                <input type="number" id="stopLossInput" class="config-input" value="50.00" step="5">
+            </div>
+            
+            <button onclick="logout()" style="margin-top: auto; padding: 15px; background: transparent; border: 1px solid #2a3b55; color: #5f7e97; cursor: pointer; font-weight: 700; letter-spacing: 2px;">SAIR</button>
+        </div>
+        
+        <!-- Main Stage -->
+        <div class="main-stage">
+            <div class="chart-container" style="min-height: 450px;">
+                <div id="tvChart" style="width: 100%; height: 100%;"></div>
+                <div class="jarvis-container">
+                    <div class="energy-wave"></div>
+                    <img src="jarvis.gif" class="jarvis-img" onerror="this.style.display='none'">
+                </div>
+            </div>
+            
+            <div style="display: flex; flex-direction: column; gap: 15px;">
+                <button class="btn-analyze" id="btnAnalyze" onclick="analyzeMarket()">
+                    <div>ANALISAR MERCADO</div>
+                    <div style="font-size: 0.9rem; margin-top: 5px; color: var(--neon-green);" id="analyzeSubtext">SISTEMA ONLINE</div>
+                </button>
+                
+                <!-- AUTOMATION PANEL -->
+                <button class="btn-analyze" id="automationBtn" onclick="toggleAutomation()" style="background: rgba(188, 19, 254, 0.1); border-color: var(--neon-magenta);">
+                    <div>LIGAR SISTEMA JARVIS</div>
+                    <div id="automationStatus" style="font-size: 0.9rem; margin-top: 5px; color: #8899a6;">SISTEMA MANUAL</div>
+                </button>
+                
+                <!-- DYNAMIC TRADE BUTTONS -->
+                <div class="action-buttons" id="tradeButtons">
+                    <!-- Buttons will be dynamically inserted based on mode -->
+                </div>
+            </div>
+            
+            <div style="background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.05); border-radius: 4px; padding: 15px; max-height: 200px; overflow-y: auto;">
+                <div style="font-size: 0.75rem; color: #5f7e97; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 1px;">POSIÇÕES ABERTAS</div>
+                <table class="positions-table">
+                    <thead>
+                        <tr>
+                            <th>HORA</th>
+                            <th>TIPO</th>
+                            <th>ENTRADA</th>
+                            <th>LUCRO</th>
+                            <th>AÇÃO</th>
+                        </tr>
+                    </thead>
+                    <tbody id="positionsList">
+                        <tr>
+                            <td colspan="5" style="text-align: center; color: #445566; padding: 20px;">Aguardando operações...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <!-- Right Sidebar -->
+        <div class="sidebar-right">
+            <div class="stats-panel">
+                <div class="stats-label">RESULTADO DO DIA</div>
+                <div class="stats-value" id="dailyProfit">$0.00</div>
+            </div>
+
+            
+            <div class="history-panel">
+                <div class="history-header">
+                    <div class="history-title">HISTÓRICO RECENTE</div>
+                    <button class="btn-clear-history" onclick="clearHistory()">🗑️ LIMPAR</button>
+                </div>
+                <div id="historyList">
+                    <div style="text-align: center; color: #445566; font-size: 0.8rem; margin-top: 40px;">Histórico vazio</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="jarvis_main.js"></script>
+</body>
+</html>

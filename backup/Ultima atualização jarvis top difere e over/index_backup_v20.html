@@ -1,0 +1,2566 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+    <title>JARVIS COMMAND CENTER V21.19</title>
+    <link rel="icon" type="image/jpeg" href="JARVIS ROSTO.jpg">
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700;800;900&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+    <script src="https://unpkg.com/lightweight-charts@3.8.0/dist/lightweight-charts.standalone.production.js"></script>
+    
+    <!-- FIREBASE SDKs (Modular) -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+
+    <style>
+        :root { 
+            --cyber-dark: #050a14;
+            --cyber-navy: #0b1221;
+            --cyber-blue: #00f3ff;
+            --cyber-gold: #ffd700;
+            --cyber-red: #ff003c;
+            --cyber-green: #00ff41;
+            --glass-panel: rgba(11, 18, 33, 0.85);
+            --glass-border: 1px solid rgba(0, 243, 255, 0.15);
+            --neon-glow: 0 0 10px rgba(0, 243, 255, 0.3);
+        }
+
+        /* --- VIEW MANAGER (SaaS Structure) --- */
+        .view-section {
+            display: none; /* Hidden by default */
+            width: 100vw;
+            height: 100vh;
+            position: absolute;
+            top: 0;
+            left: 0;
+            background: var(--cyber-dark);
+            z-index: 10;
+        }
+
+        .view-active {
+            display: flex !important;
+            flex-direction: column;
+            animation: fadeIn 0.5s ease-out;
+        }
+        
+        #view-login {
+            justify-content: center; align-items: center; z-index: 9999;
+             background: radial-gradient(circle at 50% 50%, #0b1629 0%, #020408 100%);
+        }
+
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        
+        * { box-sizing: border-box; outline: none; user-select: none; }
+        
+        body { 
+            background: radial-gradient(circle at 50% 50%, #0b1629 0%, #020408 100%);
+            color: #e0e6ed; 
+            font-family: 'Rajdhani', sans-serif; 
+            margin: 0; 
+            height: 100vh; 
+            overflow: hidden; 
+            display: flex; 
+            flex-direction: column;
+        }
+
+        /* AUTO-SCALE REMOVED - FLUID LAYOUT IMPLEMENTED */
+        
+        /* LOGIN OVERLAY */
+        #loginOverlay { 
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 9999; 
+            display: flex; flex-direction: column; justify-content: center; align-items: center; 
+            background: rgba(5, 10, 20, 0.95);
+            backdrop-filter: blur(20px);
+        }
+        
+        .login-content { 
+            text-align: center; 
+            padding: 60px; 
+            border-radius: 4px; 
+            border: 1px solid var(--cyber-blue); 
+            background: rgba(0,0,0,0.6); 
+            box-shadow: 0 0 50px rgba(0, 243, 255, 0.1); 
+            position: relative;
+            display: flex; flex-direction: column; align-items: center;
+        }
+        
+        .login-content::before {
+            content: ''; position: absolute; top: -2px; left: -2px; right: -2px; bottom: -2px;
+            background: linear-gradient(45deg, var(--cyber-blue), transparent, var(--cyber-blue));
+            z-index: -1; opacity: 0.3;
+        }
+
+        .login-avatar {
+            width: 150px; height: 150px; border-radius: 50%; border: 3px solid var(--cyber-blue);
+            box-shadow: 0 0 30px rgba(0,243,255,0.3); margin-bottom: 20px; object-fit: cover;
+        }
+
+        .login-btn { 
+            background: transparent; 
+            border: 2px solid var(--cyber-blue); 
+            color: var(--cyber-blue); 
+            padding: 15px 50px; 
+            font-size: 1.5rem; 
+            font-family: 'Rajdhani'; 
+            font-weight: 800; 
+            cursor: pointer; 
+            transition: 0.3s; 
+            text-transform: uppercase; 
+            letter-spacing: 4px; 
+            margin-top: 30px; 
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .login-btn:hover { 
+            background: var(--cyber-blue); 
+            color: #000; 
+            box-shadow: 0 0 30px var(--cyber-blue); 
+        }
+
+        /* RESPONSIVE GRID INTERFACE */
+        .interface-grid { 
+            display: grid; 
+            grid-template-columns: 320px 1fr 320px; 
+            width: 100vw; 
+            height: 100vh; 
+            background: var(--glass-panel); 
+            overflow: hidden; 
+            backdrop-filter: blur(20px); 
+        }
+        
+        .sidebar-left, .sidebar-right { 
+            padding: 20px; 
+            display: flex; 
+            flex-direction: column; 
+            gap: 15px; 
+            z-index: 10; 
+            background: rgba(0,0,0,0.2); 
+            overflow-y: auto; /* SCROLLABLE SIDEBARS */
+            height: 100%;
+        }
+        
+        .sidebar-left { border-right: var(--glass-border); } 
+        .sidebar-right { border-left: var(--glass-border); }
+        
+        .main-stage { 
+            padding: 20px; 
+            display: flex; 
+            flex-direction: column; 
+            gap: 15px; 
+            position: relative; 
+            width: 100%; 
+            height: 100%;
+            overflow-y: auto;
+            background: radial-gradient(circle at center, rgba(0, 243, 255, 0.02) 0%, transparent 80%); 
+        }
+
+        /* MOBILE RESPONSIVE TWEAKS */
+        @media (max-width: 1200px) {
+            .interface-grid {
+                grid-template-columns: 1fr; /* Stack vertically */
+                grid-template-rows: auto auto auto;
+                overflow-y: auto; /* Allow full page scroll */
+            }
+            .sidebar-left { order: 2; height: auto; border-right: none; border-bottom: var(--glass-border); }
+            .sidebar-right { order: 3; height: auto; border-left: none; }
+            .main-stage { order: 1; height: auto; border-bottom: var(--glass-border); min-height: 100vh; }
+            #tvChart { height: 400px; }
+        }
+        
+        .brand-logo { 
+            font-size: 2rem; 
+            letter-spacing: 4px; 
+            color: var(--cyber-blue); 
+            border-bottom: 1px solid rgba(255,255,255,0.1); 
+            padding-bottom: 15px;
+            margin-bottom: 5px; 
+            font-weight: 900; 
+            text-align: center; 
+            text-shadow: 0 0 20px rgba(0, 243, 255, 0.4); 
+        }
+        
+        .brand-subtitle { 
+            font-size: 0.7rem; 
+            color: #8899a6; 
+            letter-spacing: 2px; 
+            text-transform: uppercase; 
+            margin-bottom: 15px; 
+            text-align: center; 
+            font-weight: 600; 
+        }
+        
+        /* CONFIG GROUPS */
+        .config-group { 
+            background: rgba(255,255,255,0.02); 
+            padding: 15px; 
+            border-radius: 2px; 
+            border: 1px solid rgba(255,255,255,0.05); 
+            transition: 0.3s;
+        }
+        .config-group:hover { border-color: rgba(0, 243, 255, 0.3); }
+        
+        .label-sm { 
+            font-size: 0.8rem; 
+            color: #5f7e97; 
+            letter-spacing: 1px; 
+            font-weight: 700; 
+            margin-bottom: 8px; 
+            display: block; 
+            text-transform: uppercase;
+        }
+        
+        input, select { 
+            background: #080c14; 
+            color: #fff; 
+            border: 1px solid #2a3b55; 
+            padding: 10px; 
+            border-radius: 2px; 
+            font-family: 'Rajdhani'; 
+            font-size: 1.1rem; 
+            font-weight: 700; 
+            width: 100%; 
+            text-align: center; 
+            transition: 0.3s;
+        } 
+        .switch-row { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; }
+        .switch { position: relative; display: inline-block; width: 45px; height: 24px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #1a2639; transition: .4s; border-radius: 2px; }
+        .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 4px; bottom: 4px; background-color: #5f7e97; transition: .4s; border-radius: 1px; }
+        input:checked + .slider { background-color: rgba(0, 255, 65, 0.2); border: 1px solid var(--cyber-green); }
+        input:checked + .slider:before { transform: translateX(21px); background-color: var(--cyber-green); }
+        
+        /* CHART */
+        .chart-wrapper { 
+            height: 400px; /* Fixed height for chart */
+            min-height: 300px;
+            flex-shrink: 0; 
+            position: relative; 
+            background: #050a14; 
+            border: 1px solid #1a2639; 
+            border-radius: 2px; 
+            overflow: hidden; 
+            box-shadow: inset 0 0 100px rgba(0,0,0,0.9); 
+        }
+        #tvChart { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
+        
+        /* JARVIS VISUALS - BACKGROUND MODE */
+        /* JARVIS VISUALS - TITAN BACKGROUND MODE */
+        .jarvis-container { 
+            position: absolute; 
+            top: 50%; 
+            left: 20px; 
+            transform: translateY(-50%); 
+            width: 500px; 
+            height: 500px; 
+            z-index: 0; 
+            pointer-events: none; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            opacity: 1;
+            filter: drop-shadow(0 0 50px rgba(0,0,0,1));
+        }
+        
+        .jarvis-img { 
+            width: 500px; 
+            height: 500px; 
+            object-fit: cover; 
+            /* Remove hard border to allow "mist" fade */
+            border: none; 
+            border-radius: 50%; 
+            position: relative; 
+            z-index: 2; 
+            background: transparent; /* No hard black background */
+            box-shadow: none; 
+            opacity: 1; 
+            
+            /* REAL MIST FADE */
+            -webkit-mask-image: radial-gradient(closest-side, rgba(0,0,0,1) 65%, rgba(0,0,0,0) 100%);
+            mask-image: radial-gradient(closest-side, rgba(0,0,0,1) 65%, rgba(0,0,0,0) 100%);
+            
+            mix-blend-mode: normal; /* "Mais vivo" - Remove Ghost Effect */ 
+            transition: all 0.5s ease;
+        }
+        
+        /* TIGHT SHOCKWAVES */
+        .energy-wave {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            width: 500px; 
+            height: 500px; 
+            border-radius: 50%;
+            z-index: 0; pointer-events: none;
+        }
+        
+        /* SHOCKWAVE PULSES */
+        .energy-wave::before, .energy-wave::after {
+            content: ''; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            border-radius: 50%; 
+            border: 3px solid rgba(0,243,255,0.6);
+            background: transparent;
+            width: 100%; height: 100%; 
+            animation: shockwave 2s infinite ease-out;
+            
+            /* MIST EFFECT ON WAVES TOO */
+            -webkit-mask-image: radial-gradient(circle at center, black 60%, transparent 100%);
+            mask-image: radial-gradient(circle at center, black 60%, transparent 100%);
+        }
+        .energy-wave::before { animation-delay: 0s; }
+        .energy-wave::after { animation-delay: 1s; }
+
+        .neon-ring { display: none; } 
+
+        .sentiment-bullish .energy-wave::before, .sentiment-bullish .energy-wave::after { border-color: rgba(0, 255, 65, 0.8); box-shadow: 0 0 40px rgba(0,255,65,0.5); }
+        .sentiment-bullish .jarvis-img { border-color: var(--cyber-green); box-shadow: 0 0 80px rgba(0,255,65,0.4); opacity: 1.0; }
+        
+        .sentiment-bearish .energy-wave::before, .sentiment-bearish .energy-wave::after { border-color: rgba(255, 0, 60, 0.8); box-shadow: 0 0 40px rgba(255,0,60,0.5); }
+        .sentiment-bearish .jarvis-img { border-color: var(--cyber-red); box-shadow: 0 0 80px rgba(255,0,60,0.4); opacity: 1.0; }
+        
+        @keyframes shockwave {
+            0% { width: 100%; height: 100%; opacity: 0.9; border-width: 5px; }
+            100% { width: 130%; height: 130%; opacity: 0; border-width: 0px; } 
+        }
+
+        .sentiment-bullish .energy-wave { background: radial-gradient(circle, rgba(0, 255, 65, 0.2) 0%, transparent 60%); }
+        .sentiment-bullish .neon-ring { border-color: var(--cyber-green); box-shadow: 0 0 40px rgba(0,255,65,0.2); }
+        .sentiment-bullish .jarvis-img { border-color: var(--cyber-green); box-shadow: 0 0 40px rgba(0,255,65,0.3); }
+        
+        .sentiment-bearish .energy-wave { background: radial-gradient(circle, rgba(255, 0, 60, 0.2) 0%, transparent 60%); }
+        .sentiment-bearish .neon-ring { border-color: var(--cyber-red); box-shadow: 0 0 40px rgba(255,0,60,0.2); }
+        .sentiment-bearish .jarvis-img { border-color: var(--cyber-red); box-shadow: 0 0 40px rgba(255,0,60,0.3); }
+        
+        .sentiment-neutral .energy-wave { background: radial-gradient(circle, rgba(0, 243, 255, 0.15) 0%, transparent 60%); }
+
+        @keyframes spinSlow { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        @keyframes wavePulse {
+            0% { transform: translate(-50%, -50%) scale(0.6); opacity: 0.6; }
+            100% { transform: translate(-50%, -50%) scale(1.2); opacity: 0; }
+        }
+        
+        /* BUTTONS */
+        .btn-decode { 
+            width: 100%; padding: 20px; margin-top: 5px; 
+            background: linear-gradient(90deg, rgba(0,0,0,0.8), rgba(0, 243, 255, 0.1), rgba(0,0,0,0.8)); 
+            border: 1px solid var(--cyber-blue); 
+            color: var(--cyber-blue); 
+            font-family: 'Rajdhani'; font-size: 1.8rem; font-weight: 900; 
+            letter-spacing: 4px; text-transform: uppercase; 
+            cursor: pointer; transition: 0.3s; 
+            display: flex; flex-direction: column; align-items: center; justify-content: center; 
+            line-height: 1.2; 
+            position: relative;
+        }
+        .btn-decode::after {
+            content: ''; position: absolute; bottom: 0; left: 0; width: 100%; height: 2px;
+            background: var(--cyber-blue); box-shadow: 0 0 20px var(--cyber-blue);
+        }
+        .btn-decode:hover { background: rgba(0, 243, 255, 0.15); letter-spacing: 6px; }
+        
+        .action-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; height: 70px; }
+        .btn-action { 
+            font-size: 1.8rem; font-weight: 900; border: none; color: white; 
+            cursor: pointer; border-radius: 2px; font-family: 'Rajdhani'; opacity: 0.4; 
+            transition: 0.3s; letter-spacing: 2px;
+        }
+        .btn-call { background: linear-gradient(180deg, #00ff85, #004d26); border-bottom: 4px solid #004d26; }
+        .btn-put { background: linear-gradient(180deg, #ff3b6a, #5e0018); border-bottom: 4px solid #5e0018; }
+        .btn-ready { opacity: 1; }
+        .btn-ready:hover { filter: brightness(1.2); transform: translateY(-2px); }
+        
+        /* POSITIONS TABLE SCROLLABLE */
+        .positions-wrapper { 
+            flex: 1; 
+            min-height: 200px;
+            background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.05); 
+            border-radius: 2px; display: flex; flex-direction: column;
+            overflow: hidden; /* Contains the scroll */
+        }
+        .op-header { 
+            padding: 12px; background: rgba(255,255,255,0.02); 
+            display: flex; justify-content: space-between; align-items: center; 
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            flex-shrink: 0;
+        }
+        
+        .table-scroll { flex: 1; overflow-y: auto; } /* SCROLL CONTAINER */
+
+        .pos-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+        .pos-table th { text-align: left; padding: 10px; color: #5f7e97; font-weight: 700; border-bottom: 1px solid rgba(255,255,255,0.1); position: sticky; top: 0; background: #0b1629; z-index: 5; }
+        .pos-table td { padding: 10px; color: #fff; border-bottom: 1px solid rgba(255,255,255,0.05); font-weight: 600; }
+        .pos-table tr:hover { background: rgba(255,255,255,0.02); }
+        
+        .result-overlay { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0); font-size: 6rem; font-weight: 900; z-index: 30; opacity: 0; transition: all 0.4s; text-shadow: 0 0 50px currentColor; pointer-events: none; }
+        .show-res { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+        
+        /* ACCOUNT BADGE */
+        .account-badge { 
+            background: rgba(0,0,0,0.4); color: #fff; padding: 15px; text-align: center; 
+            border-radius: 2px; border: 1px solid #333; font-weight: 800; 
+            cursor: pointer; transition: 0.3s; 
+            user-select: none; letter-spacing: 2px; font-size: 0.9rem;
+        }
+        .account-badge:hover { border-color: var(--cyber-blue); color: var(--cyber-blue); box-shadow: 0 0 20px rgba(0,243,255,0.1); }
+        .is-demo { color: var(--cyber-gold); border-color: rgba(255, 215, 0, 0.3); }
+        .is-real { color: var(--cyber-green); border-color: rgba(0, 255, 65, 0.3); }
+
+        /* SCROLLBAR */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #050a14; }
+        ::-webkit-scrollbar-thumb { background: #2a3b55; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--cyber-blue); }
+
+        #hardResetBtn { position: fixed; bottom: 10px; right: 10px; z-index: 10000; background: var(--cyber-red); color: white; border: none; padding: 5px 10px; font-size: 0.7rem; cursor: pointer; opacity: 0.3; }
+        #hardResetBtn:hover { opacity: 1; }
+    </style>
+
+    <div id="view-login" class="view-section view-active">
+        <div class="login-card">
+            <img src="JARVIS ROSTO.jpg" style="width:120px; border-radius:50%; border:2px solid var(--cyber-blue); box-shadow:0 0 20px rgba(0,243,255,0.3); margin-bottom:20px;">
+            <h1 style="color:var(--cyber-blue); margin:0; font-size:2.5rem; text-shadow:0 0 10px rgba(0,243,255,0.5);">JARVIS V21</h1>
+            <p style="color:#8899a6; letter-spacing:2px; font-size:0.8rem; margin-bottom:30px;">SAAS TRADING PLATFORM</p>
+            
+            <input type="email" id="loginEmail" placeholder="EMAIL DE ACESSO" style="margin-bottom:10px;">
+            <input type="password" id="loginPass" placeholder="SENHA" style="margin-bottom:20px;">
+            
+            <button class="login-btn" onclick="authLogin()" style="font-size:1.2rem; padding:10px; width:100%; margin-bottom:10px;">ENTRAR NO SISTEMA</button>
+            <button class="login-btn" onclick="authRegister()" style="font-size:0.9rem; padding:10px; width:100%; background:transparent; border:1px solid #3366ff; color:#3366ff;">CRIAR CONTA GRÁTIS</button>
+            
+            <div id="loginMsg" style="margin-top:15px; font-size:0.8rem; color:#ff003c; min-height:20px;"></div>
+        </div>
+    </div>
+
+    <!-- DASHBOARD VIEW (NETFLIX STYLE MENU) -->
+    <div id="view-dashboard" class="view-section" style="background: radial-gradient(circle at 50% 50%, #050a14 0%, #000 100%); align-items:center; justify-content:center; flex-direction:column;">
+        
+        <h1 style="color:var(--cyber-blue); margin-bottom:40px; text-transform:uppercase; letter-spacing:4px; text-shadow:0 0 20px var(--cyber-blue);">Central de Comando</h1>
+        
+        <div style="display:flex; gap:30px; flex-wrap:wrap; justify-content:center;">
+            
+            <!-- CARD 1: OPERAÇÃO (TRADING) -->
+            <div onclick="openTrading()" class="dashboard-card" style="width:250px; height:350px; background:linear-gradient(180deg, rgba(0,243,255,0.05) 0%, rgba(0,0,0,0.5) 100%); border:1px solid #3366ff; border-radius:10px; cursor:pointer; display:flex; flex-direction:column; align-items:center; justify-content:center; transition:0.3s; position:relative; overflow:hidden;">
+                <div style="font-size:3rem; margin-bottom:20px;">📈</div>
+                <h2 style="color:white; font-size:1.5rem; margin:0;">OPERAÇÃO</h2>
+                <p style="color:#8899a6; font-size:0.8rem; margin-top:10px;">Terminal de Trading JARVIS</p>
+                <div class="card-glow"></div>
+            </div>
+
+            <!-- CARD 2: FINANCEIRO (BANKROLL) -->
+            <div onclick="alert('EM BREVE: Módulo de Gestão Financeira')" class="dashboard-card" style="width:250px; height:350px; background:linear-gradient(180deg, rgba(255,215,0,0.05) 0%, rgba(0,0,0,0.5) 100%); border:1px solid #ffd700; border-radius:10px; cursor:pointer; display:flex; flex-direction:column; align-items:center; justify-content:center; transition:0.3s; position:relative; overflow:hidden;">
+                <div style="font-size:3rem; margin-bottom:20px;">💰</div>
+                <h2 style="color:white; font-size:1.5rem; margin:0;">FINANCEIRO</h2>
+                <p style="color:#8899a6; font-size:0.8rem; margin-top:10px;">Gerenciamento & Saques</p>
+            </div>
+
+            <!-- CARD 3: ADMIN (GOD MODE) - HIDDEN BY DEFAULT -->
+            <div id="adminCard" onclick="setView('view-admin')" class="dashboard-card" style="display:none; width:250px; height:350px; background:linear-gradient(180deg, rgba(255,0,60,0.05) 0%, rgba(0,0,0,0.5) 100%); border:1px solid #ff003c; border-radius:10px; cursor:pointer; flex-direction:column; align-items:center; justify-content:center; transition:0.3s; position:relative; overflow:hidden;">
+                <div style="font-size:3rem; margin-bottom:20px;">🛡️</div>
+                <h2 style="color:white; font-size:1.5rem; margin:0;">ADMIN</h2>
+                <p style="color:#8899a6; font-size:0.8rem; margin-top:10px;">Painel de Controle Deus</p>
+            </div>
+        
+        </div>
+        
+        <div style="margin-top:50px; color:#445566; font-size:0.8rem;">JARVIS TRADER v21.2 | USUÁRIO: <span id="dashUserEmail">...</span></div>
+
+    </div>
+
+    <style>
+        .dashboard-card:hover { transform: scale(1.05); box-shadow: 0 0 30px rgba(0,243,255,0.2); background:rgba(0,243,255,0.1) !important; }
+        #adminCard:hover { box-shadow: 0 0 30px rgba(255,0,60,0.2); background:rgba(255,0,60,0.1) !important; }
+        
+        /* FINANCIAL AWARENESS UI */
+        .goal-bar-container {
+            width: 100%; height: 6px; background: rgba(255,255,255,0.1);
+            border-radius: 3px; margin-top: 10px; overflow: hidden; position: relative;
+        }
+        .goal-bar-fill {
+            height: 100%; width: 0%; background: var(--cyber-green);
+            box-shadow: 0 0 10px var(--cyber-green); transition: width 0.5s ease;
+        }
+        .goal-text {
+            font-size: 0.65rem; color: #8899a6; margin-top: 5px; text-align: center; letter-spacing: 1px;
+        }
+    </style>
+
+    <!-- MODAL TOKENS (Connection) -->
+    <div id="modal-token" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); z-index:2000; align-items:center; justify-content:center; backdrop-filter:blur(5px);">
+        <div style="background:var(--card-bg); padding:30px; border-radius:10px; border:1px solid var(--cyber-blue); width:90%; max-width:400px; text-align:center; box-shadow:0 0 50px rgba(0,243,255,0.2);">
+            <div style="font-size:3rem; margin-bottom:20px;">🔗</div>
+            <h2 style="color:var(--cyber-blue); margin-bottom:10px;">VINCULAR CONTA DERIV</h2>
+            <p style="color:#8899a6; font-size:0.9rem; margin-bottom:20px;">Conecte-se para permitir que o JARVIS opere.</p>
+            
+            <button onclick="loginDeriv()" style="background:#ff444f; color:white; font-weight:bold; padding:15px; width:100%; border:none; border-radius:4px; cursor:pointer; margin-bottom:20px; font-size:1rem; display:flex; align-items:center; justify-content:center; gap:10px;">
+                <img src="https://deriv.com/img/deriv-logo-shield.svg" style="width:20px; filter:invert(1);"> LOGIN COM DERIV
+            </button>
+            
+            <div style="width:100%; height:1px; background:#445566; margin-bottom:20px; position:relative;">
+                <span style="position:absolute; top:-10px; left:50%; transform:translateX(-50%); background:var(--card-bg); padding:0 10px; color:#8899a6; font-size:0.8rem;">OU</span>
+            </div>
+
+            <input type="text" id="derivTokenInput" placeholder="Cole seu Token API manualmente..." style="width:100%; padding:15px; background:rgba(0,0,0,0.5); border:1px solid #3366ff; color:white; border-radius:4px; margin-bottom:20px; text-align:center;">
+            
+            <button onclick="saveDerivToken()" style="background:var(--cyber-blue); color:black; font-weight:bold; padding:15px; width:100%; border:none; border-radius:4px; cursor:pointer;">CONECTAR</button>
+            <button onclick="closeTokenModal()" style="background:transparent; color:#8899a6; padding:10px; border:none; margin-top:10px; cursor:pointer;">Cancelar (Modo Simulação Offline)</button>
+            
+            <p style="font-size:0.7rem; color:#445566; margin-top:20px;">Sua chave é salva apenas no seu navegador.</p>
+        </div>
+    </div>
+    <div id="view-onboarding" class="view-section" style="background: radial-gradient(circle at 50% 50%, #0b1629 0%, #000 100%); align-items:center; justify-content:center;">
+        <div style="width:100%; max-width:600px; height:80vh; display:flex; flex-direction:column; background:rgba(0,0,0,0.8); border:1px solid var(--cyber-blue); box-shadow:0 0 50px rgba(0,243,255,0.1); border-radius:4px; overflow:hidden;">
+            <!-- CHAT HEADER -->
+            <div style="padding:20px; border-bottom:1px solid rgba(255,255,255,0.1); display:flex; align-items:center; gap:15px; background:rgba(0,243,255,0.05);">
+                <img src="JARVIS ROSTO.jpg" style="width:50px; height:50px; border-radius:50%; border:2px solid var(--cyber-blue);">
+                <div>
+                    <div style="font-size:1.2rem; font-weight:bold; color:var(--cyber-blue);">JARVIS AI</div>
+                    <div style="font-size:0.8rem; color:#8899a6; letter-spacing:1px;">PROTOCOL DE ALINHAMENTO</div>
+                </div>
+            </div>
+            
+            <!-- CHAT AREA -->
+            <div id="chatHistory" style="flex:1; padding:20px; overflow-y:auto; display:flex; flex-direction:column; gap:15px;">
+                <!-- MESSAGES WILL APPEAR HERE -->
+            </div>
+            
+            <!-- INPUT AREA -->
+            <div style="padding:20px; border-top:1px solid rgba(255,255,255,0.1); display:flex; gap:10px;">
+                <input type="text" id="chatInput" placeholder="Digite sua resposta..." onkeypress="handleChatKey(event)" style="background:rgba(255,255,255,0.05); border:1px solid #333; color:white; padding:15px; border-radius:4px; flex:1;">
+                <button onclick="sendChat()" style="background:var(--cyber-blue); border:none; color:black; font-weight:bold; padding:0 25px; cursor:pointer;">ENVIAR</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ADMIN VIEW (Hidden) -->
+    <div id="view-admin" class="view-section">
+        <h1 style="color:var(--cyber-red)">ADMIN PAINEL</h1>
+        <p>User Management (Coming Soon)</p>
+        <button onclick="setView('view-login')">LOGOUT</button>
+    </div>
+
+    <!-- PLATFORM VIEW (Trading) -->
+    <div id="view-platform" class="view-section">
+        <div class="interface-grid" id="mainUI">
+        <!-- LEFT SIDEBAR -->
+        <div class="sidebar-left">
+            <div class="brand-logo">JARVIS <span style="color:#fff">V20</span></div>
+            <div class="brand-subtitle">CÓDIGO QUE ESCOLHE INTELIGÊNCIA QUE PROTEGE</div>
+            <div id="accBadge" class="account-badge" onclick="switchAccount()">CARREGANDO...</div>
+            
+            <div style="border:1px solid rgba(0,243,255,0.3); padding:15px; border-radius:2px; background:rgba(0,0,0,0.3);">
+                <div style="font-size:0.8rem; color:#5f7e97; letter-spacing:2px; margin-bottom:5px; text-align:center;">SALDO DA CONTA</div>
+                <div id="balanceVal" style="font-size:2.5rem; color:var(--cyber-blue); font-weight:900; text-align:center; text-shadow:0 0 20px rgba(0,243,255,0.4);">--</div>
+            </div>
+            
+            <div class="config-group">
+                <span class="label-sm">AUTO PILOT (CHRONOS)</span>
+                <div class="switch-row">
+                    <span style="font-size:1rem; color:#fff; font-weight:bold;">MODO AUTOMÁTICO</span>
+                    <label class="switch"><input type="checkbox" id="autoTradeToggle" onchange="saveState()"><span class="slider"></span></label>
+                </div>
+            </div>
+
+            <div class="config-group" style="border-color:#00f3ff;">
+                <span class="label-sm" style="color:#00f3ff">TRAILING STOP (DINÂMICO)</span>
+                <div class="switch-row">
+                    <span style="font-size:0.8rem; color:#fff;">ATIVAR TRAILING</span>
+                    <label class="switch"><input type="checkbox" id="trailingToggle" onchange="saveState()"><span class="slider"></span></label>
+                </div>
+                <div style="display:flex; gap:10px; margin-top:10px;">
+                    <div style="flex:1;">
+                        <span style="font-size:0.6rem; color:#888;">GATILHO (%)</span>
+                        <input type="number" id="trailingTrigger" value="15" step="1" min="1" max="100" style="color:#00f3ff; font-size:1rem; padding:5px;" onchange="saveState()">
+                    </div>
+                    <div style="flex:1;">
+                        <span style="font-size:0.6rem; color:#888;">DISTÂNCIA (%)</span>
+                        <input type="number" id="trailingDistance" value="5" step="1" min="1" max="50" style="color:#00f3ff; font-size:1rem; padding:5px;" onchange="saveState()">
+                    </div>
+                </div>
+            </div>
+            
+            <div class="config-group" style="border-color:var(--cyber-blue);">
+                <span class="label-sm" style="color:var(--cyber-blue)">GESTÃO DE RISCO</span>
+                <div class="switch-row">
+                    <span style="font-size:0.9rem; color:#fff;">MODO CONSERVADOR</span>
+                    <label class="switch"><input type="checkbox" id="conservativeMode" onchange="saveState()"><span class="slider"></span></label>
+                </div>
+                <div style="font-size:0.7rem; color:#8899a6; margin-top:5px;">(Recupera apenas a perda + 10%)</div>
+            </div>
+            <div class="config-group">
+                <span class="label-sm">STAKE ($)</span>
+                <input type="number" id="stakeInput" value="1.00" step="0.50" min="0.35" onchange="saveState()">
+            </div>
+            <div class="control-group">
+                <label>EXPIRAÇÃO (SEGURANÇA)</label>
+                <select id="durationSelect" onchange="saveState()">
+                    <option value="1">1 Minuto (Arriscado)</option>
+                    <option value="2">2 Minutos (Moderado)</option>
+                    <option value="3">3 Minutos (Seguro)</option>
+                    <option value="5">5 Minutos (Tendência)</option>
+                </select>
+            </div>
+
+            <!-- GEMINI BRAIN INTEGRATION (SECRET MODE) -->
+            <!-- Controls Hidden. Logic is Native. -->
+
+            <div class="config-group">
+                <span class="label-sm" style="color:var(--cyber-gold)">TAKE PROFIT % (POR ORDEM)</span>
+                <div style="font-size:0.7rem; color:#888; margin-bottom:5px;">Fecha ao atingir % de lucro:</div>
+                <input type="number" id="scalpPercent" value="10" step="1" min="1" max="100" onchange="saveState()" style="color:var(--cyber-gold)">
+            </div>
+            <div class="config-group" style="border-color:rgba(255,0,60,0.3);">
+                <span class="label-sm" style="color:var(--cyber-red)">STOP LOSS % (POR ORDEM)</span>
+                <div style="font-size:0.7rem; color:#888; margin-bottom:5px;">Fecha se perder % do valor:</div>
+                <input type="number" id="slTradePercent" value="50" step="5" min="5" max="100" style="color:var(--cyber-red)" onchange="saveState()">
+            </div>
+            
+            <div style="margin-top:auto; font-size:1rem; border-top:1px solid rgba(255,255,255,0.1); padding-top:20px;">
+                <div class="status-row" style="display:flex; justify-content:space-between;"><span>RSI (14)</span><span id="rsiVal" style="font-weight:bold; color:var(--cyber-blue);">--</span></div>
+            </div>
+        </div>
+        
+        <!-- MAIN STAGE -->
+        <div class="main-stage">
+            <div class="chart-wrapper" id="chartContainer">
+                <div id="tvChart"></div>
+                <div class="jarvis-container" id="jarvisAnim">
+                    <div class="energy-wave"></div>
+                    <div class="neon-ring"></div>
+                    <img src="jarvis.gif" class="jarvis-img" onerror="this.style.display='none'">
+                </div>
+                <div class="live-price" id="priceTag" style="position:absolute; right:80px; top:20px; font-size:1.5rem; font-weight:bold; z-index:5;">--.--</div>
+                <div class="result-overlay" id="resultBig">CALL</div>
+            </div>
+            
+            <button class="btn-decode" id="btnDecode" onclick="runAI('MANUAL')">
+                <span>DECODIFICAR MERCADO</span>
+                <span id="btnSubText" style="font-size:0.9rem; color:var(--cyber-green); margin-top:8px; text-shadow:0 0 10px var(--cyber-green); letter-spacing:2px; font-weight:700;">SISTEMA ONLINE</span>
+            </button>
+            
+            <div class="action-grid">
+                <button class="btn-action btn-call" id="btnCall" onclick="placeTrade('CALL')" disabled>COMPRAR ⬆</button>
+                <button class="btn-action btn-put" id="btnPut" onclick="placeTrade('PUT')" disabled>VENDER ⬇</button>
+            </div>
+            
+            <div class="positions-wrapper">
+                <div class="op-header">
+                    <span style="font-size:1rem; font-weight:bold; letter-spacing:1px;">LUCRO ABERTO: <span id="openPL" style="color:#fff;">0.00</span></span>
+                    <button onclick="closeAllPositions()" style="background:var(--cyber-red); border:none; color:white; font-weight:bold; cursor:pointer; padding:6px 15px; font-size:0.8rem; border-radius:2px; letter-spacing:1px;">FECHAR TUDO</button>
+                </div>
+                <!-- SCROLL CONTAINER -->
+                <div class="table-scroll">
+                    <table class="pos-table">
+                        <thead>
+                            <tr>
+                                <th>HORA</th>
+                                <th>TIPO</th>
+                                <th>ENTRADA</th>
+                                <th>ATUAL</th>
+                                <th>TIMER</th>
+                                <th>LUCRO</th>
+                                <th>AÇÃO</th>
+                            </tr>
+                        </thead>
+                        <tbody id="posList">
+                            <!-- Rows will be injected here -->
+                        </tbody>
+                    </table>
+                    <div id="emptyMsg" style="text-align:center; color:#445566; padding:30px; font-style:italic;">AGUARDANDO OPERAÇÕES...</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- RIGHT SIDEBAR -->
+        <div class="sidebar-right">
+            <div style="background:rgba(255,255,255,0.02); padding:20px; border-radius:4px; text-align:center; border:1px solid rgba(255,255,255,0.05); flex-shrink:0;">
+                <div style="font-size:0.8rem; color:#8899a6; letter-spacing:3px; font-weight:bold;">RESULTADO DO DIA</div>
+                <div id="sessionPL" style="font-size:3rem; font-weight:900; margin-top:5px; color:white; text-shadow:0 0 30px rgba(255,255,255,0.2);">0.00</div>
+                
+                <!-- FINANCIAL GOAL PROGRESS -->
+                <div class="goal-bar-container">
+                    <div id="goalProgressFill" class="goal-bar-fill"></div>
+                </div>
+                <div id="goalProgressText" class="goal-text">AGUARDANDO SALDO...</div>
+
+                <!-- RESET SESSION BUTTON -->
+                <div style="margin-top:10px; cursor:pointer; opacity:0.5; transition:0.3s;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.5" onclick="resetSession()" title="Zerar Histórico da Sessão">
+                    🗑️ <span style="font-size:0.7rem; color:#5f7e97;">ZERAR SESSÃO</span>
+                </div>
+            </div>
+            
+            <div class="config-group" style="margin-top:10px; border-color:rgba(255,0,60,0.3); flex-shrink:0;">
+                <span class="label-sm" style="color:var(--cyber-red)">STOP LOSS (DIÁRIO)</span>
+                <input type="number" id="slInput" value="50.00" style="color:var(--cyber-red)" step="1" onchange="saveState()">
+            </div>
+             <div class="config-group" style="border-color:rgba(0,255,65,0.3); flex-shrink:0;">
+                <span class="label-sm" style="color:var(--cyber-green)">META DE LUCRO (DIÁRIA)</span>
+                <input type="number" id="tpInput" value="50.00" style="color:var(--cyber-green)" step="1" onchange="saveState()">
+            </div>
+
+            <div style="border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:10px; margin-top:20px; flex-shrink:0;">
+                <span class="label-sm">HISTÓRICO RECENTE</span>
+            </div>
+            <!-- SCROLLABLE HISTORY -->
+            <div id="histList" style="flex:1; overflow-y:auto; padding-right:5px; min-height:100px;">
+                <div style="text-align:center; color:#445566; font-size:0.8rem; margin-top:40px;">Histórico vazio.</div>
+            </div>
+            
+            <button onclick="fullLogout()" style="background:transparent; border:1px solid #2a3b55; color:#5f7e97; padding:15px; cursor:pointer; width:100%; border-radius:2px; font-weight:bold; transition:0.2s; letter-spacing:2px; text-transform:uppercase; flex-shrink:0;">Encerrar Sessão</button>
+        </div>
+    </div><!-- End Interface Grid -->
+    </div><!-- End View Platform -->
+    
+    <button id="hardResetBtn" onclick="fullLogout()">HARD RESET</button>
+
+<script>
+// --- FIREBASE CONFIG (USER MUST PASTE HERE) ---
+const firebaseConfig = {
+  apiKey: "AIzaSyAz0TWl4_ucANDaDJhY9ozLuaGnTFw_V6U",
+  authDomain: "jarvis-trader-a6d3d.firebaseapp.com",
+  projectId: "jarvis-trader-a6d3d",
+  storageBucket: "jarvis-trader-a6d3d.firebasestorage.app",
+  messagingSenderId: "1085731500934",
+  appId: "1:1085731500934:web:9711ce9b71317440727207",
+  measurementId: "G-L04M946NCJ"
+};
+
+// INITIALIZE FIREBASE
+let auth, db;
+try {
+    firebase.initializeApp(firebaseConfig);
+    auth = firebase.auth();
+    db = firebase.firestore();
+    console.log("🔥 FIREBASE SDK LOADED");
+} catch(e) {
+    console.warn("⚠️ FIREBASE NOT CONFIGURED YET. USING MOCK MODE.");
+}
+
+// --- VIEW MANAGER ---
+function setView(viewId) {
+    document.querySelectorAll('.view-section').forEach(el => el.classList.remove('view-active'));
+    getEl(viewId).classList.add('view-active');
+    localStorage.setItem('jarvis_active_view', viewId);
+}
+
+// --- AUTH SERVICE ---
+function authLogin() {
+    const email = getEl('loginEmail').value;
+    const pass = getEl('loginPass').value;
+    const msg = getEl('loginMsg');
+    
+    if(!email || !pass) { msg.innerText = "PREENCHA TODOS OS CAMPOS"; return; }
+    
+    msg.innerText = "VERIFICANDO...";
+    
+    msg.innerText = "VERIFICANDO...";
+    
+    // 1. HARDCODED MOCK LOGIN (BYPASS FIREBASE FOR DEMO OR ADMIN QUOTA FIX)
+    if(email === "user" && pass === "user") {
+        msg.innerText = "LOGIN ADMIN (MOCK) SUCESSO!";
+        setTimeout(() => {
+            const profile = localStorage.getItem('jarvis_user_profile');
+            if (!profile) setView('view-onboarding');
+            else { setView('view-platform'); initSystem(); }
+        }, 1000);
+        return;
+    }
+
+    if(auth) {
+        console.log("🔐 Attempting Firebase login for:", email);
+        auth.signInWithEmailAndPassword(email, pass)
+            .then((userCredential) => {
+                console.log("✅ Firebase login successful. UID:", userCredential.user.uid);
+                // Check Database for Subscription Status
+                checkSubscription(userCredential.user.uid);
+            })
+            .catch((error) => {
+                console.error("❌ Firebase login error:", error);
+                msg.innerText = "ERRO: " + error.message;
+            });
+    } else {
+        console.warn("⚠️ Firebase not initialized");
+        msg.innerText = "FIREBASE NÃO CONFIGURADO. USE user/user";
+    }
+}
+
+function authRegister() {
+    const email = getEl('loginEmail').value;
+    const pass = getEl('loginPass').value;
+    const msg = getEl('loginMsg');
+    
+    if(!email || !pass) { msg.innerText = "PREENCHA EMAIL E SENHA PARA REGISTRAR"; return; }
+    
+    msg.innerText = "CRIANDO CONTA...";
+    console.log("📝 Attempting to register user:", email);
+    
+    if(auth) {
+        auth.createUserWithEmailAndPassword(email, pass)
+            .then((userCredential) => {
+                console.log("✅ User created in Firebase Auth. UID:", userCredential.user.uid);
+                // CREATE INITIAL DOC
+                const uid = userCredential.user.uid;
+                db.collection("users").doc(uid).set({
+                    email: email,
+                    createdAt: Date.now(),
+                    blocked: false,
+                    plan: "free"
+                }).then(() => {
+                    console.log("✅ User document created in Firestore");
+                    msg.innerText = "CONTA CRIADA! REDIRECIONANDO...";
+                    setTimeout(() => checkSubscription(uid), 1000);
+                }).catch((dbError) => {
+                    console.error("❌ Firestore document creation error:", dbError);
+                    msg.innerText = "ERRO AO CRIAR PERFIL: " + dbError.message;
+                });
+            })
+            .catch((error) => {
+                console.error("❌ Firebase registration error:", error);
+                msg.innerText = "ERRO AO REGISTRAR: " + error.message;
+            });
+    } else {
+        console.warn("⚠️ Firebase not initialized");
+        msg.innerText = "FIREBASE OFF. USE O MOCK.";
+    }
+}
+
+function checkSubscription(uid) {
+    const msg = getEl('loginMsg');
+    msg.innerText = "VERIFICANDO ASSINATURA...";
+    console.log("🔍 Checking subscription for UID:", uid);
+    
+    db.collection("users").doc(uid).get().then((doc) => {
+        console.log("📄 Firestore document fetch completed. Exists:", doc.exists);
+        
+        if (doc.exists) {
+            const data = doc.data();
+            console.log("📊 User data:", data);
+            
+            // 1. BLOCK CHECK
+            if (data.blocked) {
+                console.warn("🚫 User is blocked");
+                msg.innerText = "🚫 ACESSO BLOQUEADO PELO ADMINISTRADOR.";
+                auth.signOut();
+                return;
+            } 
+            
+            // 2. ADMIN CHECK
+            const isAdmin = (data.email === "admin" || data.email === "maurobrasil2013@hotmail.com");
+            if(isAdmin) {
+                console.log("👑 Admin user detected");
+                if(getEl('adminCard')) getEl('adminCard').style.display = 'flex';
+            }
+
+            // 3. DASHBOARD INFO
+            if(getEl('dashUserEmail')) getEl('dashUserEmail').innerText = data.email;
+
+            // 4. ONBOARDING CHECK
+            let hasProfile = (data.onboardingComplete || localStorage.getItem('jarvis_user_profile'));
+            
+            // 🛑 IDENTITY CHECK: Does the specific local profile belong to THIS user?
+            if (hasProfile && typeof hasProfile === 'string') {
+                try {
+                    const localP = JSON.parse(hasProfile);
+                    // STRICT CHECK: If local profile has NO email OR email doesn't match... WIPE IT.
+                    if (!localP.email || localP.email !== data.email) {
+                        console.warn("🛑 IDENTITY MISMATCH: Local profile email is", localP.email, "but user is", data.email);
+                        console.warn("🧹 WIPING STALE DATA to prevent 'Ghost Login' bug...");
+                        localStorage.removeItem('jarvis_user_profile');
+                        localStorage.removeItem('jarvis_active_view');
+                        localStorage.removeItem('jarvis_state_v20'); // Wipe state too just in case
+                        hasProfile = false; // Force re-evaluation (will go to onboarding)
+                    }
+                } catch(e) { 
+                    // Invalid JSON in storage? Wipe it.
+                    localStorage.removeItem('jarvis_user_profile');
+                    hasProfile = false;
+                }
+            }
+
+            console.log("📋 Has profile:", hasProfile);
+            
+            msg.innerText = "ACESSO AUTORIZADO! BEM-VINDO.";
+            
+            setTimeout(() => {
+                if (hasProfile) {
+                    console.log("✅ User has profile, going to dashboard");
+                    const lastView = localStorage.getItem('jarvis_active_view');
+                    if(lastView === 'view-platform') {
+                        openTrading(); 
+                    } else if (lastView && getEl(lastView)) {
+                        setView(lastView);
+                    } else {
+                        setView('view-dashboard');
+                    }
+                } else {
+                    console.log("📝 No profile found, going to onboarding");
+                    setView('view-onboarding');
+                    initOnboarding();
+                }
+            }, 1000);
+
+        } else {
+            console.warn("⚠️ User document does not exist in Firestore, creating default profile");
+            // Create missing document
+            db.collection("users").doc(uid).set({
+                email: auth.currentUser.email,
+                createdAt: Date.now(),
+                blocked: false,
+                plan: "free"
+            }).then(() => {
+                console.log("✅ Default profile created");
+                setView('view-onboarding');
+                initOnboarding();
+            }).catch((createError) => {
+                console.error("❌ Error creating default profile:", createError);
+                msg.innerText = "ERRO AO CRIAR PERFIL: " + createError.message;
+            });
+        }
+    }).catch((error) => {
+        console.error("❌ Firestore read error:", error);
+        msg.innerText = "ERRO AO VERIFICAR: " + error.message;
+    });
+}
+
+const DERIV_APP_ID = 114062; // JARVIS ID (Restored from Backup V28)
+
+function loginDeriv() {
+    window.location.href = `https://oauth.deriv.com/oauth2/authorize?app_id=${DERIV_APP_ID}&l=PT&brand=deriv`;
+}
+
+// --- TOKEN MANAGEMENT ---
+function openTrading() {
+    // 1. Check URL for OAuth Response (Capture ALL accounts)
+    const params = new URLSearchParams(window.location.search);
+    if(params.has('token1')) {
+        let accounts = [];
+        let i = 1;
+        while(params.has(`token${i}`)) {
+            accounts.push({
+                token: params.get(`token${i}`),
+                loginid: params.get(`acct${i}`),
+                currency: params.get(`cur${i}`)
+            });
+            i++;
+        }
+        
+        if (accounts.length > 0) {
+            localStorage.setItem('jarvis_accounts', JSON.stringify(accounts));
+            // Default to first account (usually Real) if not set
+            localStorage.setItem('jarvis_last_token', accounts[0].token);
+            currentToken = accounts[0].token;
+        }
+
+        // Clear URL
+        window.history.replaceState({}, document.title, window.location.pathname);
+    }
+
+    // Check if we have a token
+    const saved = localStorage.getItem('jarvis_last_token');
+    
+    // Check if user is Admin or specifically allowed to bypass
+    const user = auth.currentUser;
+    const bypass = (user && (user.email === 'admin' || user.email === 'user')); 
+
+    // ALWAYS SWITCH TO PLATFORM FIRST
+    setView('view-platform');
+
+    if (!saved && !bypass) {
+        // SHOW MODAL
+        getEl('modal-token').style.display = 'flex';
+    } else {
+        // PROCEED
+        if(!window.systemInitialized) {
+            initSystem();
+        }
+    }
+}
+
+
+function saveDerivToken() {
+    const val = getEl('derivTokenInput').value;
+    if(!val) return alert("Por favor, cole seu token.");
+    
+    // Save as Account 1 default
+    localStorage.setItem('jarvis_token_1', val);
+    localStorage.setItem('jarvis_last_token', val);
+    
+    closeTokenModal();
+    openTrading(); // Try again
+}
+
+function closeTokenModal() {
+    getEl('modal-token').style.display = 'none';
+}
+
+// --- ONBOARDING CHAT LOGIC ---
+let chatStep = 0;
+let userProfile = { name: "", bank: 0, style: "" };
+
+function handleChatKey(e) { if(e.key === 'Enter') sendChat(); }
+
+function initOnboarding() {
+    chatStep = 0;
+    getEl('chatHistory').innerHTML = '';
+    setTimeout(() => jarvisSay("Olá, eu sou o JARVIS. Qual é o seu nome?"), 500);
+}
+
+function jarvisSay(msg) {
+    const hist = getEl('chatHistory');
+    const div = document.createElement('div');
+    div.innerHTML = `<span style="color:var(--cyber-blue); font-weight:bold;">JARVIS:</span> <span style="color:#ddd;">${msg}</span>`;
+    div.style.background = "rgba(0,243,255,0.05)";
+    div.style.padding = "10px";
+    div.style.borderRadius = "4px";
+    div.style.borderLeft = "2px solid var(--cyber-blue)";
+    div.style.animation = "fadeIn 0.5s";
+    hist.appendChild(div);
+    hist.scrollTop = hist.scrollHeight;
+}
+
+function userSay(msg) {
+    const hist = getEl('chatHistory');
+    const div = document.createElement('div');
+    div.innerHTML = `<span style="color:var(--cyber-gold); font-weight:bold;">VOCÊ:</span> <span style="color:#ddd;">${msg}</span>`;
+    div.style.padding = "10px";
+    div.style.textAlign = "right";
+    div.style.animation = "fadeIn 0.5s";
+    hist.appendChild(div);
+    hist.scrollTop = hist.scrollHeight;
+}
+
+function sendChat() {
+    const input = getEl('chatInput');
+    const msg = input.value.trim();
+    if(!msg) return;
+    
+    userSay(msg);
+    input.value = '';
+    
+    // Simulate Thinking
+    setTimeout(() => processAnswer(msg), 800);
+}
+
+function processAnswer(ans) {
+    // 1. NAME
+    if (chatStep === 0) {
+        userProfile.name = ans;
+        jarvisSay(`Prazer, ${ans}. Ficarei responsável por proteger seu capital.`);
+        setTimeout(() => jarvisSay("Qual o valor da sua banca inicial? (Ex: 100)"), 1500);
+        chatStep++;
+    }
+    // 2. BANKROLL
+    else if (chatStep === 1) {
+        const val = parseFloat(ans.replace(/[^0-9.]/g, ''));
+        if (isNaN(val) || val <= 0) {
+            jarvisSay("Por favor, digite um valor numérico válido.");
+            return;
+        }
+        userProfile.bank = val;
+        jarvisSay(`Entendido. Banca de $${val.toFixed(2)} registrada.`);
+        setTimeout(() => {
+            jarvisSay("Qual seu estilo de investidor?");
+            jarvisSay("A) CONSERVADOR (0.5% - 1% ao dia)");
+            jarvisSay("B) MODERADO (1% - 3% ao dia)");
+            jarvisSay("C) ARROJADO (Sem limites, alto risco)");
+            jarvisSay("Digite A, B ou C:");
+        }, 1500);
+        chatStep++;
+    }
+    // 3. STYLE
+    else if (chatStep === 2) {
+        const style = ans.toUpperCase();
+        if (['A', 'B', 'C'].includes(style) || style.includes('CONSERVADOR') || style.includes('MODERADO')) {
+            if (style.includes('A') || style.includes('CONSERVADOR')) userProfile.style = "CONSERVADOR";
+            else if (style.includes('B') || style.includes('MODERADO')) userProfile.style = "MODERADO";
+            else userProfile.style = "ARROJADO";
+            
+            jarvisSay(`Perfil ${userProfile.style} definido.`);
+            jarvisSay("Configurando protocolos de segurança...");
+            
+            // SAVE PROFILE (LOCAL + FIRESTORE)
+            localStorage.setItem('jarvis_user_profile', JSON.stringify(userProfile));
+            
+            if(auth && auth.currentUser) {
+                const uid = auth.currentUser.uid;
+                db.collection("users").doc(uid).update({
+                    profile: userProfile,
+                    onboardingComplete: true
+                }).then(() => console.log("PROFILE SAVED TO DB"));
+            }
+            
+            setTimeout(() => {
+                jarvisSay("Tudo pronto. Acesso Liberado.");
+                setTimeout(() => {
+                    setView('view-dashboard');
+                }, 2000);
+            }, 2000);
+            chatStep++;
+        } else {
+            jarvisSay("Opção inválida. Por favor digite A, B ou C.");
+        }
+    }
+}
+
+
+// JARVIS V21.28 MEAN REVERSION STRATEGY
+
+// --- CONFIG ---
+const APP_ID = 114062;
+const SYMBOL = "R_100"; 
+const MAX_TRADES = 1;
+const MAX_CANDLE_AGE_SECONDS = 20; // Allow up to 20s
+
+// --- TRADE LIFECYCLE STATE MACHINE (ARCHITECTURE V2) ---
+const TradeState = {
+    SCAN: 'SCAN',      // Looking for Setup
+    CONFIRM: 'CONFIRM',// Validating Setup (Rejection/Break)
+    ENTER: 'ENTER',    // Placing Order
+    LOCK: 'LOCK',      // Holding (No Exit)
+    MANAGE: 'MANAGE',  // Trailing Stop Logic
+    EXIT: 'EXIT',      // Closing
+    COOLDOWN: 'COOLDOWN' // Waiting
+};
+
+let tradeLifecycle = {
+    state: TradeState.SCAN,
+    signal: null,      // 'CALL' or 'PUT'
+    entryTime: 0,
+    entryPrice: 0,
+    targetPrice: 0,    // For R-Analysis
+    stopPrice: 0,      // Hard Stop
+    highestProfit: 0,  // For Trailing
+    riskUnit: 5.0,     // $5 per trade (Default)
+    rMultiple: 1.5,     // Target = 1.5R
+    lockUntil: 0,      // Timestamp for Lock
+    confirmStartVal: 0 // Price at start of CONFIRM
+};
+
+// --- STATE ---
+let ws;
+let chart, series;
+let candles = [];
+let model = null;
+let isProcessing = false;
+let availableAccounts = [];
+let currentToken = "";
+let positions = new Map();
+let sessionProfit = 0.0;
+let lastAnalysisTime = 0;
+let lastTickTime = Date.now(); // HEARTBEAT
+let martingaleLevel = 0;
+let currentStake = 1.0;
+let highestProfit = new Map();
+let accumulatedLoss = 0.0;
+let tradeStakes = new Map();
+let lossCoolDownTimestamp = 0; // "GELADEIRA" (Cool Down)
+const COOL_DOWN_MS = 60000; // 1 Minute Freeze after Loss
+
+// --- HELPER ---
+function getEl(id) {
+    const el = document.getElementById(id);
+    if (!el) return document.createElement('div');
+    return el;
+}
+
+// --- BOOT ---
+window.addEventListener('DOMContentLoaded', () => {
+    console.log("🚀 JARVIS V21.28 SaaS EDITION");
+    
+    if (!sessionStorage.getItem('cache_busted_v28')) {
+        console.warn("CACHE WIPE V28...");
+        localStorage.removeItem('jarvis_state_v20'); 
+        sessionStorage.setItem('cache_busted_v28', 'true');
+    }
+
+    try {
+        // SAAS BOOT: START AT LOGIN SCREEN
+        setView('view-login'); 
+        loadState(); // Pre-load config but don't start system
+        setInterval(updateTimers, 1000); // Start Watchdog
+    } catch(e) {
+        console.error(e);
+    }
+});
+
+function initSystem() {
+    console.log("SYSTEM BOOT INITIATED...");
+    window.systemInitialized = true;
+    
+    getEl('posList').innerHTML = '';
+    const hist = getEl('histList');
+    // FIX: Do NOT clear history on boot, so persistence works. Only clear on Reset.
+    if(hist && hist.innerHTML === '') hist.innerHTML = '<div style="text-align:center; color:#445566; font-size:0.8rem; margin-top:40px;">Histórico vazio.</div>';
+    
+    getEl('emptyMsg').style.display = 'block';
+    positions.clear();
+    tradeStakes.clear();
+
+    // LOAD ACCOUNTS
+    const savedAccs = localStorage.getItem('jarvis_accounts');
+    if(savedAccs) {
+        availableAccounts = JSON.parse(savedAccs);
+        console.log(`💳 ACCOUNTS LOADED: ${availableAccounts.length}`);
+    }
+
+    setTimeout(() => {
+        initChart();
+        loadAI();
+        connectWS();
+    }, 500);
+}
+
+// --- STATISTICAL INDICATORS ---
+
+function calculateMeanReversion() {
+    // AUDIT REQUEST: "Analyze last 50 candles"
+    const period = 50; 
+    if (candles.length < period) return null;
+    
+    // Calculate Simple Moving Average
+    const slice = candles.slice(-period).map(c => c.close);
+    const mean = slice.reduce((a,b) => a+b) / period;
+    
+    // Calculate Standard Deviation
+    const variance = slice.reduce((a,b) => a + Math.pow(b - mean, 2), 0) / period;
+    const stdDev = Math.sqrt(variance);
+    
+    // EMA TREND FILTER (Trend Definition)
+    // We use EMA 100 to define the major trend.
+    const emaPeriod = 100;
+    let ema = null;
+    if (candles.length >= emaPeriod) {
+        const prices = candles.map(c => c.close);
+        const k = 2 / (emaPeriod + 1);
+        ema = prices[0]; // Start with first price (approx)
+        for (let i = 1; i < prices.length; i++) {
+            ema = (prices[i] * k) + (ema * (1 - k));
+        }
+    }
+
+    const currentPrice = candles[candles.length - 1].close;
+    const zScore = (currentPrice - mean) / stdDev;
+    
+    // DYNAMIC MULTIPLIER (IMPROVED PRECISION)
+    // User Complaint: "Sem assertividade"
+    // Fix: Increase deviation requirement. Filter weak signals.
+    const isConservative = getEl('conservativeMode') && getEl('conservativeMode').checked;
+    
+    // Tighter Bands: 2.5 (Conservative) / 2.0 (Aggressive)
+    let multiplier = isConservative ? 2.5 : 2.0; 
+    
+    if (martingaleLevel > 0) {
+        multiplier = 2.8; // SNIPER MODE: Only take EXTREME reversals during recovery.
+    }
+    
+    return {
+        mean: mean,
+        stdDev: stdDev,
+        upperBand: mean + (multiplier * stdDev),
+        lowerBand: mean - (multiplier * stdDev),
+        currentPrice: currentPrice,
+        zScore: zScore,
+        multiplier: multiplier,
+        ema: ema // Trend Filter
+    };
+}
+
+function updateCoolDownTimer() {
+    const btn = getEl('btnDecode');
+    const sub = getEl('btnSubText');
+    if (!btn || !sub) return;
+
+    if (Date.now() < lossCoolDownTimestamp) {
+        const remaining = Math.ceil((lossCoolDownTimestamp - Date.now()) / 1000);
+        
+        // BUG FIX: Sanity Check for "Crazy Cooling" (86645s)
+        if (remaining > 300) { 
+             console.warn("⚠️ COOLING TIMER ERROR: Resetting bogus timestamp.");
+             lossCoolDownTimestamp = 0;
+             btn.disabled = false;
+             return; 
+        }
+
+        btn.style.borderColor = 'var(--cyber-blue)'; 
+        btn.disabled = true;
+        sub.innerText = `❄️ RESFRIAMENTO: ${remaining}s`;
+        sub.style.color = '#00f3ff';
+    } else {
+        if(btn.disabled && sub.innerText.includes("RESFRIAMENTO")) {
+             btn.disabled = false;
+             sub.innerText = "SISTEMA ONLINE";
+             sub.style.color = "var(--cyber-green)";
+        }
+    }
+}
+
+function checkVisualPattern(type) {
+    // "PADRÕES VISUAIS" (User Request)
+    // Avoid "Falling Knife" (Buying CALL when huge red candles)
+    // Avoid "Rocket" (Selling PUT when huge green candles)
+    if (candles.length < 3) return true; 
+
+    const last = candles[candles.length - 2];
+    const current = candles[candles.length - 1]; // Current forming candle
+
+    const isRed = (c) => c.close < c.open;
+    const isGreen = (c) => c.close > c.open;
+    
+    if (type === 'CALL') {
+        // Anti-Crash: If current is RED and dropping fast, ignore "Cheap" signal
+        if (isRed(current) && isRed(last)) {
+            console.warn("⚠️ VISUAL FILTER: Falling Knife Detected (Current+Last Red) -> Wait!");
+            return false;
+        }
+    }
+    
+    if (type === 'PUT') {
+        // Anti-Pump: If current is GREEN and pumping, ignore "Expensive" signal
+        if (isGreen(current) && isGreen(last)) {
+             console.warn("⚠️ VISUAL FILTER: Rocket Detected (Current+Last Green) -> Wait!");
+             return false;
+        }
+    }
+    
+    return true; 
+}
+
+function countConsecutive(type) {
+    let count = 0;
+    for (let i = candles.length - 2; i >= 0; i--) { // Start from last completed
+        const c = candles[i];
+        const isGreen = c.close > c.open;
+        const isRed = c.close < c.open;
+        
+        if (type === 'GREEN' && isGreen) count++;
+        else if (type === 'RED' && isRed) count++;
+        else break;
+    }
+    return count;
+}
+
+function checkVolatility() {
+    // AVOID FLAT MARKETS
+    // Simple check: Body size average vs price
+    const last10 = candles.slice(-10);
+    const avgBody = last10.reduce((a,c) => a + Math.abs(c.close - c.open), 0) / 10;
+    
+    // RELAXED Threshold for "Micro-Scalping" (was 0.05)
+    if (avgBody < 0.015) { // Very flat for this asset?
+         return false;
+    }
+    return true;
+}
+
+function checkWickRejection(type) {
+    if (candles.length < 1) return true;
+    const c = candles[candles.length - 1]; // Current Live Candle
+    
+    const bodySize = Math.abs(c.close - c.open);
+    const upperWick = c.high - Math.max(c.open, c.close);
+    const lowerWick = Math.min(c.open, c.close) - c.low;
+    
+    // HEAVY ENGINEERING: Candle Anatomy Analysis
+    // Issue: "Pega candle retraindo" -> We must detect Rejection Wicks.
+    
+    if (type === 'CALL') {
+        // Danger: Huge Upper Wick (Selling Pressure) -> Market tried to go up and failed.
+        // Don't buy into resistance.
+        if (upperWick > (bodySize * 1.5) && upperWick > 0.05) {
+             console.warn(`⚠️ WICK REJECTION: Call Rejected by Huge Upper Wick (${upperWick.toFixed(2)})`);
+             return false;
+        }
+    }
+    
+    if (type === 'PUT') {
+        // Danger: Huge Lower Wick (Buying Pressure) -> Market tried to go down and failed.
+        // Don't sell into support.
+        if (lowerWick > (bodySize * 1.5) && lowerWick > 0.05) {
+             console.warn(`⚠️ WICK REJECTION: Put Rejected by Huge Lower Wick (${lowerWick.toFixed(2)})`);
+             return false;
+        }
+    }
+    
+    return true;
+}
+
+function getCandleAge() {
+    if (candles.length === 0) return 999;
+    const lastCandle = candles[candles.length - 1];
+    const now = Math.floor(Date.now() / 1000);
+    return now - lastCandle.time;
+}
+
+function checkNanoPattern() {
+    // "NANO MOVIMENTO" (User Request)
+    // Detects micro-retracements and continuous pressure (Staircase)
+    if (candles.length < 2) return "NEUTRO";
+    const c = candles[candles.length - 1]; // Current Live
+    const prev = candles[candles.length - 2]; // Last Closed
+
+    const body = Math.abs(c.close - c.open);
+    const upperWick = c.high - Math.max(c.open, c.close);
+    const lowerWick = Math.min(c.open, c.close) - c.low;
+
+    // 1. STAIRCASE DOWN (Padrão de Queda Controlada)
+    // Prev: RED. Current: Fighting at bottom.
+    if (prev.close < prev.open) {
+         // Current is Red OR struggling below prev close
+         if (c.close < c.open || c.close < prev.close) {
+              // "Retraiu um pouquinho" (Upper Wick Exists but small)
+              if (upperWick > 0.01 && upperWick < (body * 3)) { // Valid Wick
+                   // "Desceu denovo" (Pushing Lows) -> Small Lower Wick means huge pressure down
+                   if (lowerWick < upperWick) return "PUT";
+              }
+         }
+    }
+
+    // 2. STAIRCASE UP (Padrão de Alta)
+    // Prev: GREEN. Current: Fighting at top.
+    if (prev.close > prev.open) {
+         if (c.close > c.open || c.close > prev.close) {
+              // "Retraiu um pouquinho" (Lower Wick Exists)
+              if (lowerWick > 0.01 && lowerWick < (body * 3)) {
+                   // "Subiu denovo" (Pushing Highs)
+                   if (upperWick < lowerWick) return "CALL";
+              }
+         }
+    }
+    
+    return "NEUTRO";
+}
+
+// --- MEAN REVERSION ANALYSIS ---
+
+async function runAI(mode) {
+    if (isProcessing) return;
+    
+    // --- STATE MACHINE DISPATCHER (ARCHITECTURE V2) ---
+    switch(tradeLifecycle.state) {
+        
+        // 1. SCANNING STATE (Looking for Opportunities)
+        case TradeState.SCAN:
+            await stateScan(mode);
+            break;
+            
+        // 2. CONFIRMATION STATE (Validating Signal)
+        case TradeState.CONFIRM:
+             await stateConfirm();
+             break;
+             
+        // 3. ENTER STATE (Execution)
+        case TradeState.ENTER:
+             // Executed immediately by state transition
+             break;
+             
+        // 4. MANAGING STATES (LOCK, MANAGE)
+        case TradeState.LOCK:
+        case TradeState.MANAGE:
+             await stateManage();
+             break;
+             
+        // 5. COOLDOWN
+        case TradeState.COOLDOWN:
+             checkCoolDown();
+             break;
+    }
+}
+
+// --- STATE: SCAN ---
+async function stateScan(mode) {
+    if (positions.size > 0) {
+        // Recover state if position exists
+        tradeLifecycle.state = TradeState.MANAGE;
+        return;
+    }
+
+    // CHECK CANDLE AGE
+    const candleAge = getCandleAge();
+    if (candleAge > MAX_CANDLE_AGE_SECONDS) return;
+
+    isProcessing = true;
+    const btn = getEl('btnDecode');
+    const sub = getEl('btnSubText');
+    const anim = getEl('jarvisAnim');
+    const img = document.querySelector('.jarvis-img');
+
+    // VISUAL
+    if (mode === 'MANUAL') btn.style.background = 'rgba(255, 215, 0, 0.1)';
+    if(anim) {
+         anim.className = 'jarvis-container';
+         void anim.offsetWidth; 
+         if(img) img.style.boxShadow = '0 0 30px rgba(255, 215, 0, 0.5)';
+    }
+
+    try {
+        if(sub) sub.innerText = `🔎 SCAN (STATE: ${tradeLifecycle.state})...`;
+        await new Promise(r => setTimeout(r, 10)); // Hyper HFT: 10ms Scan Cycle (was 300ms)
+
+        if (candles.length < 50) {
+            if(sub) sub.innerText = "DADOS INSUFICIENTES...";
+            isProcessing = false;
+            return;
+        }
+
+        // MEAN REVERSION CALCULATION
+        const mr = calculateMeanReversion();
+        const rsi = parseFloat(getEl('rsiVal').innerText) || 50;
+
+        // GEMINI BRAIN CHECK (SECRET MODE: ALWAYS ON)
+        // Checkbox removed. We force the Brain.
+        const useGemini = true; 
+        
+        if (useGemini) {
+             const aiDecision = await callGeminiBrain(candles, rsi, mr);
+             if (aiDecision && aiDecision.confidence > 70) {
+                 signal = aiDecision.signal;
+                 // Override standard logic
+                 if (signal === 'CALL') placeTrade('CALL');
+                 if (signal === 'PUT') placeTrade('PUT');
+                 isProcessing = false;
+                 return; // Exit early, Gemini is the Captain.
+             }
+        }
+
+        let signal = "NEUTRO";
+
+        // NANO-PATTERN STRATEGY (User Request: "Micro/Nano Movimento")
+        // Logic: Detect specific wick rejections and continuous pressure (Staircase)
+        const nanoSignal = checkNanoPattern();
+        
+        if (checkVolatility()) {
+            if (nanoSignal === 'CALL' && rsi < 90 && mr.zScore > 0.5) {
+                signal = "CALL"; 
+            }
+            if (nanoSignal === 'PUT' && rsi > 10 && mr.zScore < -0.5) {
+                signal = "PUT";
+            }
+        } 
+
+
+        // MEAN REVERSION CHECK (If no momentum)
+        if (signal === "NEUTRO") {
+            const THRESHOLD = 2.0;
+            
+            if (mr.zScore >= THRESHOLD && rsi > 35 && checkWickRejection('PUT')) {
+                signal = "PUT";
+            }
+            if (mr.zScore <= -THRESHOLD && rsi < 65 && checkWickRejection('CALL')) {
+                signal = "CALL";
+            }
+        }
+        
+        // 🛡️ TREND FILTER (EMA 100) - "SECURITY SHIELD"
+        // User Complaint: "Ele ta perdendo demais"
+        // Cause: Buying in strong downtrend / Selling in strong uptrend.
+        // Fix: VETO signals against the major trend.
+        if (mr.ema && signal !== "NEUTRO") {
+             if (signal === 'CALL' && mr.currentPrice < mr.ema) {
+                 // Only allow if Z-Score is EXTREME (Oversold Bounce)
+                 // Relaxed from 3.0 to 2.2 to allow "Dip Buying"
+                 if (mr.zScore > -2.2) {
+                     console.log(`🚫 TREND SHIELD: Blocking CALL against Downtrend (Price ${mr.currentPrice.toFixed(2)} < EMA ${mr.ema.toFixed(2)})`);
+                     signal = "NEUTRO"; 
+                 } else {
+                     console.log(`✅ TREND SHIELD: ALLOWING CALL (OVERSOLD BOUNCE) | Z: ${mr.zScore.toFixed(2)}`);
+                 }
+             }
+             if (signal === 'PUT' && mr.currentPrice > mr.ema) {
+                  // Only allow if Z-Score is EXTREME (Overbought Dump)
+                  // Relaxed from 3.0 to 2.2
+                  if (mr.zScore < 2.2) {
+                      console.log(`🚫 TREND SHIELD: Blocking PUT against Uptrend (Price ${mr.currentPrice.toFixed(2)} > EMA ${mr.ema.toFixed(2)})`);
+                      signal = "NEUTRO";
+                  } else {
+                      console.log(`✅ TREND SHIELD: ALLOWING PUT (OVERBOUGHT DUMP) | Z: ${mr.zScore.toFixed(2)}`);
+                  }
+             }
+        }
+
+        // 🧠 EXHAUSTION FILTER (New "Malícia")
+        // User Complaint: "Entra com CALL no topo de 5 velas verdes!"
+        // Fix: Detect Exhaustion (4+ consecutive candles) and BLOCK trend following.
+        // Bonus: Hints at Reversal.
+        
+        const consecutiveGreen = countConsecutive('GREEN');
+        const consecutiveRed = countConsecutive('RED');
+
+        if (signal === 'CALL' && consecutiveGreen >= 4) {
+             console.warn(`🛑 EXHAUSTION: Blocking CALL after ${consecutiveGreen} Green Candles. Too risky.`);
+             signal = "NEUTRO";
+        }
+        
+        if (signal === 'PUT' && consecutiveRed >= 4) {
+             console.warn(`🛑 EXHAUSTION: Blocking PUT after ${consecutiveRed} Red Candles. Too risky.`);
+             signal = "NEUTRO";
+        }
+
+        // 🛡️ ANTI-STUBBORNNESS (User Complaint: "Perde no mesmo lugar 3 vezes")
+        // Logic: If Last Trade was LOSS and Direction is SAME and Price is SIMILAR... BLOCK IT.
+        if (signal !== "NEUTRO" && window.tradeLifecycle && window.tradeLifecycle.lastTrade && window.tradeLifecycle.lastTrade.result === 'LOSS') {
+             const lt = window.tradeLifecycle.lastTrade;
+             // Check memory: Is direction same?
+             if (lt.direction === signal) {
+                  // Check Price level: Is it roughly the same struggle point? (e.g. within 0.50 diff)
+                  const priceDiff = Math.abs(mr.currentPrice - lt.entryPrice);
+                  if (priceDiff < 0.50) {
+                       console.warn(`🛑 WHIPSAW GUARD: Blocking ${signal} at same losing level ($${mr.currentPrice}). Don't be stubborn.`);
+                       signal = "NEUTRO";
+                  }
+             }
+        }
+        
+        // 🎣 REVERSAL HUNTING (Malícia V2)
+        // If we see 4+ candles and signal is NEUTRO, checking for REVERSAL opportunity.
+        if (signal === "NEUTRO") {
+             if (consecutiveGreen >= 4 && checkWickRejection('PUT')) {
+                  console.log(`🎣 REVERSAL HUNTER: ${consecutiveGreen} Greens + Rejection. Trying SNAP PUT.`);
+                  signal = "PUT";
+             }
+             if (consecutiveRed >= 4 && checkWickRejection('CALL')) {
+                  console.log(`🎣 REVERSAL HUNTER: ${consecutiveRed} Reds + Rejection. Trying SNAP CALL.`);
+                  signal = "CALL";
+             }
+        }
+        
+        // SMART REVERSAL BIAS (Recovery Intelligence)
+        // If we are in a losing streak (Martingale > 0), simple trend following failed.
+        // We must adapt. Look for REJECTIONS aggressively.
+        if (martingaleLevel > 0 && signal === "NEUTRO") {
+             // If price is HIGH and Wick is UP -> PUT (Don't wait for extreme Z-Score)
+             if (checkWickRejection('PUT') && mr.zScore > 0.5) {
+                  signal = "PUT";
+                  console.log(`🦅 RECOVERY SNIPER: Found Weakness at Top. Counter-Attacking (PUT).`);
+             }
+             // If price is LOW and Wick is DOWN -> CALL
+             if (checkWickRejection('CALL') && mr.zScore < -0.5) {
+                  signal = "CALL";
+                  console.log(`🦅 RECOVERY SNIPER: Found Support at Bottom. Counter-Attacking (CALL).`);
+             }
+        }
+        
+        // AI CONFIRMATION VETO
+         if (signal !== "NEUTRO" && model) {
+            try {
+                const aiPred = await getAIPrediction();
+                if (aiPred !== null) {
+                    if (signal === "CALL" && aiPred < 0.3) signal = "NEUTRO";
+                    if (signal === "PUT" && aiPred > 0.7) signal = "NEUTRO";
+                }
+            } catch(e) {}
+         }
+
+        // TRANSITION TO ENTER (Phase 1: Direct Entry, skipping CONFIRM for now)
+        if (signal !== "NEUTRO") {
+             console.log(`📡 SIGNAL FOUND: ${signal}. EXECUTING.`);
+             transitionToEnter(signal, mr.currentPrice);
+        } else {
+             if(sub) sub.innerHTML = `<span style="color:#8899a6; font-size:0.8rem;">RASTREADOR</span> <span style="font-weight:900; color:${Math.abs(mr.zScore) >= 1.2 ? '#00ff41' : '#ff003c'}">Z:${Math.abs(mr.zScore).toFixed(2)}</span>`;
+             if(anim) anim.className = 'jarvis-container';
+             if(img) img.style.boxShadow = 'none';
+        }
+
+    } catch(e) {
+        console.error("SCAN ERROR:", e);
+    } finally {
+        isProcessing = false;
+        if (mode === 'MANUAL') {
+             setTimeout(() => {
+                 btn.style.background = '';
+                 btn.style.borderColor = 'var(--cyber-blue)';
+                 if(sub) sub.innerText = "SISTEMA ONLINE";
+             }, 5000);
+        }
+    }
+}
+
+// --- STATE: HELPERS ---
+
+async function stateConfirm() {
+    // Placeholder for Phase 2 (Confirmation Layer)
+    // For now, we jump directly from SCAN to ENTER
+}
+
+function transitionToEnter(signal, price) {
+    tradeLifecycle.state = TradeState.ENTER;
+    tradeLifecycle.signal = signal;
+    tradeLifecycle.entryPrice = price;
+    tradeLifecycle.entryTime = Date.now();
+    
+    // EXECUTE
+    if(signal === 'CALL') placeTrade('CALL');
+    if(signal === 'PUT') placeTrade('PUT');
+    
+    // MOVE TO LOCK
+    tradeLifecycle.state = TradeState.LOCK;
+    tradeLifecycle.lockUntil = Date.now() + 10000; // 10s Lock (Breathing Room)
+    console.log(`🔒 ENTERED TRADE. LOCKED FOR 10s.`);
+}
+
+async function stateManage() {
+    // Manage Logic (Trailing, Lock)
+    const sub = getEl('btnSubText');
+    const remaining = Math.ceil((tradeLifecycle.lockUntil - Date.now())/1000);
+    
+    if(tradeLifecycle.state === TradeState.LOCK) {
+        if(sub) sub.innerText = `🔒 BLINDAGEM (${remaining}s)`;
+        
+        if(Date.now() > tradeLifecycle.lockUntil) {
+            tradeLifecycle.state = TradeState.MANAGE;
+            console.log("🔓 LOCK EXPIRED. ACTIVATING SMART TRAILING.");
+        }
+    } else {
+        if(sub) sub.innerText = `⚙️ GESTÃO INTELIGENTE...`;
+        // Smart Trailing Logic will be injected here in Phase 3
+    }
+} 
+
+function checkCoolDown() {
+    if(Date.now() > lossCoolDownTimestamp) {
+        tradeLifecycle.state = TradeState.SCAN;
+    }
+}
+
+async function getAIPrediction() {
+    if (!model || candles.length < 60) return null;
+    
+    try {
+        const slice = candles.slice(-60).map(c => c.close);
+        const mean = slice.reduce((a,b) => a+b) / 60;
+        const std = Math.sqrt(slice.reduce((a,b) => a + Math.pow(b-mean, 2), 0) / 60);
+        
+        const normalized = slice.map(v => (v - mean) / (std || 1));
+        const tensor = tf.tensor3d([normalized.map(v => [v])]);
+        
+        const prediction = model.predict(tensor);
+        const value = await prediction.data();
+        tensor.dispose();
+        prediction.dispose();
+        
+        return value[0];
+    } catch(e) {
+        console.warn("AI Prediction Error:", e);
+        return null;
+    }
+}
+
+function placeTrade(direction) {
+    if (!ws || ws.readyState !== 1) return;
+    if(positions.size >= MAX_TRADES) return;
+    
+    // 0. NO LIMITS (User Request: "Sem Palhaçada")
+    // Circuit Breaker & Level Cap REMOVED.
+    // The bot will fight until it wins or dies.
+    // "Intelligence" = Aggressive Adaptation, not stopping.
+
+    let stake = currentStake;
+    
+    const isConservative = getEl('conservativeMode') && getEl('conservativeMode').checked;
+
+    // --- GOVERNANCE & RISK MANAGEMENT (PHASE 4 - REVISED) ---
+    // User Request: "Intelligent Recovery", "Leverage High Confidence"
+    const baseStake = parseFloat(getEl('stakeInput').value) || 1.0;
+    let finalStake = baseStake;
+
+    // 1. KILL SWITCH (Safety Cap - USER DEFINED)
+    // Fix: Use the actual input value, not a hardcoded multiplier.
+    const userDailySL = parseFloat(getEl('slInput').value) || 50;
+    
+    if (sessionProfit <= -userDailySL) { 
+        console.error(`☠️ KILL SWITCH: Daily Loss Limit Hit (-$${userDailySL}). Trading Blocked.`);
+        tradeLifecycle.state = TradeState.COOLDOWN;
+        lossCoolDownTimestamp = Date.now() + 15000; // Fixed: 15s Pause (User wanted reaction, not 60s stuck)
+        return;
+    }
+
+    // 2. INTELLIGENT RECOVERY (Smart Martingale)
+    // If we are conflicting with the market, we shouldn't just halve the stake.
+    // We should calculate the stake needed to recover + profit, BUT with limits.
+    
+    // 2. INTELLIGENT RECOVERY (Precision Math)
+    // User Requirement: "Recuperação Inteligente sem dobrar a torta direita"
+    // Formula: Stake = (Abs(Loss) + NormalProfit) / Yield%
+    
+    // FIX: Trigger on Streak (martingaleLevel > 0) OR Drawdown (sessionProfit < 0)
+    // User Complaint: "Travado em $1.00 após loss" (because session was positive)
+    
+    if (martingaleLevel > 0 || sessionProfit < 0) {
+        // SMART RECOVERY V2.1: "GENTLE PROFIT" (Lucro Suave)
+        // User Request: "Não quero zero a zero! Eu quero lucro também! Mas sem dobrar."
+        // Strategy: Recover Loss + 50% of Normal Profit. 
+        // Logic: Ensures we end green, but reduces the burden of the full target.
+        // Example: Loss $4. Base Target $6. New Target $4 + $3 = $7. Stake $11.6 (vs $16).
+        
+        let lossToRecover = 0;
+        if (sessionProfit < 0) {
+             lossToRecover = Math.abs(sessionProfit);
+        } else {
+             lossToRecover = accumulatedLoss;
+        }
+
+        const tpPercent = parseFloat(getEl('scalpPercent').value) || 60;
+        const normalProfit = baseStake * (tpPercent / 100);
+        
+        // MIX: Loss + 50% Ambition
+        let target = lossToRecover + (normalProfit * 0.5); 
+        
+        // Safety Buffer
+        target += 0.05; 
+        
+        let smartStake = target / (tpPercent / 100);
+        
+        console.warn(`🛡️ SAFE RECOVERY: Loss $${lossToRecover.toFixed(2)} | Target Breakdown (Loss Only) | Stake $${smartStake.toFixed(2)}`);
+        
+        if (smartStake > baseStake) {
+             finalStake = smartStake;
+        }
+        
+        // DEBUG: DIAGNOSE WHY STAKE IS NOT INCREASING
+        console.warn(`🕵️ DEBUG RECOVERY: SessionPL=${sessionProfit.toFixed(2)} | Loss=${lossToRecover.toFixed(2)} | TP%=${tpPercent} | Target=${target.toFixed(2)} | CalcStake=${smartStake.toFixed(2)} | Base=${baseStake}`);
+
+        // SAFETY: Only apply if SmartStake is logically higher than BaseStake
+        if (smartStake > baseStake) {
+             finalStake = smartStake;
+             console.log(`🧠 PRECISION RECOVERY: Loss $${lossToRecover.toFixed(2)} | Target $${target.toFixed(2)} -> Stake $${finalStake.toFixed(2)}`);
+        } else {
+             // If BaseStake is enough to recover (e.g. small loss), keep BaseStake.
+             console.log(`🧠 PRECISION RECOVERY: Base Stake is sufficient to recover $${lossToRecover.toFixed(2)}.`);
+        }
+        
+        // NO CAP (User Request: "Limitar a 5x é um problema").
+        // Controlled ONLY by Daily Kill Switch (-10R) set above.
+        
+        // 3. BANKROLL PROTECTION (Solvency Guard)
+        // User Complaint: "Derrete a banca"
+        // Fix: NEVER bet more than 20% of the account on a single trade.
+        // If recovery requires > 20%, ABORT RECOVERY and RESET.
+        const currentBalance = parseFloat(getEl('balanceVal').innerText) || 0;
+        const MAX_RISK_PCT = 0.20; // 20% Max Risk per trade
+        
+        if (currentBalance > 0 && finalStake > (currentBalance * MAX_RISK_PCT)) {
+             console.error(`🚨 SOLVENCY GUARD: Required Stake $${finalStake.toFixed(2)} exceeds 20% of Balance ($${currentBalance.toFixed(2)}). ABORTING RECOVERY.`);
+             // Reset to Base Stake
+             finalStake = baseStake;
+             martingaleLevel = 0;
+             accumulatedLoss = 0;
+             console.warn(`📉 RESET: Streak cleared to protect capital.`);
+        }
+        
+        // REMOVED: "Going All-In" Logic. That was suicide.
+        if (currentBalance > 0 && finalStake > currentBalance) {
+             finalStake = baseStake; // Just in case
+        }
+    }
+
+    stake = finalStake.toFixed(2);
+
+    if (parseFloat(stake) < 0.35) stake = 0.35;
+    if (parseFloat(stake) > 5000) stake = 5000;
+
+    const duration = getEl('durationSelect').value;
+    
+    const req = {
+        proposal: 1,
+        amount: stake,
+        basis: 'stake',
+        contract_type: direction,
+        currency: 'USD',
+        symbol: SYMBOL,
+        duration: duration,
+        duration_unit: 'm'
+    };
+    
+    // NARRATIVE LOG (Pre-Trade)
+    const curBal = parseFloat(getEl('balanceVal').innerText) || 0;
+    console.log(`🧠 CONSCIENCE: Saldo $${curBal.toFixed(2)}. Ordem ${direction} (Stake $${stake}). Buscando Alvo...`);
+    
+    ws.send(JSON.stringify(req));
+    
+    console.log(`📤 TRADE SENT: ${direction} | Stake: ${stake}`);
+}
+
+function handlePosition(p) {
+    if (!p.contract_id || p.contract_type === 'undefined') return; 
+
+    if (!positions.has(p.contract_id)) {
+        positions.set(p.contract_id, p);
+        highestProfit.set(p.contract_id, -9999);
+        
+        const stakeValue = parseFloat(p.buy_price).toFixed(2);
+        tradeStakes.set(p.contract_id, stakeValue);
+        
+        const row = document.createElement('tr');
+        row.id = `pos-${p.contract_id}`;
+        row.innerHTML = `
+            <td>${new Date(p.purchase_time * 1000).toLocaleTimeString()}</td>
+            <td style="color:${p.contract_type==='CALL'?'#00ff41':'#ff003c'}">${p.contract_type}</td>
+            <td>${stakeValue}</td>
+            <td id="curr-${p.contract_id}">--</td>
+            <td id="timer-${p.contract_id}">--</td>
+            <td id="pl-${p.contract_id}">0.00</td>
+            <td><button onclick="sellAtMarket('${p.contract_id}')" style="background:var(--cyber-gold); color:black; border:none; padding:5px; cursor:pointer;">VENDER</button></td>
+        `;
+        getEl('posList').appendChild(row);
+        getEl('emptyMsg').style.display = 'none';
+    }
+
+    const currEl = document.getElementById(`curr-${p.contract_id}`);
+    const plEl = document.getElementById(`pl-${p.contract_id}`);
+    
+    if (currEl) currEl.innerText = p.current_spot;
+    
+    const profit = parseFloat(p.profit);
+    const buyPrice = parseFloat(p.buy_price); 
+    const profitPercent = (profit / buyPrice) * 100;
+
+    if (plEl) {
+        plEl.innerText = profit.toFixed(2);
+        plEl.style.color = profit >= 0 ? '#00ff41' : '#ff003c';
+    }
+
+    let shouldSell = false;
+
+    const isConservative = getEl('conservativeMode') && getEl('conservativeMode').checked;
+    
+    if (isConservative && martingaleLevel > 0) {
+        // RECOVERY MODE TARGET
+        // User Complaint: "Cadê o lucro?" (1.1x is too small).
+        // New Formula: Cover LOSS + Guaranteed $0.50 Profit minimum.
+        const targetProfit = accumulatedLoss + 0.50; 
+        
+        if (profit >= targetProfit) {
+            console.log(`🎯 RECOVERY TP: ${profit.toFixed(2)} >= ${targetProfit.toFixed(2)}`);
+            shouldSell = true;
+        }
+    }
+    
+    if (!shouldSell) {
+        
+    // --- NANO-SCALPING REMOVED ---
+    // User Verification: Fixed USD values ($0.40) harm large stakes ($10+).
+    // Logic is now purely Percentage Based (TP/SL).
+        
+        const userTP = parseFloat(getEl('scalpPercent').value) || 999;
+        const useTrailing = getEl('trailingToggle') && getEl('trailingToggle').checked; // Check Toggle
+
+        // FIX: If Trailing is ON, do NOT hard-stop at TP. Let it run!
+        // If Trailing is OFF, hard-stop as usual.
+        if (!useTrailing && profitPercent >= userTP) {
+            console.log(`✅ TP HIT (HARD): ${profitPercent.toFixed(2)}% >= ${userTP}%`);
+            shouldSell = true;
+        }
+
+        const userSL = parseFloat(getEl('slTradePercent').value) || 999;
+        if (profitPercent <= -userSL) {
+            console.warn(`⛔ SL HIT: ${profitPercent.toFixed(2)}% <= -${userSL}%`);
+            shouldSell = true;
+        }
+    }
+
+    // --- SMART TRAILING & LOCK LOGIC (PHASE 3) ---
+    const useTrailing = getEl('trailingToggle') && getEl('trailingToggle').checked;
+    const isLocked = (Date.now() < tradeLifecycle.lockUntil);
+
+    if (isLocked) {
+        // LOCK STATE: Anti-Noise
+        // FIX: Allow USER SL to override Lock Phase (User Request: "Não respeita o Stop Loss")
+        const userSL = parseFloat(getEl('slTradePercent').value) || 999;
+        
+        if (profitPercent <= -80) {
+            console.warn(`🚨 PANIC STOP: -80% Hit during LOCK Phase.`);
+            shouldSell = true;
+        } 
+        else if (profitPercent <= -userSL) {
+            console.warn(`⛔ SL HIT (LOCKED): ${profitPercent.toFixed(2)}% <= -${userSL}% (Override Lock)`);
+            shouldSell = true;
+        }
+        else {
+            // Force Hold (Breathing Room)
+            shouldSell = false; 
+        }
+    } 
+    else if (useTrailing && !shouldSell) {
+         // MANAGE STATE: Smart Trailing (PROFIT MAXIMIZER)
+         // Logic: Arm ONLY after User TP is hit (e.g. 60%). Then trail.
+         // User Requirement: "Trailing só aciona ACIMA do Take Profit"
+         
+         const userTP = parseFloat(getEl('scalpPercent').value) || 50;
+         const ARM_THRESHOLD = userTP; // Must hit TP first
+         const TRAIL_DISTANCE = parseFloat(getEl('trailingDistance').value) || 5;
+
+         // 1. Update High Water Mark
+         let high = highestProfit.get(p.contract_id) || 0;
+         if (profitPercent > high) {
+             high = profitPercent;
+             highestProfit.set(p.contract_id, high);
+         }
+
+         if (high >= ARM_THRESHOLD) {
+             const dynamicStop = high - TRAIL_DISTANCE;
+             // Ensure Dynamic Stop never goes below TP (Lock in the Win)
+             const hardFloor = ARM_THRESHOLD; 
+             const finalStop = Math.max(dynamicStop, hardFloor);
+
+             if (profitPercent <= finalStop) {
+                 console.log(`📉 SMART TRAILING: Peak ${high.toFixed(2)}% | Stop ${finalStop.toFixed(2)}% | Now ${profitPercent.toFixed(2)}%`);
+                 shouldSell = true;
+             }
+         }
+    }
+
+    if (shouldSell && p.is_valid_to_sell && !p.is_sold) {
+        sellAtMarket(p.contract_id);
+    }
+
+    if (p.is_sold) {
+        positions.delete(p.contract_id);
+        highestProfit.delete(p.contract_id);
+        
+        const stake = tradeStakes.get(p.contract_id) || buyPrice;
+        p.stake = stake;
+        addHistory(p);
+        
+        setTimeout(() => {
+            const el = document.getElementById(`pos-${p.contract_id}`);
+            if(el) el.remove();
+            if(positions.size === 0) {
+                 getEl('emptyMsg').style.display = 'block';
+                 setTimeout(() => {
+                     lastAnalysisTime = Date.now(); 
+                 }, 3000); 
+            }
+        }, 1000);
+
+        sessionProfit += profit;
+        getEl('sessionPL').innerText = sessionProfit.toFixed(2);
+        getEl('sessionPL').style.color = sessionProfit >= 0 ? '#00ff41' : '#ff003c';
+        
+        // UPDATE FINANCIAL NARRATIVE (User Request: "Narrativa do Saldo")
+        updateFinancialNarrative();
+        
+        const resEl = getEl('resultBig');
+        resEl.innerText = profit >= 0 ? "WIN" : "LOSS";
+        resEl.className = profit >= 0 ? "result-overlay show-res sentiment-bullish" : "result-overlay show-res sentiment-bearish";
+        setTimeout(() => resEl.classList.remove('show-res'), 2000);
+
+        if (profit < 0) {
+            martingaleLevel++;
+            accumulatedLoss += Math.abs(profit);
+            currentStake = buyPrice; 
+            
+            // COOL DOWN ACTIVATION (Hyper HFT)
+            // User Feedback: "50ms! Instantâneo!"
+            // Fix: 50ms. The machine does not blink.
+            lossCoolDownTimestamp = Date.now() + 50; 
+            console.warn(`⚡ HYPER REACTION: 50ms Reset. Ready to Revenge.`);
+            updateCoolDownTimer();
+
+            console.warn(`💥 LOSS: Accumulated ${accumulatedLoss.toFixed(2)} | Level ${martingaleLevel}`);
+        } else {
+            // WIN Logic = RESET (User Request: "Win = Zera Tudo")
+            // No Partial Recovery. Any Win resets the streak.
+            if (martingaleLevel > 0) {
+                 console.log(`🎉 RECOVERY RESET: Win detected ($${profit.toFixed(2)}). Resetting Streak.`);
+            }
+            martingaleLevel = 0;
+            accumulatedLoss = 0.0;
+            const baseStake = parseFloat(getEl('stakeInput').value) || 1.0;
+            currentStake = baseStake;
+        }
+        
+        tradeStakes.delete(p.contract_id);
+        positions.delete(p.contract_id); 
+        
+        // --- STATE MACHINE RESET ---
+        if (profit < 0) {
+            tradeLifecycle.state = TradeState.COOLDOWN;
+            console.log("🛑 STATE: COOLDOWN ACTIVATED");
+        } else {
+            tradeLifecycle.state = TradeState.SCAN;
+            console.log("🟢 STATE: SCANNING");
+        }
+        
+        saveState();
+    }
+}
+
+function addHistory(p) {
+    const item = document.createElement('div');
+    const profit = parseFloat(p.profit);
+    const stake = parseFloat(p.stake || p.buy_price || 0).toFixed(2);
+    
+    item.style.borderBottom = "1px solid rgba(255,255,255,0.05)";
+    item.style.padding = "5px 0";
+    item.style.display = "grid";
+    item.style.gridTemplateColumns = "1fr 1fr 1fr 1fr"; 
+    item.style.fontSize = "0.75rem";
+    item.style.textAlign = "center";
+    
+    item.innerHTML = `
+        <span style="color:#8899a6">${new Date().toLocaleTimeString()}</span>
+        <span style="font-weight:bold; color:${p.contract_type==='CALL'?'#00ff41':'#ff003c'}">${p.contract_type}</span>
+        <span style="color:#fff">${stake}$</span>
+        <span style="font-weight:bold; color:${profit>=0?'#00ff41':'#ff003c'}">${profit>0?'+':''}${profit.toFixed(2)}$</span>
+    `;
+    
+    const list = getEl('histList');
+    list.insertBefore(item, list.firstChild);
+    if(list.children.length > 50) list.lastChild.remove();
+    saveState(); // Auto-save history
+}
+
+// FINANCIAL CONSCIOUSNESS STATE
+let startBalance = 0;
+let dailyGoalAmount = 0;
+
+function updateFinancialNarrative() {
+    // 1. Get Balances
+    const balEl = getEl('balanceVal');
+    if (!balEl) return;
+    const currentBal = parseFloat(balEl.innerText) || 0;
+    
+    // Safety check for start balance
+    if (startBalance === 0 && currentBal > 0) startBalance = currentBal;
+    if (startBalance === 0) return; // Wait for data
+
+    // 2. Determine Goal
+    let targetDollars = parseFloat(getEl('tpInput').value) || 50;
+    dailyGoalAmount = targetDollars;
+
+    // 3. Calculate Math
+    // We rely on 'sessionProfit' which is tracked trade-by-trade for accuracy,
+    // rather than balance diff which can include deposits/withdrawals.
+    // BUT user wants specific "Start Balance" awareness. Let's hybridize.
+    // Let's use sessionProfit as the truth for "Performance".
+    
+    const profit = sessionProfit;
+    const progress = Math.min((profit / targetDollars) * 100, 100);
+    const remaining = targetDollars - profit;
+
+    // 4. Update UI
+    const bar = getEl('goalProgressFill');
+    const txt = getEl('goalProgressText');
+    
+    if(bar) bar.style.width = `${Math.max(0, progress)}%`;
+
+    let narrative = "";
+    
+    if (profit < 0) {
+         if(bar) bar.style.background = "var(--cyber-gold)"; // Recovery Color
+         narrative = `⚠️ RECUPERAÇÃO: Drawdown de $${Math.abs(profit).toFixed(2)}. Foco: Retornar ao Zero.`;
+         // CONSOLE NARRATIVE (Mental Log)
+         console.log(`🧠 CONSCIENCE: Saldo Atual $${currentBal.toFixed(2)} | Iniciar ${Math.abs(profit).toFixed(2)} USD saldo negativo detectado. ATIVAR MODO RECUPERAÇÃO.`);
+    } else if (profit >= targetDollars) {
+         if(bar) bar.style.background = "var(--cyber-blue)"; // Success Color
+         narrative = `🏆 META ATINGIDA: +$${profit.toFixed(2)} (100%). Protegendo Capital.`;
+         console.log(`🧠 CONSCIENCE: MISSÃO CUMPRIDA. Saldo $${currentBal.toFixed(2)}. Meta atingida. Encerrar exposição ao risco.`);
+    } else {
+         if(bar) bar.style.background = "var(--cyber-green)"; // Normal Color
+         narrative = `🎯 EM PROGRESSO: Faltam $${remaining.toFixed(2)} para a Meta.`;
+         
+         // Only log neutral updates occasionally or on change to avoid spam, 
+         // BUT user wants to see it "thinking".
+         // We will rely on placeTrade to log the specific "Reviewing details..." thoughts.
+    }
+    
+    if(txt) txt.innerText = narrative;
+}
+
+function resetSession() {
+    if(!confirm("Tem certeza que deseja zerar o histórico desta sessão?")) return;
+    
+    // Clear State
+    sessionProfit = 0.0;
+    accumulatedLoss = 0.0;
+    martingaleLevel = 0;
+    currentStake = parseFloat(getEl('stakeInput').value);
+    
+    // CLEAR PERSISTENCE
+    startBalance = 0;
+    localStorage.removeItem('jarvis_start_bal');
+    console.log("🧹 MEMORY WIPED: Start Balance Reset.");
+    
+    // UI Updates
+    getEl('sessionPL').innerText = "0.00";
+    getEl('sessionPL').style.color = "white"; // Reset color
+    getEl('histList').innerHTML = '<div style="text-align:center; color:#445566; font-size:0.8rem; margin-top:40px;">Histórico zerado.</div>';
+    
+    // Clear persistent storage if needed, but we keep the config.
+    // We only reset the "Session" trackers.
+    saveState();
+    
+    console.log("🗑️ SESSION RESET: PnL, History, and Martingale Level cleared.");
+}
+
+function loadState() {
+    const saved = localStorage.getItem('jarvis_state_v20');
+    if (saved) {
+        try {
+            const state = JSON.parse(saved);
+            if(getEl('autoTradeToggle')) getEl('autoTradeToggle').checked = state.autoTrade;
+            if(getEl('stakeInput')) getEl('stakeInput').value = state.stake;
+            if(getEl('durationSelect')) getEl('durationSelect').value = state.duration;
+            if(getEl('scalpPercent')) getEl('scalpPercent').value = state.scalpPercent;
+            if(getEl('slTradePercent')) getEl('slTradePercent').value = state.slTradePercent;
+            if(getEl('tpInput')) getEl('tpInput').value = state.tp;
+            if(getEl('slInput')) getEl('slInput').value = state.sl;
+            if(getEl('conservativeMode')) getEl('conservativeMode').checked = state.conservative;
+            if(getEl('trailingToggle')) getEl('trailingToggle').checked = state.trailing;
+            if(getEl('trailingTrigger')) getEl('trailingTrigger').value = state.trailingTrigger || 15;
+            if(getEl('trailingDistance')) getEl('trailingDistance').value = state.trailingDistance || 5;
+
+            sessionProfit = state.sessionPL || 0;
+            if(getEl('sessionPL')) {
+                getEl('sessionPL').innerText = sessionProfit.toFixed(2);
+                getEl('sessionPL').style.color = sessionProfit >= 0 ? "#00ff41" : "#ff003c";
+            }
+            martingaleLevel = state.martingaleLevel || 0;
+            currentStake = state.currentStake || parseFloat(state.stake);
+            accumulatedLoss = state.accumulatedLoss || 0;
+            
+            // Restore History
+            if (state.historyHTML && getEl('histList')) {
+                getEl('histList').innerHTML = state.historyHTML;
+            }
+
+        } catch(e) { console.warn(e); }
+    }
+}
+
+function saveState() {
+    const state = {
+        autoTrade: getEl('autoTradeToggle') ? getEl('autoTradeToggle').checked : false,
+        stake: getEl('stakeInput') ? getEl('stakeInput').value : 0.35,
+        duration: getEl('durationSelect') ? getEl('durationSelect').value : 1,
+        scalpPercent: getEl('scalpPercent') ? getEl('scalpPercent').value : 30,
+        slTradePercent: getEl('slTradePercent') ? getEl('slTradePercent').value : 30,
+        tp: getEl('tpInput') ? getEl('tpInput').value : 50,
+        sl: getEl('slInput') ? getEl('slInput').value : 50,
+        conservative: getEl('conservativeMode') ? getEl('conservativeMode').checked : false,
+        trailing: getEl('trailingToggle') ? getEl('trailingToggle').checked : false,
+        trailingTrigger: getEl('trailingTrigger') ? getEl('trailingTrigger').value : 15,
+        trailingDistance: getEl('trailingDistance') ? getEl('trailingDistance').value : 5,
+        sessionPL: sessionProfit,
+        martingaleLevel: martingaleLevel,
+        currentStake: currentStake,
+        accumulatedLoss: accumulatedLoss,
+        historyHTML: getEl('histList') ? getEl('histList').innerHTML : '' // SAVE HTML
+    };
+    localStorage.setItem('jarvis_state_v20', JSON.stringify(state));
+}
+
+function connectDeriv() {
+    window.location.href = `https://oauth.deriv.com/oauth2/authorize?app_id=${APP_ID}&l=PT&brand=deriv`;
+}
+
+function checkAuth() {
+    const p = new URLSearchParams(window.location.search);
+    if (p.has('token1')) {
+        let i = 1;
+        let accs = [];
+        while (p.has(`token${i}`)) {
+            accs.push({ 
+                token: p.get(`token${i}`), 
+                id: p.get(`acct${i}`), 
+                currency: p.get(`cur${i}`), 
+                type: p.get(`acct${i}`).startsWith('V') ? 'DEMO' : 'REAL' 
+            });
+            i++;
+        }
+        localStorage.setItem('jarvis_accounts', JSON.stringify(accs));
+        window.history.replaceState({}, document.title, window.location.pathname);
+        availableAccounts = accs;
+        
+        // SAAS GATEKEEPER: Don't start system yet!
+        // Just save the tokens and let the user Login via Auth.
+        
+        // Restore last used token preference
+        const lastToken = localStorage.getItem('jarvis_last_token');
+        const found = accs.find(a => a.token === lastToken);
+        currentToken = found ? found.token : accs[0].token;
+        
+        console.log("🔒 DERIV TOKENS SAVED. WAITING FOR SAAS LOGIN.");
+        if(getEl('loginMsg')) getEl('loginMsg').innerText = "CONECTADO COM A DERIV. FAÇA LOGIN ABAIXO.";
+
+    } else {
+        const saved = localStorage.getItem('jarvis_accounts');
+        if (saved) {
+            try {
+                availableAccounts = JSON.parse(saved);
+                if (Array.isArray(availableAccounts) && availableAccounts.length > 0) {
+                    const lastToken = localStorage.getItem('jarvis_last_token');
+                    const found = availableAccounts.find(a => a.token === lastToken);
+                    currentToken = found ? found.token : availableAccounts[0].token;
+                }
+            } catch(e) {
+                localStorage.removeItem('jarvis_accounts');
+            }
+        }
+    }
+}
+
+function fullLogout() {
+    localStorage.removeItem('jarvis_accounts');
+    localStorage.removeItem('jarvis_state_v20'); 
+    location.href = location.pathname;
+}
+
+function switchAccount() {
+    if (!availableAccounts.length) return;
+    const currIdx = availableAccounts.findIndex(a => a.token === currentToken);
+    const nextIdx = (currIdx + 1) % availableAccounts.length;
+    const nextAcc = availableAccounts[nextIdx];
+    currentToken = nextAcc.token;
+    localStorage.setItem('jarvis_last_token', currentToken); // Save Selection
+    if(ws) ws.close();
+    getEl('accBadge').innerText = "TROCANDO...";
+    setTimeout(connectWS, 500);
+}
+
+function updateAccountUI(info) {
+    // CAPTURE START BALANCE (Mental Anchor - PERSISTENT)
+    if (info.balance) {
+        // Try to load persisted balance first
+        if (!startBalance || startBalance === 0) {
+            const savedBal = localStorage.getItem('jarvis_start_bal');
+            if (savedBal) {
+                startBalance = parseFloat(savedBal);
+                console.log(`💾 MEMORY LOADED: Persisted Start Balance: $${startBalance.toFixed(2)}`);
+            } else {
+                startBalance = parseFloat(info.balance);
+                localStorage.setItem('jarvis_start_bal', startBalance); // SAVE IT
+                console.log(`💾 MEMORY SAVED: New Start Balance: $${startBalance.toFixed(2)}`);
+            }
+            // Initial Narrative Check
+            setTimeout(updateFinancialNarrative, 1000);
+        }
+    }
+
+    const badge = getEl('accBadge');
+    if(!badge) return;
+    const isDemo = info.fullname.includes('Virtual') || info.loginid.startsWith('VRTC');
+    badge.innerText = isDemo ? `MODO TREINO (DEMO)` : `CONTA REAL (${info.currency})`;
+    badge.className = isDemo ? "account-badge is-demo" : "account-badge is-real";
+    if(getEl('btnCall')) getEl('btnCall').disabled = false;
+    if(getEl('btnPut')) getEl('btnPut').disabled = false;
+    if(getEl('btnCall')) getEl('btnCall').classList.add('btn-ready');
+    if(getEl('btnPut')) getEl('btnPut').classList.add('btn-ready');
+}
+
+function initChart() {
+    const el = getEl('tvChart');
+    const container = getEl('chartContainer');
+    if(!el || !container) return;
+    el.innerHTML = '';
+    chart = LightweightCharts.createChart(el, {
+        width: container.clientWidth, 
+        height: container.clientHeight,
+        layout: { backgroundColor: 'transparent', textColor: '#5f7e97' }, // TRANSPARENT
+        grid: { vertLines: { color: 'rgba(26, 38, 57, 0.5)'}, horzLines: { color: 'rgba(26, 38, 57, 0.5)'} },
+        timeScale: { 
+            timeVisible: true, 
+            secondsVisible: true,
+            rightOffset: 12, // Keep distance from right edge
+            shiftVisibleRangeOnNewBar: true, // Auto-scroll
+            borderColor: '#1a2639'
+        }
+    });
+    series = chart.addCandlestickSeries({
+        upColor: '#00ff41', downColor: '#ff003c', 
+        borderVisible: false, wickUpColor: '#00ff41', wickDownColor: '#ff003c'
+    });
+    new ResizeObserver(entries => {
+        if (entries.length === 0 || !entries[0].contentRect) return;
+        const { width, height } = entries[0].contentRect;
+        chart.resize(width, height);
+    }).observe(container);
+}
+
+// function connectWS() uses global DERIV_APP_ID defined above
+
+function connectWS() {
+    // ENSURE TOKEN IS READY
+    if (!currentToken) currentToken = localStorage.getItem('jarvis_last_token');
+    
+    // SANITIZE TOKEN
+    if (currentToken) currentToken = currentToken.trim();
+
+    if (!currentToken) {
+        console.error("❌ CONNECT WS ABORTED: No Token Available.");
+        return;
+    }
+
+    console.log(`🔌 CONNECTING WS... AppID: ${DERIV_APP_ID} | Token: ${currentToken.substring(0,4)}***`);
+
+    ws = new WebSocket(`wss://ws.binaryws.com/websockets/v3?app_id=${DERIV_APP_ID}`);
+    ws.onopen = () => { 
+        console.log("🟢 WS OPEN. SENDING AUTH...");
+        ws.send(JSON.stringify({ authorize: currentToken })); 
+    };
+    ws.onmessage = (msg) => {
+        lastTickTime = Date.now(); // HEARTBEAT PING
+        const data = JSON.parse(msg.data);
+        if (data.error) {
+            // HANDLE INVALID TOKEN (Prevent Loop)
+            if (data.error.code === 'InvalidToken') {
+                console.error("💥 INVALID TOKEN DETECTED: Wiping and Reloading...");
+                localStorage.removeItem('jarvis_last_token');
+                localStorage.removeItem('jarvis_token_1');
+                alert("Seu Token é inválido para este App ID (1089). Por favor, conecte novamente.");
+                location.reload(); 
+                return;
+            }
+
+            if (data.error.code === 'InvalidOfferings' || data.error.message.includes('Resale')) {
+                return;
+            }
+            
+            // HFT ERROR HANDLER: 
+            // If we get "InvalidSellContractProposal", it means contract is likely closed/expired already.
+            // We must STOP trying to sell it.
+            if (data.error.code === 'InvalidSellContractProposal') {
+                 console.warn("⚠️ ALREADY SOLD/INVALID: Stopping retry.", data.error.details);
+                 // Try to identify which position caused this? 
+                 // Deriv doesn't always send echo_req for errors, but if we can, we should unlock.
+                 // Ideally, we assume success or expiration if this happens.
+            }
+
+            if (data.error.code !== 'InvalidContractProposal') {
+                console.error("Deriv Error:", data.error);
+            }
+            return;
+        }
+        if (data.msg_type === 'authorize') {
+            updateAccountUI(data.authorize);
+            ws.send(JSON.stringify({ balance: 1, subscribe: 1 }));
+            ws.send(JSON.stringify({ ticks_history: SYMBOL, adjust_start_time: 1, count: 500, end: 'latest', style: 'candles', granularity: 60, subscribe: 1 }));
+            ws.send(JSON.stringify({ proposal_open_contract: 1, subscribe: 1 }));
+        }
+        if (data.msg_type === 'balance') getEl('balanceVal').innerText = data.balance.balance + " " + data.balance.currency;
+        if (data.msg_type === 'ohlc') {
+            const c = data.ohlc;
+            updateCandles({ time: c.open_time, open: +c.open, high: +c.high, low: +c.low, close: +c.close });
+        }
+        if (data.msg_type === 'candles') {
+            candles = data.candles.map(c => ({ time: c.epoch, open: +c.open, high: +c.high, low: +c.low, close: +c.close }));
+            if(series) series.setData(candles);
+        }
+        if (data.msg_type === 'proposal') {
+            if (data.proposal.id) ws.send(JSON.stringify({ buy: data.proposal.id, price: data.proposal.ask_price }));
+        }
+        if (data.msg_type === 'proposal_open_contract') handlePosition(data.proposal_open_contract);
+    };
+}
+
+function updateCandles(candle) {
+    if (candles.length > 0 && candles[candles.length - 1].time === candle.time) {
+        candles[candles.length - 1] = candle;
+    } else { 
+        candles.push(candle); 
+        if(candles.length > 600) candles.shift();
+    }
+    if(series) series.update(candle);
+    
+    const priceEl = getEl('priceTag');
+    if(priceEl) {
+        priceEl.innerText = candle.close;
+        priceEl.style.color = candle.close >= candle.open ? '#00ff41' : '#ff003c';
+    }
+    updateRSI();
+
+    const now = Date.now();
+    if (getEl('autoTradeToggle') && getEl('autoTradeToggle').checked && !isProcessing && (now - lastAnalysisTime > 1500)) {
+        if (positions.size === 0) { 
+            lastAnalysisTime = now;
+            runAI('AUTO');
+        }
+    }
+}
+
+function updateRSI() {
+    if(candles.length < 15) return;
+    const period = 14;
+    let gains = 0, losses = 0;
+    const closes = candles.slice(-period-1).map(x=>x.close);
+    for(let i=1; i<=period; i++) {
+        const diff = closes[i] - closes[i-1];
+        if(diff >= 0) gains += diff; else losses -= diff;
+    }
+    const rs = gains / (losses || 1);
+    const rsi = 100 - (100 / (1 + rs));
+    if(getEl('rsiVal')) getEl('rsiVal').innerText = rsi.toFixed(1);
+}
+
+function sellAtMarket(id) {
+    if (!id || id === 'undefined') return;
+    // Fix: Prevent selling if already closed/expired OR IF CURRENTLY SELLING (Race Condition Fix)
+    const p = positions.get(id);
+    if (p && (p.is_sold || p.is_expired || p.is_selling)) return;
+    
+    // LOCK IT
+    if(p) p.is_selling = true;
+    
+    if(ws) ws.send(JSON.stringify({ sell: id, price: 0 }));
+}
+
+function closeAllPositions() {
+    positions.forEach((p, id) => sellAtMarket(id));
+}
+
+function updateTimers() {
+    updateCoolDownTimer(); // Ensure Cooldown UI updates
+
+    // WATCHDOG (HEARTBEAT)
+    const now = Date.now();
+    const diff = now - lastTickTime;
+    const sub = getEl('btnSubText');
+    const btn = getEl('btnDecode');
+
+    if (diff > 60000) { // 60s Dead -> NUCLEAR RELOAD
+        if(sub) sub.innerText = "⚠️ TRAVADO. REINICIANDO...";
+        console.error("💀 WATCHDOG: SYSTEM FROZEN (60s). HARD RELOAD.");
+        location.reload();
+        return;
+    }
+
+    if (diff > 20000) { // 20s Dead -> FORCE RECONNECT
+        if(sub) { 
+            sub.innerText = "⚠️ RECONECTANDO..."; 
+            sub.style.color = "var(--cyber-gold)";
+        }
+        console.warn("⚠️ WATCHDOG: Signal Lost (20s). Reconnecting WS...");
+        lastTickTime = now; // Reset to avoid loop spam
+        if(ws) {
+            ws.onclose = null; // Prevent double trigger
+            ws.close();
+        }
+        connectWS();
+        return;
+    }
+    
+    if (diff > 10000) { // 10s Slow -> Warning
+        if(sub) {
+            sub.innerText = "📡 SINCRONIZANDO...";
+            sub.style.color = "var(--cyber-blue)";
+        }
+    }
+}
+
+async function loadAI() {
+    try {
+        model = await tf.loadLayersModel('brain/titan.json'); 
+        const dummy = tf.zeros([1, 60, 1]);
+        model.predict(dummy).dispose();
+        dummy.dispose();
+        console.log("✅ IA TITAN CARREGADA");
+    } catch(e) {
+        console.warn("⚠️ IA não disponível, modo estatístico puro:", e);
+    }
+}
+</script>
+<script src="gemini_brain.js"></script>
+</body></html>
