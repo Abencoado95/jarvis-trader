@@ -686,7 +686,7 @@ function handlePosition(p) {
             time: new Date().toLocaleTimeString()
         };
         tradeHistory.unshift(entry);
-        if (tradeHistory.length > 50) tradeHistory.pop();
+        if (tradeHistory.length > 1000) tradeHistory.pop();
         updateHistory();
         
         updateDailyProfit(profit);
@@ -1531,21 +1531,50 @@ function updateHistory() {
     const list = document.getElementById('historyList');
     if (!list) return;
     
+    // Habilitar Scroll
+    list.style.maxHeight = '450px';
+    list.style.overflowY = 'auto'; // Scroll Vertical
+    list.style.paddingRight = '5px';
+    // Estilizar barra de rolagem (WebKit)
+    const styleId = 'historyScrollStyle';
+    if (!document.getElementById(styleId)) {
+        const style = document.createElement('style');
+        style.id = styleId;
+        style.innerHTML = `
+            #historyList::-webkit-scrollbar { width: 5px; }
+            #historyList::-webkit-scrollbar-track { background: rgba(0,0,0,0.2); }
+            #historyList::-webkit-scrollbar-thumb { background: #444; border-radius: 3px; }
+            #historyList::-webkit-scrollbar-thumb:hover { background: #666; }
+        `;
+        document.head.appendChild(style);
+    }
+    
     if (tradeHistory.length === 0) {
         list.innerHTML = '<div style="text-align: center; color: #445566; font-size: 0.8rem; margin-top: 40px;">Histórico vazio</div>';
         return;
     }
     
-    list.innerHTML = tradeHistory.slice(0, 20).map(trade => `
-        <div class="history-item ${trade.result === 'WIN' ? 'win' : 'loss'}">
-            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
-                <span>${trade.time} - ${trade.type} ${trade.isAuto ? '[AUTO]' : ''}</span>
-                <span style="color: ${trade.profit > 0 ? 'var(--neon-green)' : 'var(--neon-red)'}">
-                    ${trade.profit > 0 ? '+' : ''}$${trade.profit.toFixed(2)}
-                </span>
+    // Mostra TODO o histórico (removido limite de 20)
+    list.innerHTML = tradeHistory.map(trade => {
+        const isWin = trade.profit >= 0;
+        return `
+        <div class="history-item ${isWin ? 'win' : 'loss'}" style="padding: 10px; margin-bottom: 5px; background: rgba(0,0,0,0.2); border-left: 3px solid ${isWin ? '#00ff41' : '#ff003c'}; border-radius: 4px;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div style="display: flex; flex-direction: column;">
+                    <span style="font-size: 0.75rem; color: #777;">${trade.time}</span>
+                    <span style="font-size: 0.85rem; color: #ccc;">${trade.type}</span>
+                </div>
+                <div style="text-align: right;">
+                    <span style="display: block; font-weight: bold; font-size: 1rem; color: ${isWin ? '#00ff41' : '#ff003c'}">
+                        ${isWin ? '+' : ''}$${trade.profit.toFixed(2)}
+                    </span>
+                    <span style="font-size: 0.7rem; color: ${isWin ? '#00ff41' : '#ff003c'}; opacity: 0.8;">
+                        ${isWin ? 'WIN' : 'LOSS'}
+                    </span>
+                </div>
             </div>
         </div>
-    `).join('');
+    `}).join('');
 }
 
 function clearHistory() {
