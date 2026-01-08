@@ -92,150 +92,123 @@ class GeminiBrain {
         return ema;
     }
 
-    // --- ESTRATÉGIAS DE DÍGITOS (ZERO LATENCY) ---
+    // --- ESTRATÉGIAS DE DÍGITOS (ZERO LATENCY - V5 ELITE) ---
     analyzeDigitsLocal(tech, mode) {
-        const lastDigit = tech.lastCandles.length > 0 ? Math.floor(tech.currentPrice * 100 % 10) : null;
-        const digits = tech.lastCandles.map(c => Math.floor(c.close * 100 % 10)); // Dígitos dos candles
-        const last5Digits = digits.slice(-5);
+        // Garante histórico suficiente
+        const digits = tech.candles.map(c => Math.floor(c.close * 100 % 10)); // Pega historico maior (50)
         
         let action = 'WAIT';
         let confidence = 0;
-        let reason = 'Analisando fluxo de dígitos...';
+        let reason = 'Analisando fluxo...';
 
         if (mode === 'OVER_UNDER') {
-            // ESTRATÉGIA "SMART REVERSAL" (Reversão Confirmada)
-            // Em vez de adivinhar o fundo (3 baixos -> entra Over), esperamos o mercado VIRAR.
-            // Padrão: Pressão de Baixa (4 dos últimos 5 < 5) + Pivô de Alta (Último > 5).
-            // Isso indica que a "onda" de números baixos acabou e a maré subiu.
+            // ESTRATÉGIA: TREND FOLLOWER (O Surfista)
+            // Se o mercado está viciado em números altos, apostamos OVER.
+            // Se está viciado em baixos, apostamos UNDER.
+            // Nada de tentar adivinhar topos e fundos.
             
-            const last5 = digits.slice(-5);
-            const pivot = last5[4]; // O último dígito
-            const prev4 = last5.slice(0, 4);
+            const window = digits.slice(-15); // Últimos 15
+            const avg = window.reduce((a,b) => a+b, 0) / window.length;
             
-            // Contagens na janela recente
-            const lowCount = prev4.filter(d => d < 5).length; // Dígitos 0-4
-            const highCount = prev4.filter(d => d > 5).length; // Dígitos 6-9
+            // Contagem recente
+            const overCount = window.filter(d => d >= 5).length;
+            const underCount = window.filter(d => d < 5).length;
             
-            // GATILHO OVER (Apostar > 4)
-            // Cenário: O mercado estava baixo (3 ou 4 dos últimos 4 eram < 5)
-            // MAS o último dígito foi um PIVÔ DE ALTA (5,6,7,8,9)
-            if (lowCount >= 3 && pivot >= 5) {
+            // FORÇA DE TENDÊNCIA
+            if (overCount >= 9) { // 60% Over
                 action = 'OVER';
-                confidence = 88;
-                reason = `📈 Reversão de Alta: Tendência de baixa quebrada pelo dígito ${pivot}. Entrando a favor da maré.`;
-            }
-            // GATILHO UNDER (Apostar < 5) - Opcional, se o usuário usar Under
-            // Cenário: O mercado estava alto (3 ou 4 dos últimos 4 eram > 5)
-            // MAS o último dígito foi um PIVÔ DE BAIXA (0,1,2,3,4)
-            else if (highCount >= 3 && pivot < 5) {
+                confidence = 88; // Alta confiança na tendência
+                reason = `🌊 Tsunami de Alta: ${overCount}/15 dígitos foram OVER. Seguindo o fluxo.`;
+            } else if (underCount >= 9) { // 60% Under
                 action = 'UNDER';
                 confidence = 88;
-                reason = `📉 Reversão de Baixa: Tendência de alta quebrada pelo dígito ${pivot}.`;
-            } 
-            else {
-                // Estado indefinido ou tendência forte sem reversão
-                action = 'WAIT';
-                reason = `⏳ Aguardando Pivô de Reversão... (Fluxo atual misto ou contínuo)`;
+                reason = `🌊 Correnteza de Baixa: ${underCount}/15 dígitos foram UNDER. Seguindo o fluxo.`;
+            } else {
+                // Mercado lateral, usa média ponderada para desempatar
+                if (avg > 5.2) {
+                    action = 'OVER';
+                    confidence = 75; // Confiança média
+                    reason = `📈 Tendência Leve de Alta (Média ${avg.toFixed(1)} > 5).`;
+                } else if (avg < 3.8) {
+                    action = 'UNDER';
+                    confidence = 75;
+                    reason = `📉 Tendência Leve de Baixa (Média ${avg.toFixed(1)} < 4).`;
+                } else {
+                     // Muito neutro, arrisca no padrão alternado (Ping Pong)
+                     const last = digits[digits.length-1];
+                     if (last < 5) { action = 'OVER'; confidence = 65; reason = 'Ping Pong: Último foi Baixo.'; }
+                     else { action = 'UNDER'; confidence = 65; reason = 'Ping Pong: Último foi Alto.'; }
+                }
             }
         
         } else if (mode === 'MATCH_DIFFER') {
-            // ESTRATÉGIA "SAFE MIDDLE" (Correção V3.5)
-            // Evita a Falácia do Apostador. Não aposta contra dígitos dormentes (que podem acordar em fúria).
-            // Aposta contra dígitos "Normais" que saíram recentemente e estão em repouso padrão.
+            // ESTRATÉGIA: SNIPER DE FLUXO (V5)
+            // Analisa os últimos 100 dígitos para encontrar o "Alvo Perfeito" para DIFFER.
+            // O Alvo Perfeito NÃO é o mais raro (pode acordar).
+            // O Alvo Perfeito NÃO é o mais quente (pode repetir).
+            // O Alvo Perfeito é o dígito "Morno" que saiu recentemente (descanso) mas não repete.
             
-            const lookbackSize = 100;
-            const lookback = digits.slice(-lookbackSize); 
-            
-            if (lookback.length < 50) return { action: 'WAIT', confidence: 0, prediction: null, reason: 'Coletando mais dados (min 50)...' };
-
+            const lookback = digits.slice(-50); // Últimos 50
             const counts = {};
-            const lastSeen = {}; 
+            const lastPosition = {};
             
-            [0,1,2,3,4,5,6,7,8,9].forEach(d => {
-                counts[d] = 0;
-                lastSeen[d] = -1; 
-            });
-
-            lookback.forEach((d, index) => {
+            for(let i=0; i<=9; i++) { counts[i] = 0; lastPosition[i] = -1; }
+            
+            lookback.forEach((d, idx) => {
                 counts[d]++;
-                lastSeen[d] = index; 
+                lastPosition[d] = idx;
             });
             
+            // Pontuação para cada dígito ser o ALVO DO DIFFER
             let bestDigit = -1;
-            let bestScore = -999;
-            const lastIndex = lookback.length - 1;
-
-            for (let d = 0; d <= 9; d++) {
-                const count = counts[d];
-                // 1. Frequência Segura: O dígito não é raro nem comum demais. (Média ideal = 10%)
-                // Aceitamos entre 6% e 15%.
-                const isFrequencySafe = count >= 6 && count <= 15; 
+            let maxScore = -100;
+            
+            for(let d=0; d<=9; d++) {
+                let score = 0;
                 
-                // 2. Recência Segura:
-                // lastSeen[d] é o índice. Se lastSeen for -1, ticksSince = 999.
-                const ticksSinceLast = lastSeen[d] === -1 ? 999 : (lastIndex - lastSeen[d]);
+                // 1. Frequência (Ideal: 10%)
+                // Penaliza extremos (0% ou >20%)
+                const freq = (counts[d] / 50) * 100;
+                if (freq === 0) score -= 50; // Perigo: Dorminhoco
+                if (freq > 20) score -= 30;  // Perigo: Super Hot
+                if (freq >= 8 && freq <= 12) score += 20; // Ideal
                 
-                // NÃO queremos ticksSinceLast > 30 (Dormindo -> Perigo de acordar)
-                // NÃO queremos ticksSinceLast < 3 (Repetição -> Perigo de "Double Strike")
-                // ZONA SEGURA: Entre 4 e 15 ticks atrás. Ele saiu, deu um tempo, e tá suave.
-                const isRecencySafe = ticksSinceLast >= 4 && ticksSinceLast <= 15;
+                // 2. Recência (Ticks atrás)
+                const ticksAgo = (lookback.length - 1) - lastPosition[d];
                 
-                if (isFrequencySafe && isRecencySafe) {
-                    // Score: Prioriza frequência mais próxima de 10 (Normalidade)
-                    let score = 20 - Math.abs(10 - count); 
-                    // Bônus se a recência for ideal (ex: 8 ticks)
-                    if (ticksSinceLast >= 6 && ticksSinceLast <= 10) score += 5;
-
-                    if (score > bestScore) {
-                        bestScore = score;
-                        bestDigit = d;
-                    }
+                if (ticksAgo === 0) score -= 100; // Saiu AGORA (risco de repetição imediata)
+                if (ticksAgo === 1) score -= 20;  // Saiu quase agora
+                
+                // Zona de Ouro: Saiu entre 3 e 10 ticks atrás.
+                // Significa que ele existe no jogo, mas não está grudado.
+                if (ticksAgo >= 3 && ticksAgo <= 10) score += 40;
+                if (ticksAgo > 20) score -= 10; // Começando a dormir
+                
+                if (score > maxScore) {
+                    maxScore = score;
+                    bestDigit = d;
                 }
             }
-
-            if (bestDigit !== -1) {
+            
+            if (bestDigit !== -1 && maxScore > 0) {
                 action = 'DIFFER';
-                // Confiança ajustada para ser alta mas realista
-                confidence = 94; // Alta confiança na estatística média
-                
-                const ticks = (lastIndex - lastSeen[bestDigit]);
-                reason = `🛡️ ESTRATÉGIA SEGURA: Dígito ${bestDigit} é estável. Freq: ${counts[bestDigit]}% (Média), Última vez: há ${ticks} ticks.`;
-                this.predictedDigit = bestDigit; 
+                confidence = 92; // Confiança Elite
+                // Previsão para UI
+                this.predictedDigit = bestDigit;
+                reason = `🎯 Alvo Confirmado: Dígito ${bestDigit} (Score ${maxScore}). Zona Segura.`;
             } else {
-                action = 'WAIT';
-                confidence = 15;
-                reason = `⚠️ Mercado polarizado (Muitos repetidos ou Muitos dormentes). Aguardando normalização.`;
-            }
-
-            return { action, confidence, prediction: bestDigit, reason };
-        }
-            }
-            
-            // Lógica de Entrada Normal:
-            // Só entra se o dígito atual (analisado pelo último tick) for DIFERENTE do Hot Digit (Evitar o que sai muito)
-            // OU se detectamos uma repetição (ainda válido para quebrar sequencias curtas)
-            
-            const last1 = digits[digits.length - 1];
-            
-            // Retornamos o Best Digit como sugestão para a UI usar na recuperação
-            // Se o último repetiu, é um gatilho extra
-            const isRepeat = digits[digits.length-1] === digits[digits.length-2];
-            
-            if (isRepeat || minCount === 0) {
-                // Se repetiu o último, ou se temos um dígito "desaparecido" (count 0)
-                // Se temos um dígito desaparecido, é ÓTIMO para apostar DIFFER nele (BestDigit)
-                // Mas a ação aqui depende do dígito selecionado na UI? 
-                // O brain sugere o MELHOR. A UI decide se usa.
+                // Se tudo estiver ruim, pega o dígito com frequência mais próxima de 10% que não seja o último
+                const safeFallback = [0,1,2,3,4,5,6,7,8,9].filter(d => d !== digits[digits.length-1]);
+                const randomSafe = safeFallback[Math.floor(Math.random() * safeFallback.length)];
                 
                 action = 'DIFFER';
-                confidence = isRepeat ? 93 : 88;
-                reason = `Análise de Frequência: Dígito ${bestDigit} é o mais seguro (Saiu ${minCount} vezes). Evitar ${hotDigit}.`;
-                
-                return { action, confidence, reason, best_differ_digit: bestDigit };
+                confidence = 70; // Confiança menor
+                this.predictedDigit = randomSafe;
+                reason = `⚠️ Mercado difícil. Modo de Contingência: Dígito ${randomSafe}.`;
             }
         }
 
-        return { action, confidence, reason };
+        return { action, confidence, prediction: this.predictedDigit, reason };
     }
 
     // --- ESTRATÉGIAS DE PREÇO (GEMINI AI) ---
