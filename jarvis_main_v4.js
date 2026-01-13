@@ -53,7 +53,14 @@ let currentCandle = null;
 // ...
 
 // Place Trade or Sell Action
+// Place Trade or Sell Action
 function placeTrade(direction, isAuto = false) {
+    // LOCK: PREVENT MACHINE GUN (Concorrencia de Rede)
+    if (window.isBuying) {
+        console.warn("⚠️ Ignorando clique/sinal: Transação anterior em andamento (Network Lock).");
+        return;
+    }
+
     // Lógica Especial para Vender Acumuladores
     if (direction === 'SELL_ACCU') {
         console.log("🛑 Fechando posições de Acumuladores...");
@@ -126,6 +133,9 @@ function placeTrade(direction, isAuto = false) {
     
     console.log(`📤 Solicitando proposta: ${direction} | $${stake}`);
     
+    // ATIVAR LOCK
+    window.isBuying = true;
+    
     // Primeiro solicita a proposta
     ws.send(JSON.stringify({
         proposal: 1,
@@ -133,6 +143,14 @@ function placeTrade(direction, isAuto = false) {
         ...params
     }));
     
+    // Segurança: Timeout para destravar se a API não responder
+    setTimeout(() => {
+        if (window.isBuying) {
+            console.warn("⚠️ Timeout de Proposta: Destravando lock.");
+            window.isBuying = false;
+        }
+    }, 5000); 
+
     if (!isAuto) {
         console.log(`✅ Trade ${direction} solicitado`);
     }
@@ -1277,6 +1295,7 @@ function connectWS() {
         
         if (data.error) {
             console.error("❌ Deriv Error:", data.error.message);
+            window.isBuying = false; // RELEASE LOCK ON ERROR
             if (data.error.code === 'InvalidToken') {
                 alert("Token inválido! Reconectando...");
                 localStorage.removeItem('jarvis_accounts');
@@ -1385,7 +1404,15 @@ function connectWS() {
                     buy: data.proposal.id,
                     price: data.proposal.ask_price
                 }));
+            } else {
+                console.warn("⚠️ Proposta sem ID. Liberando Lock.");
+                window.isBuying = false;
             }
+        }
+
+        if (data.msg_type === 'buy') {
+            console.log("✅ Ordem Executada com Sucesso (Buy ID: " + data.buy.transaction_id + ")");
+            window.isBuying = false; 
         }
         
         if (data.msg_type === 'proposal_open_contract') {
