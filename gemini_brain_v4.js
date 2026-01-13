@@ -133,58 +133,70 @@ class GeminiBrain {
             // CENÁRIO A: MATEMÁTICA FAVORÁVEL (Prob > 50%)
             // O robô deve buscar confirmação para entrar a favor da estatística.
             
-            if (probOver > 50) { // Ex: Over 0, 1, 2, 3, 4
-                // Só entra se a tendência não estiver CONTRA
-                if (percOver >= 40) { // Se pelo menos 40% recente foi win, ok.
+            if (probOver > 50) { 
+                // CRITÉRIO DE FLUXO MAIS RIGOROSO (V7)
+                // Antes: 40% (Aceitava contra-tendência leve). 
+                // Agora: 55% (Exige tendência a favor ou neutralidade positiva).
+                if (percOver >= 55) { 
                     action = 'OVER';
-                    confidence = 75 + (percOver - 50); // Bônus se tendência estiver forte
-                    reason = `📊 Probabilidade Alta (${probOver}%) + Tendência Favorável.`;
+                    confidence = 75 + (percOver - 50); 
+                    reason = `📊 Probabilidade Alta (${probOver}%) + Tendência Confirmada (${percOver.toFixed(0)}%).`;
                     
-                    // Sniper Trigger: Se perdeu muito recentemente (reversão à média)
-                    if (percOver < 30) {
-                         // Cuidado: Pode ser uma tendência de baixa fortíssima.
-                         // Mas estatisticamente deve corrigir.
-                         action = 'OVER';
-                         confidence = 65; 
-                         reason = `📉 Reversão à Média: Statisticamente deve subir (Prob ${probOver}%).`;
-                    }
+                    if (percOver > 80) confidence += 10; // Trend Fortíssima
+                } else if (percOver < 30) {
+                     // Reversão Sniper (Mantido, mas com cautela)
+                     action = 'OVER';
+                     confidence = 65; 
+                     reason = `📉 Reversão à Média: Statisticamente deve subir (Prob ${probOver}%).`;
                 }
             }
             
-            else if (probUnder > 50) { // Ex: Under 5, 6, 7, 8, 9
-                if (percUnder >= 40) {
+            else if (probUnder > 50) { 
+                if (percUnder >= 55) { // Rigoroso 55%
                     action = 'UNDER';
                     confidence = 75 + (percUnder - 50);
-                    reason = `📊 Probabilidade Alta (${probUnder}%) + Tendência Favorável a Baixo.`;
+                    reason = `📊 Probabilidade Alta (${probUnder}%) + Tendência Confirmada (${percUnder.toFixed(0)}%).`;
+                    
+                    if (percUnder > 80) confidence += 10;
                 }
             }
             
             // CENÁRIO B: OPERAÇÃO DE RISCO (Prob < 40%) - O "SNIPER"
-            // Ex: Apostar UNDER 3 (30%) ou OVER 7 (20%)
-            // Só fazemos isso se tivermos um SINAL DE FLUXO MUITO FORTE.
+            // Só entra se ultima sequencia for MONSTRUOSA (Trend Following Absoluto)
             
             else {
-                // Queremos apostar no AZARÃO? Tem que ter motivo.
-                
-                // Ex: Barrier 7. Over 7 (8,9). Prob 20%.
-                // Só entra se ultima sequencia for MONSTRUOSA de altas.
-                if (probOver < 40 && percOver >= 50) { // Estão saindo muitos altos!
+                // Ex: Over 7 (Prob 20%). Só se 65% dos últimos foram Over.
+                if (probOver < 40 && percOver >= 65) { 
                     action = 'OVER';
-                    confidence = 60; // Ainda é arriscado
-                    reason = `🔥 FLUXO DE ALTA INTENSO: Apostando contra a probabilidade (Trend Follow).`;
+                    confidence = 70; 
+                    reason = `🔥 FLUXO DE ALTA INTENSO: Surfando a onda contra a estatística.`;
                 }
                 
-                if (probUnder < 40 && percUnder >= 50) {
+                if (probUnder < 40 && percUnder >= 65) {
                     action = 'UNDER';
-                    confidence = 60;
-                    reason = `❄️ FLUXO DE BAIXA INTENSO: Apostando contra a probabilidade (Trend Follow).`;
+                    confidence = 70;
+                    reason = `❄️ FLUXO DE BAIXA INTENSO: Surfando a onda contra a estatística.`;
                 }
             }
             
-            // 5. FILTRO DE ÚLTIMO DÍGITO (EVITAR REPETIÇÃO MORTAL)
+            // 5. FILTRO DE ÚLTIMO DÍGITO & REPETIÇÃO (V7)
             const lastDigit = digits[digits.length-1];
-            if (action === 'OVER' && lastDigit === barrier) confidence -= 20; // Perigo na borda
-            if (action === 'UNDER' && lastDigit === barrier) confidence -= 20; 
+            // Se o último foi a barreira, penalidade (já existia)
+            if ((action === 'OVER' || action === 'UNDER') && lastDigit === barrier) {
+                confidence -= 20;
+            }
+            
+            // FILTRO DE REPETIÇÃO TRIPLA (Novo)
+            // Se os ultimos 3 digitos foram iguais, o mercado está travado.
+            // Ex: 5, 5, 5. Não entre.
+            const len = digits.length;
+            if (len >= 3) {
+                if (digits[len-1] === digits[len-2] && digits[len-2] === digits[len-3]) {
+                     confidence = 0;
+                     action = 'WAIT';
+                     reason = "⚠️ Mercado Travado (Repetição Tripla). Aguardando.";
+                }
+            } 
 
         } else if (mode === 'MATCH_DIFFER') {
             // ESTRATÉGIA: SNIPER DE FLUXO E ESTATÍSTICA (V6)

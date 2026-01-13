@@ -631,6 +631,14 @@ async function runAutoCycle() {
         return;
     }
 
+    // 1.5. CHECK: PREVENT CONCURRENCY (Machine Gun Safety)
+    // Se já existe operação aberta, NÃO ABRA OUTRA.
+    if (positions.size > 0) {
+        // console.log("⏳ Aguardando trade anterior fechar...");
+        updatePositionsTable(); // Garantir UI sync
+        return; 
+    }
+
     // 2. Analisar Mercado
     console.log("🔄 Ciclo de Automação: Analisando...");
     const analysis = await analyzeMarket(true); // true = silent mode
@@ -660,7 +668,7 @@ async function runAutoCycle() {
         placeTrade(analysis.action, true); // true = isAuto
     } else {
         const reason = analysis ? analysis.reason : 'Sem sinal';
-        console.log(`⏳ Aguardando... ${reason}`);
+        // console.log(`⏳ Aguardando... ${reason}`);
     }
 }
 
@@ -679,6 +687,15 @@ function stopAutomation() {
             <div>LIGAR SISTEMA JARVIS</div>
             <div id="automationStatus" style="font-size: 0.9rem; margin-top: 5px; color: #8899a6;">SISTEMA MANUAL</div>
         `;
+    }
+    
+    // --- SAFETY RESET STAKE ---
+    // Resetar input para o valor base original para evitar acidentes no próximo start
+    const stakeInput = document.getElementById('stakeInput');
+    if (stakeInput && typeof baseStake !== 'undefined' && baseStake > 0) {
+        console.log(`🛑 Automação parada. Resetando Stake para Base: $${baseStake.toFixed(2)}`);
+        stakeInput.value = baseStake.toFixed(2);
+        lossStreak = 0; // Opcional: Resetar streak também? Sim, melhor resetar lógica mental.
     }
 }
 
