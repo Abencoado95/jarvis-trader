@@ -601,19 +601,25 @@ function startAutomation() {
     // toggleAutomationUI(true); 
     console.log(`🚀 LIGANDO AUTOMAÇÃO (Base Stake: $${baseStake})`);
     
-    // Define intervalo baseado no modo
-    // Over/Under/Match/Differ = Rápido (4s para dar tempo do tick)
-    // Rise/Fall = Lento (45s)
+    // V6: AUTOMAÇÃO REACTIVA (EVENT DRIVEN)
+    // O Loop principal agora ocorre dentro de ws.onmessage ('tick').
+    // O setInterval aqui serve apenas como "Watchdog" ou para modos lentos (Rise/Fall)
     
-    let intervalTime = 4000; 
+    let intervalTime = null; 
+    
+    // Se for Rise/Fall ou Accu (que não dependem de tick a tick rápido), mantemos intervalo
     if (currentMode === 'RISE_FALL' || currentMode === 'ACCUMULATORS') {
         intervalTime = 45000;
+        automationInterval = setInterval(runAutoCycle, intervalTime);
+        console.log(`⏱️ Modo Lento Ativado (Intervalo: ${intervalTime}ms)`);
+    } else {
+        // OVER/UNDER/MATCH/DIFFER -> ZERO DELAY MODE
+        // Não usamos setInterval. O disparo é feito pelo WebSocket (on tick).
+        console.log("⚡ MODO TURBO (ZERO DELAY): Disparo via WebSocket Tick.");
     }
     
-    // Primeiro ciclo imediato
+    // Primeiro ciclo imediato para não esperar o próximo tick
     runAutoCycle();
-
-    automationInterval = setInterval(runAutoCycle, intervalTime);
 }
 
 async function runAutoCycle() {
@@ -1294,7 +1300,7 @@ function connectWS() {
             ws.send(JSON.stringify({ proposal_open_contract: 1, subscribe: 1 }));
         }
         
-        // --- TICK HANDLER (NOVO) ---
+        // --- TICK HANDLER (EVENT DRIVEN - V6) ---
         if (data.msg_type === 'tick') {
             const price = data.tick.quote;
             const time = data.tick.epoch;
@@ -1304,18 +1310,24 @@ function connectWS() {
             const lastDigit = parseInt(quoteStr.slice(-1));
             
             if (!isNaN(lastDigit)) {
-                // Atualiza Worm apenas se tivermos renderDigitWorm
                 if (typeof renderDigitWorm === 'function') {
                     renderDigitWorm(lastDigit);
                 }
             }
 
-            // NÃO ATUALIZAR GRÁFICO AQUI! 
-            // O gráfico é de CANDLES. Atualizar com tick quebra a lib (Erro: Cannot update oldest data).
-            // Deixe o stream de 'ohlc' cuidar do gráfico.
-            
             // Salva dígitos para estratégia local (Gemini Brain)
             if (window.updateDigits) window.updateDigits(lastDigit); 
+            
+            // --- AUTOMAÇÃO INSTANTÂNEA (ZERO DELAY) ---
+            // Aciona o Brain IMEDIATAMENTE a cada tick, sem esperar 4 segundos.
+            if (isAutoTrading) {
+                // Throttle simples para evitar disparo duplo no mesmo milissegundo
+                const now = Date.now();
+                if (!window.lastActionTime || (now - window.lastActionTime > 1000)) {
+                    runAutoCycle(); // Dispara análise e possível trade
+                    window.lastActionTime = now;
+                }
+            }
             
             // Se estiver em Acumuladores, monitorar saída (Scalping)
             if (currentMode === 'ACCUMULATORS') {
