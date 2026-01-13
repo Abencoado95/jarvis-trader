@@ -92,119 +92,157 @@ class GeminiBrain {
         return ema;
     }
 
-    // --- ESTRATÉGIAS DE DÍGITOS (ZERO LATENCY - V5 ELITE) ---
+    // --- ESTRATÉGIAS DE DÍGITOS (ZERO LATENCY - V6 UNIVERSAL) ---
     analyzeDigitsLocal(tech, mode) {
-        // Garante histórico suficiente
-        const digits = tech.candles.map(c => Math.floor(c.close * 100 % 10)); // Pega historico maior (50)
+        const digits = tech.candles.map(c => Math.floor(c.close * 100 % 10)); // Histórico (50)
         
+        // 1. OBTER BARREIRA REAL (User Input)
+        let barrier = 5;
+        const digitInput = document.getElementById('digitSelect');
+        if (digitInput) barrier = parseInt(digitInput.value);
+
         let action = 'WAIT';
         let confidence = 0;
         let reason = 'Analisando fluxo...';
 
         if (mode === 'OVER_UNDER') {
-            // ESTRATÉGIA: TREND FOLLOWER (O Surfista)
-            // Se o mercado está viciado em números altos, apostamos OVER.
-            // Se está viciado em baixos, apostamos UNDER.
-            // Nada de tentar adivinhar topos e fundos.
+            // --- ESTRATÉGIA UNIVERSAL DE PROBABILIDADE + FLUXO ---
+
+            const window = digits.slice(-20); // Janela de 20
             
-            const window = digits.slice(-15); // Últimos 15
-            const avg = window.reduce((a,b) => a+b, 0) / window.length;
+            // Definição de Vitória para a Barreira Atual
+            // Over N: > N
+            // Under N: < N
             
-            // Contagem recente
-            const overCount = window.filter(d => d >= 5).length;
-            const underCount = window.filter(d => d < 5).length;
+            // 2. CÁLCULO DE PROBABILIDADE BASE (A Matemática não mente)
+            const overWinSet = [0,1,2,3,4,5,6,7,8,9].filter(d => d > barrier);
+            const underWinSet = [0,1,2,3,4,5,6,7,8,9].filter(d => d < barrier);
             
-            // FORÇA DE TENDÊNCIA
-            if (overCount >= 9) { // 60% Over
-                action = 'OVER';
-                confidence = 88; // Alta confiança na tendência
-                reason = `🌊 Tsunami de Alta: ${overCount}/15 dígitos foram OVER. Seguindo o fluxo.`;
-            } else if (underCount >= 9) { // 60% Under
-                action = 'UNDER';
-                confidence = 88;
-                reason = `🌊 Correnteza de Baixa: ${underCount}/15 dígitos foram UNDER. Seguindo o fluxo.`;
-            } else {
-                // Mercado lateral, usa média ponderada para desempatar
-                if (avg > 5.2) {
+            const probOver = overWinSet.length * 10; // ex: Barrier 3 (4,5,6,7,8,9) = 60%
+            const probUnder = underWinSet.length * 10; // ex: Barrier 3 (0,1,2) = 30% (7 perde em ambos)
+            
+            // 3. ANÁLISE DE TENDÊNCIA REAL (No Histórico Recente)
+            const overWins = window.filter(d => d > barrier).length;
+            const underWins = window.filter(d => d < barrier).length;
+            
+            const percOver = (overWins / window.length) * 100;
+            const percUnder = (underWins / window.length) * 100;
+            
+            // 4. LÓGICA DE DECISÃO HÍBRIDA (Matemática + Tendência)
+            
+            // CENÁRIO A: MATEMÁTICA FAVORÁVEL (Prob > 50%)
+            // O robô deve buscar confirmação para entrar a favor da estatística.
+            
+            if (probOver > 50) { // Ex: Over 0, 1, 2, 3, 4
+                // Só entra se a tendência não estiver CONTRA
+                if (percOver >= 40) { // Se pelo menos 40% recente foi win, ok.
                     action = 'OVER';
-                    confidence = 75; // Confiança média
-                    reason = `📈 Tendência Leve de Alta (Média ${avg.toFixed(1)} > 5).`;
-                } else if (avg < 3.8) {
-                    action = 'UNDER';
-                    confidence = 75;
-                    reason = `📉 Tendência Leve de Baixa (Média ${avg.toFixed(1)} < 4).`;
-                } else {
-                     // Muito neutro, arrisca no padrão alternado (Ping Pong)
-                     const last = digits[digits.length-1];
-                     if (last < 5) { action = 'OVER'; confidence = 65; reason = 'Ping Pong: Último foi Baixo.'; }
-                     else { action = 'UNDER'; confidence = 65; reason = 'Ping Pong: Último foi Alto.'; }
+                    confidence = 75 + (percOver - 50); // Bônus se tendência estiver forte
+                    reason = `📊 Probabilidade Alta (${probOver}%) + Tendência Favorável.`;
+                    
+                    // Sniper Trigger: Se perdeu muito recentemente (reversão à média)
+                    if (percOver < 30) {
+                         // Cuidado: Pode ser uma tendência de baixa fortíssima.
+                         // Mas estatisticamente deve corrigir.
+                         action = 'OVER';
+                         confidence = 65; 
+                         reason = `📉 Reversão à Média: Statisticamente deve subir (Prob ${probOver}%).`;
+                    }
                 }
             }
-        
-        } else if (mode === 'MATCH_DIFFER') {
-            // ESTRATÉGIA: SNIPER DE FLUXO (V5)
-            // Analisa os últimos 100 dígitos para encontrar o "Alvo Perfeito" para DIFFER.
-            // O Alvo Perfeito NÃO é o mais raro (pode acordar).
-            // O Alvo Perfeito NÃO é o mais quente (pode repetir).
-            // O Alvo Perfeito é o dígito "Morno" que saiu recentemente (descanso) mas não repete.
             
-            const lookback = digits.slice(-50); // Últimos 50
+            else if (probUnder > 50) { // Ex: Under 5, 6, 7, 8, 9
+                if (percUnder >= 40) {
+                    action = 'UNDER';
+                    confidence = 75 + (percUnder - 50);
+                    reason = `📊 Probabilidade Alta (${probUnder}%) + Tendência Favorável a Baixo.`;
+                }
+            }
+            
+            // CENÁRIO B: OPERAÇÃO DE RISCO (Prob < 40%) - O "SNIPER"
+            // Ex: Apostar UNDER 3 (30%) ou OVER 7 (20%)
+            // Só fazemos isso se tivermos um SINAL DE FLUXO MUITO FORTE.
+            
+            else {
+                // Queremos apostar no AZARÃO? Tem que ter motivo.
+                
+                // Ex: Barrier 7. Over 7 (8,9). Prob 20%.
+                // Só entra se ultima sequencia for MONSTRUOSA de altas.
+                if (probOver < 40 && percOver >= 50) { // Estão saindo muitos altos!
+                    action = 'OVER';
+                    confidence = 60; // Ainda é arriscado
+                    reason = `🔥 FLUXO DE ALTA INTENSO: Apostando contra a probabilidade (Trend Follow).`;
+                }
+                
+                if (probUnder < 40 && percUnder >= 50) {
+                    action = 'UNDER';
+                    confidence = 60;
+                    reason = `❄️ FLUXO DE BAIXA INTENSO: Apostando contra a probabilidade (Trend Follow).`;
+                }
+            }
+            
+            // 5. FILTRO DE ÚLTIMO DÍGITO (EVITAR REPETIÇÃO MORTAL)
+            const lastDigit = digits[digits.length-1];
+            if (action === 'OVER' && lastDigit === barrier) confidence -= 20; // Perigo na borda
+            if (action === 'UNDER' && lastDigit === barrier) confidence -= 20; 
+
+        } else if (mode === 'MATCH_DIFFER') {
+            // ESTRATÉGIA: SNIPER DE FLUXO E ESTATÍSTICA (V6)
+            // Combinar repetição com ausência.
+            
+            const lookback = digits.slice(-50);
             const counts = {};
             const lastPosition = {};
-            
             for(let i=0; i<=9; i++) { counts[i] = 0; lastPosition[i] = -1; }
+            lookback.forEach((d, idx) => { counts[d]++; lastPosition[d] = idx; });
             
-            lookback.forEach((d, idx) => {
-                counts[d]++;
-                lastPosition[d] = idx;
-            });
-            
-            // Pontuação para cada dígito ser o ALVO DO DIFFER
             let bestDigit = -1;
-            let maxScore = -100;
+            let maxScore = -999;
             
             for(let d=0; d<=9; d++) {
                 let score = 0;
-                
-                // 1. Frequência (Ideal: 10%)
-                // Penaliza extremos (0% ou >20%)
+                // 1. Frequência (Ideal 8-12%)
                 const freq = (counts[d] / 50) * 100;
-                if (freq === 0) score -= 50; // Perigo: Dorminhoco
-                if (freq > 20) score -= 30;  // Perigo: Super Hot
-                if (freq >= 8 && freq <= 12) score += 20; // Ideal
+                if (freq === 0) score -= 50; 
+                if (freq > 25) score -= 100; // Sai demais, perigo de MATCH
+                if (freq >= 5 && freq <= 15) score += 30; // Zona Segura
                 
                 // 2. Recência (Ticks atrás)
                 const ticksAgo = (lookback.length - 1) - lastPosition[d];
+                if (ticksAgo === 0) score -= 200; // ACABOU DE SAIR! ABORTAR!
+                if (ticksAgo === 1) score -= 50;
+                if (ticksAgo >= 4 && ticksAgo <= 15) score += 40; // Zona de Ouro
                 
-                if (ticksAgo === 0) score -= 100; // Saiu AGORA (risco de repetição imediata)
-                if (ticksAgo === 1) score -= 20;  // Saiu quase agora
-                
-                // Zona de Ouro: Saiu entre 3 e 10 ticks atrás.
-                // Significa que ele existe no jogo, mas não está grudado.
-                if (ticksAgo >= 3 && ticksAgo <= 10) score += 40;
-                if (ticksAgo > 20) score -= 10; // Começando a dormir
-                
+                // 3. Modificador de Usuário (Barreira Selecionada)
+                // Se o usuário selecionou um digito, damos peso a ele SE for seguro
+                if (d === barrier) score += 10; 
+
                 if (score > maxScore) {
                     maxScore = score;
                     bestDigit = d;
                 }
             }
             
-            if (bestDigit !== -1 && maxScore > 0) {
+            // Validar Escolha do Usuário vs Sugestão da IA
+            const userChoice = barrier; // O que está no select
+            // Se o usuário quer apostar em X, mas X é perigoso (score baixo), avisamos ou trocamos?
+            // V6: Se DIFFER, vamos sempre no MAIS SEGURO (BestDigit). 
+            // Mas precisamos respeitar se for Manual. Se for AUTO, a IA decide.
+            
+            // Para UI feedback:
+            this.predictedDigit = bestDigit;
+            
+            if (maxScore > 0) {
                 action = 'DIFFER';
-                confidence = 92; // Confiança Elite
-                // Previsão para UI
-                this.predictedDigit = bestDigit;
-                reason = `🎯 Alvo Confirmado: Dígito ${bestDigit} (Score ${maxScore}). Zona Segura.`;
+                confidence = 88;
+                reason = `🎯 Alvo V6: Dígito ${bestDigit} (Score ${maxScore}). Seguro.`;
             } else {
-                // Se tudo estiver ruim, pega o dígito com frequência mais próxima de 10% que não seja o último
-                const safeFallback = [0,1,2,3,4,5,6,7,8,9].filter(d => d !== digits[digits.length-1]);
-                const randomSafe = safeFallback[Math.floor(Math.random() * safeFallback.length)];
-                
-                action = 'DIFFER';
-                confidence = 70; // Confiança menor
-                this.predictedDigit = randomSafe;
-                reason = `⚠️ Mercado difícil. Modo de Contingência: Dígito ${randomSafe}.`;
+                 action = 'DIFFER';
+                 confidence = 60;
+                 // Fallback seguro
+                 const safe = [0,1,2,3,4,5,6,7,8,9].filter(d => d !== digits[digits.length-1])[0];
+                 this.predictedDigit = safe;
+                 reason = `⚠️ Mercado Instável. Alvo fallback: ${safe}`;
             }
         }
 
@@ -635,6 +673,12 @@ ${this.formatCandles(technicalData.lastCandles)}
 
 `;
 
+// 1. OBTER BARREIRA REAL (User Input)
+        let barrier = 5;
+        if (typeof document !== 'undefined' && document.getElementById('digitSelect')) {
+            barrier = parseInt(document.getElementById('digitSelect').value);
+        }
+
         const modeStrategies = {
             'RISE_FALL': `
 === MODALIDADE: RISE/FALL (ANÁLISE DE PREÇO) ===
@@ -662,47 +706,61 @@ RESPONDA APENAS EM JSON:
             'MATCH_DIFFER': `
 === MODALIDADE: MATCH/DIFFER (ANÁLISE DE DÍGITOS) ===
 
+ALVO SELECIONADO PELO USUÁRIO (BARREIRA): ${barrier}
+
 FOCO: Prever se o ÚLTIMO DÍGITO do próximo tick vai REPETIR (MATCH) ou MUDAR (DIFFER).
+ESTATÍSTICA: DIFFER ganha 90% das vezes. MATCH paga 9x (Risco Extremo).
 
 ÚLTIMOS DÍGITOS OBSERVADOS:
 ${this.extractDigits(technicalData.lastCandles)}
 
-ANÁLISE:
-1. Se há 3+ dígitos DIFERENTES seguidos → Próximo tende a MATCH
-2. Se há 2+ dígitos IGUAIS seguidos → Próximo tende a DIFFER
-3. Volatilidade ALTA (ATR > 0.005) → Favorece DIFFER
+ANÁLISE DE FLUXO (V6 UNIVERSAL):
+1. DÍGITO DORMENHOR (${barrier}): Se o dígito ${barrier} não sai há muito tempo (>30 ticks), ele PODE ACORDAR AGORA (Perigo para Differ).
+2. DÍGITO QUENTE: Se o dígito ${barrier} saiu recentemente (3-10 ticks atrás), é "Morno" e seguro para DIFFER.
+3. FLUXO DE REPETIÇÃO: Se houve dígitos iguais recentes (ex: 7, 7), o mercado está em "Clumping Mode". Cuidado com Differ.
 
-DECISÃO:
-- MATCH: Se padrão indica repetição provável
-- DIFFER: Se padrão indica mudança provável (MAIS SEGURO estatisticamente)
+DECISÃO INTELIGENTE:
+- MATCH: (MUITO ARRISCADO) Apenas se houver um padrão claro de repetição do dígito ${barrier}.
+- DIFFER: (RECOMENDADO) Se o dígito ${barrier} não for um "Dorminhoco Prestes a Acordar" e não acabamos de ter um Match.
 
 RESPONDA APENAS EM JSON:
 {
     "action": "MATCH" ou "DIFFER",
     "confidence": 0-100,
-    "reason": "padrão identificado"
+    "reason": "análise de frequência e recência"
 }`,
 
             'OVER_UNDER': `
-=== MODALIDADE: OVER/UNDER (ANÁLISE DE DÍGITOS) ===
+=== MODALIDADE: OVER/UNDER (ANÁLISE AVANÇADA V6) ===
 
-FOCO: Prever se o ÚLTIMO DÍGITO do próximo tick será MAIOR (OVER) ou MENOR (UNDER) que 5.
+BARREIRA DEFINIDA PELO USUÁRIO: ${barrier}
 
-DISTRIBUIÇÃO DOS ÚLTIMOS DÍGITOS:
+REGRAS DE VITÓRIA (CRUCIAL):
+- AÇÃO "OVER": Ganha se o dígito for MAIOR que ${barrier}. (Dígitos: ${[0,1,2,3,4,5,6,7,8,9].filter(d => d > barrier).join(',')})
+- AÇÃO "UNDER": Ganha se o dígito for MENOR que ${barrier}. (Dígitos: ${[0,1,2,3,4,5,6,7,8,9].filter(d => d < barrier).join(',')})
+- O DÍGITO ${barrier} SEMPRE PERDE EM AMBOS (EMPATE TÉCNICO É LOSS).
+
+PROBABILIDADE BASE:
+- Chance de OVER: ${[0,1,2,3,4,5,6,7,8,9].filter(d => d > barrier).length * 10}%
+- Chance de UNDER: ${[0,1,2,3,4,5,6,7,8,9].filter(d => d < barrier).length * 10}%
+
+DISTRIBUIÇÃO DOS ÚLTIMOS 20 DÍGITOS:
 ${this.analyzeDigitDistribution(technicalData.lastCandles)}
 
-MOMENTUM ATUAL:
-- RSI: ${i.rsi.toFixed(1)} ${i.rsi > 55 ? '(ALTA - Favorece dígitos altos)' : i.rsi < 45 ? '(BAIXA - Favorece dígitos baixos)' : '(NEUTRO)'}
+INSTRUÇÕES DE ELITE:
+1. RESPEITE A MATEMÁTICA: Se a Probabilidade Base for < 40% (Ex: Over 7 = 20%), NÃO APOSTE nisso a menos que haja um fluxo massivo de dígitos altos (8,9) nos últimos 10 ticks.
+2. BUSQUE O FLUXO: Se a Probabilidade for > 50% (Ex: Under 7 = 70%), CONFRONTE com a tendência recente. Se a tendência confirma (muitos dígitos baixos), é ENTRADA CONFIRMADA.
+3. EVITE ARMADILHAS: Se estamos em "Under 7" mas saíram três "8" seguidos, NÃO ENTRE. O mercado viciou em altos.
 
 DECISÃO:
-- OVER: Se RSI > 55 E maioria dos últimos dígitos foram baixos (0-4)
-- UNDER: Se RSI < 45 E maioria dos últimos dígitos foram altos (6-9)
+- OVER: Se Probabilidade favorável OU Fluxo Intenso de Altos.
+- UNDER: Se Probabilidade favorável OU Fluxo Intenso de Baixos.
 
 RESPONDA APENAS EM JSON:
 {
     "action": "OVER" ou "UNDER",
     "confidence": 0-100,
-    "reason": "análise de distribuição"
+    "reason": "análise de probabilidade x fluxo"
 }`,
 
             'ACCUMULATORS': `
@@ -759,9 +817,17 @@ RESPONDA APENAS EM JSON:
     
     analyzeDigitDistribution(candles) {
         const digits = candles.map(c => Math.floor((c.close * 10000) % 10));
-        const over = digits.filter(d => d > 5).length;
-        const under = digits.filter(d => d <= 5).length;
-        return `OVER (6-9): ${over} | UNDER (0-5): ${under}`;
+        
+        let barrier = 5;
+        if (typeof document !== 'undefined' && document.getElementById('digitSelect')) {
+            barrier = parseInt(document.getElementById('digitSelect').value);
+        }
+
+        const over = digits.filter(d => d > barrier).length;
+        const under = digits.filter(d => d < barrier).length;
+        const exact = digits.filter(d => d === barrier).length;
+        
+        return `OVER (> ${barrier}): ${over} | UNDER (< ${barrier}): ${under} | EXACT (= ${barrier}): ${exact}`;
     }
     
     /**
