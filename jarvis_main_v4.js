@@ -965,7 +965,7 @@ function buildContractParams(action, stake, duration) {
             return {
                 contract_type: action === 'OVER' ? 'DIGITOVER' : 'DIGITUNDER',
                 symbol: symbol,
-                duration: 5,
+                duration: 1, // Fix: Changed from 5 to 1 for instant outcome
                 duration_unit: 't',
                 basis: 'stake',
                 amount: stake,
